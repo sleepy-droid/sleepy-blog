@@ -46,13 +46,18 @@ export default function ShopPage() {
             className="group border border-neutral-800/80 rounded-xl p-5 space-y-4 bg-neutral-900/40 backdrop-blur-md hover:border-red-900/50 transition-all duration-300 flex flex-col justify-between overflow-hidden"
           >
             <div className="space-y-4">
+              {/* 
+                IMAGEN DE PRODUCTO OPTIMIZADA:
+                - Dimensiones de la imagen gestionadas por Next.js Image con formato AVIF/WebP automático.
+                - scale-105 asistido por hardware (transform-gpu) para movimientos suaves sin caída de FPS.
+              */}
               <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-neutral-800/80 bg-neutral-950">
                 <Image
                   src={product.image}
                   alt={product.name}
                   fill
                   sizes="(max-width: 768px) 100vw, 450px"
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  className="object-cover group-hover:scale-105 transition-transform duration-500 transform-gpu"
                 />
                 <span className="absolute top-3 right-3 text-[10px] uppercase font-bold text-red-300 bg-red-950/90 border border-red-800/60 px-2.5 py-1 rounded-md backdrop-blur-md">
                   {product.badge}

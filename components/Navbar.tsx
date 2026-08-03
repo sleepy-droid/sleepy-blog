@@ -12,18 +12,19 @@ export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  // Track window scroll position for dynamic glassmorphic state
+  /**
+   * OPTIMIZACIÓN DE RENDIMIENTO - Evento Scroll:
+   * 1. Usamos { passive: true } para evitar el bloqueo del hilo principal (main thread) durante el desplazamiento de página.
+   * 2. Mantenemos una guarda de estado (prev !== scrolled) para evitar invocar el renderizado de React en cada frame de scroll si el estado no cambia.
+   */
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 15) {
-        setIsScrolled(true)
-      } else {
-        setIsScrolled(false)
-      }
+      const scrolled = window.scrollY > 15
+      setIsScrolled((prev) => (prev !== scrolled ? scrolled : prev))
     }
 
     handleScroll()
-    window.addEventListener('scroll', handleScroll)
+    window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
@@ -36,29 +37,34 @@ export function Navbar() {
   return (
     <header
       className={cn(
-        'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
+        'fixed top-0 left-0 right-0 z-50 transition-all duration-300 transform-gpu',
         isScrolled
-          ? 'bg-neutral-950/80 backdrop-blur-xl border-b border-red-950/40 shadow-xl shadow-black/60 py-2.5'
-          : 'bg-gradient-to-b from-neutral-950/90 via-neutral-950/50 to-transparent py-4'
+          ? 'bg-neutral-950/85 backdrop-blur-xl border-b border-red-950/50 shadow-xl shadow-black/70 py-2'
+          : 'bg-gradient-to-b from-neutral-950/95 via-neutral-950/60 to-transparent py-3.5'
       )}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           
-          {/* LEFT: Homepage Button with PNG-04 Logo */}
+          {/* 
+            SECCIÓN LOGOTIPO PRINCIPAL (sleepyred999):
+            - Tamaño optimizado e incrementado (h-11 a h-15) para máxima legibilidad visual.
+            - Dimensiones especificadas a Next/Image (width=240, height=75) para evitar distorsiones de aspecto.
+            - Flag 'priority' activo para precarga LCP inmediata.
+          */}
           <Link
             href="/"
-            aria-label="Inicio sleepyred999"
-            className="group relative flex items-center gap-3 transition-transform duration-200 active:scale-95"
+            aria-label="Inicio sleepyred999 - Ir al inicio"
+            className="group relative flex items-center gap-3 transition-transform duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-xl"
           >
-            <div className="relative flex items-center justify-center rounded-xl overflow-hidden p-1 group-hover:drop-shadow-[0_0_12px_rgba(239,68,68,0.5)] transition-all">
+            <div className="relative flex items-center justify-center rounded-xl overflow-hidden p-1 group-hover:drop-shadow-[0_0_16px_rgba(239,68,68,0.65)] transition-all">
               <Image
                 src="/images/logos/PNG-04.png"
-                alt="sleepyred999 logo"
-                width={130}
-                height={40}
+                alt="sleepyred999 logo oficial"
+                width={240}
+                height={75}
                 priority
-                className="h-9 sm:h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                className="h-11 sm:h-13 md:h-15 w-auto object-contain transition-transform duration-300 group-hover:scale-105 filter drop-shadow-md"
               />
             </div>
           </Link>

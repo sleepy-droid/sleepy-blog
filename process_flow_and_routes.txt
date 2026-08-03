@@ -1,0 +1,122 @@
+================================================================================
+          SLEEPY-BLOG - PROCESS FLOW & ROUTE ARCHITECTURE DOCUMENT
+================================================================================
+Fecha de actualización: 2026-08-03
+Proyecto: sleepyred999 storefront & bitácora (Next.js 16 App Router)
+
+--------------------------------------------------------------------------------
+1. RESUMEN DE LA ARQUITECTURA DEL SISTEMA
+--------------------------------------------------------------------------------
+sleepy-blog es una aplicación web moderna construida sobre Next.js 16 (App Router),
+React 19, Tailwind CSS v4, Lucide Icons y Supabase SSR. El sistema permite la 
+gestión de bitácoras, lanzamientos directos de audio/digitales, tienda oficial 
+y espacio de debate comunitario.
+
+--------------------------------------------------------------------------------
+2. MAPA COMPLETO DE RUTAS (ROUTES MAP)
+--------------------------------------------------------------------------------
+
+[Ruta 1] /
+  - Nombre: Bitácora Principal (Feed de Inicio)
+  - Archivo: app/page.tsx
+  - Tipo: Server Component (SSR / ISR)
+  - Función: Muestra el listado de publicaciones más recientes de la tabla 'posts'
+    de Supabase. Incluye botones de filtro, etiquetas de categoría, precio digital 
+    y portadas multimedia enlazadas interactivamente.
+
+[Ruta 2] /posts/[id]
+  - Nombre: Vista Detallada de Publicación / Lanzamiento
+  - Archivo: app/posts/[id]/page.tsx
+  - Tipo: Server Component dinámico con params asíncronos (Promise<{ id: string }>)
+  - Función: Renderiza la entrada completa según la ID del post. Muestra el artwork 
+    en alta resolución, reproductor multimedia, metadatos SEO dinámicos (generateMetadata), 
+    módulo de compra digital directa e ID de registro.
+  - Sub-ruta de Fallback: app/posts/[id]/not-found.tsx (se activa si la ID no existe).
+
+[Ruta 3] /shop
+  - Nombre: Tienda Oficial & Drops
+  - Archivo: app/shop/page.tsx
+  - Tipo: Client Component ('use client')
+  - Función: Catálogo de merchandising oficial (Hoodies, Audio digital, Releases).
+    Muestra precios, badges de disponibilidad e interfaz de checkout.
+
+[Ruta 4] /community
+  - Nombre: Comunidad & Foro
+  - Archivo: app/community/page.tsx
+  - Tipo: Client Component ('use client')
+  - Función: Lista de debates activos, hilos destacados, reacciones de fans y 
+    convocatoria para el grupo exclusivo de miembros en Discord.
+
+--------------------------------------------------------------------------------
+3. FLUJO DE PROCESO DE NAVEGACIÓN Y LOGOTIPO (HEADER PROCESS FLOW)
+--------------------------------------------------------------------------------
+
+[Flujo Logo & Header]:
+  [Usuario abre la página web]
+        │
+        ▼
+  [Navbar.tsx renderiza la barra superior fija (fixed top-0)]
+        │
+        ├─► [Se precarga el Logotipo PNG-04 optimizado (240x75px, priority)]
+        │     - Renderizado con tamaño legible (h-11 sm:h-13 md:h-15)
+        │     - Envuelto en <Link href="/"> (Redirección directa a la raíz)
+        │
+        └─► [Listener de Scroll Optimizado ({ passive: true })]
+              - Detecta desplazamiento vertical (window.scrollY > 15)
+              - Actualiza isScrolled solo cuando cambia de estado (Guarda `prev !== scrolled`)
+              - Aplica clase 'backdrop-blur-xl bg-neutral-950/85 transform-gpu' suavemente
+
+--------------------------------------------------------------------------------
+4. FLUJO DE PROCESO DE INTERACCIÓN CON PORTADAS (<Link> Image Routing Flow)
+--------------------------------------------------------------------------------
+
+[Flujo Clic en Imagen de Post]:
+  [Usuario explora la bitácora en la ruta '/']
+        │
+        ▼
+  [El servidor (app/page.tsx) consulta Supabase y obtiene los posts]
+        │
+        ▼
+  [Para cada post con 'coverImage', se renderiza el contenedor interactivo]:
+        ┌─────────────────────────────────────────────────────────────┐
+        │ <Link href={`/posts/${post.id}`} aria-label="...">          │
+        │   <Image src={coverImage} fill className="object-cover..." />│
+        │   <div overlay hover>Ver Publicación Completa →</div>       │
+        └─────────────────────────────────────────────────────────────┘
+        │
+        ▼ (El usuario hace clic sobre la imagen de la publicación)
+        │
+  [Next.js Router captura el evento sin recargar toda la página (Soft Navigation)]
+        │
+        ▼
+  [Redirección automática a la ruta /posts/[id]]
+        │
+        ▼
+  [app/posts/[id]/page.tsx valida la ID en Supabase y renderiza la entrada completa]
+
+--------------------------------------------------------------------------------
+5. FLUJO DE OPTIMIZACIÓN DE RENDIMIENTO (PERFORMANCE PIPELINE)
+--------------------------------------------------------------------------------
+
+1. Optimización de Imágenes (next.config.ts):
+   - Conversión automática a formatos AVIF y WebP (50-70% menor peso que PNG/JPG).
+   - TTL de Caché en servidor: 2,592,000 segundos (30 días).
+   - Eliminación de tiempos de carga prolongados o sensación de lentitud ("sluggish").
+
+2. Optimización de Eventos DOM (Navbar.tsx):
+   - Escuchador de scroll configurado con pasividad pasiva (`{ passive: true }`).
+   - Evita el bloqueo del hilo de procesamiento del navegador (main thread) al hacer scroll.
+
+3. Aceleración por GPU (globals.css & componentes):
+   - Utilidad `.transform-gpu` (`transform: translateZ(0); backface-visibility: hidden;`).
+   - Transiciones de zoom en imágenes y menús procesadas directamente por la tarjeta gráfica.
+
+--------------------------------------------------------------------------------
+6. ARCHIVOS CLAVE DEL SISTEMA
+--------------------------------------------------------------------------------
+- components/Navbar.tsx: Componente del encabezado y logotipo optimizado.
+- app/page.tsx: Página de inicio y listado de bitácora con imágenes interactivas.
+- app/posts/[id]/page.tsx: Vista detallada de cada post.
+- next.config.ts: Configuración global de imágenes AVIF/WebP y caché.
+- app/globals.css: Estilos base, tema oscuro neón y clases GPU.
+================================================================================

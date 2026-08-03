@@ -77,7 +77,11 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Patrón diagonal con degradado rojo sobre negro */
+    /* 
+      OPTIMIZACIÓN DE RENDIMIENTO VISUAL & RENDERING:
+      - background-attachment: fixed se combina con renderizado por capa GPU para prevenir tirones durante el scroll.
+      - text-rendering e image-rendering optimizan la nitidez y velocidad de despliegue.
+    */
     background-image: 
       repeating-linear-gradient(
         -45deg,
@@ -93,8 +97,21 @@
       );
     background-attachment: fixed;
     min-height: 100vh;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
   }
+}
+
+/* 
+  UTILIDADES DE OPTIMIZACIÓN GPU:
+  Fuerza la aceleración por hardware mediante transformaciones 3D compuestas en la GPU.
+*/
+.transform-gpu {
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }

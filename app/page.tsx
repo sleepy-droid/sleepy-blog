@@ -49,18 +49,33 @@ export default async function Home() {
                 </span>
               </div>
 
-              {/* Imagen de portada de la publicación / lanzamiento */}
+              {/* 
+                IMAGEN DE PORTADA INTERACTIVA:
+                - Enlazada dinámicamente mediante la etiqueta <Link href={`/posts/${post.id}`}> (la cual genera una etiqueta HTML <a>).
+                - Permite al usuario hacer clic en la imagen para ingresar directamente al post especializado.
+                - Incluye estado hover con zoom suave (scale-105) y anillo de foco para accesibilidad teclado.
+                - Optimización de carga: 'priority' activo en la imagen LCP principal, y 'sizes' responsivo para evitar descargar peso innecesario.
+              */}
               {coverImage && (
-                <div className="relative w-full aspect-video sm:aspect-[2/1] rounded-lg overflow-hidden border border-neutral-800/80 bg-neutral-950">
+                <Link
+                  href={`/posts/${post.id}`}
+                  aria-label={`Ver publicación completa: ${post.title}`}
+                  className="group/img block relative w-full aspect-video sm:aspect-[2/1] rounded-lg overflow-hidden border border-neutral-800/80 bg-neutral-950 focus:outline-none focus:ring-2 focus:ring-red-600 transition-all cursor-pointer"
+                >
                   <Image 
                     src={coverImage} 
                     alt={post.title}
                     fill
                     sizes="(max-width: 768px) 100vw, 700px"
-                    className="object-cover hover:scale-105 transition-transform duration-500"
+                    className="object-cover group-hover/img:scale-105 transition-transform duration-500 transform-gpu"
                     priority={post.title?.toLowerCase().includes('criss angel')}
                   />
-                </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/60 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity duration-300 flex items-end p-3">
+                    <span className="text-xs font-semibold text-white bg-red-950/90 border border-red-800/60 px-2.5 py-1 rounded-md backdrop-blur-md shadow-lg">
+                      Ver Publicación Completa →
+                    </span>
+                  </div>
+                </Link>
               )}
 
               <div>
