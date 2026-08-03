@@ -14,6 +14,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
+import { getCurrentUser } from '@/lib/auth'
+import { CommentList } from '@/components/comments/CommentList'
+import type { CommentWithAuthor } from '@/lib/types'
 import { ArrowLeft, Play, Tag, Share2, Calendar } from 'lucide-react'
 import type { Metadata } from 'next'
 
@@ -73,6 +76,17 @@ export default async function PostPage({ params }: PostPageProps) {
   if (error || !post) {
     notFound()
   }
+
+  // Paso 5: Comentarios + usuario actual (en paralelo conceptual; await secuencial simple).
+  const currentUser = await getCurrentUser()
+
+  const { data: commentsData } = await supabase
+    .from('comments')
+    .select('*, profiles:user_id (display_name, email, avatar_url)')
+    .eq('post_id', id)
+    .order('created_at', { ascending: false })
+
+  const comments = (commentsData ?? []) as CommentWithAuthor[]
 
   // Detectamos si hay imagen en Supabase (image_url / cover_url) o fallback local para 'Criss Angel'
   const coverImage = post.image_url || post.cover_url || 
@@ -187,7 +201,7 @@ export default async function PostPage({ params }: PostPageProps) {
         <div className="pt-4 border-t border-neutral-800/60 flex items-center justify-between text-xs text-neutral-500">
           <span>ID de bitácora: #{post.id}</span>
           <a 
-            href={`mailto:?subject=${encodeURIComponent(post.title)}&body=${encodeURIComponent(`Check out this post from sleepyred999: ${post.title}`)}`}
+            href={`mailto:?subject=${encodeURIComponent(post.title)}&body=${encodeURIComponent(`Mira esta publicación de sleepyred999: ${post.title}`)}`}
             className="inline-flex items-center gap-1.5 hover:text-neutral-300 transition-colors"
           >
             <Share2 className="w-3.5 h-3.5" />
@@ -195,6 +209,13 @@ export default async function PostPage({ params }: PostPageProps) {
           </a>
         </div>
       </article>
+
+      {/* Comentarios: listado + formulario (si hay sesión) */}
+      <CommentList
+        postId={post.id}
+        comments={comments}
+        currentUser={currentUser}
+      />
     </main>
   )
 }

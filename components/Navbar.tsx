@@ -1,21 +1,28 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { ShoppingBag, Users, Menu, X, LogIn, UserPlus, Sparkles } from 'lucide-react'
+import { ShoppingBag, Users, Menu, X, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export function Navbar() {
+type NavbarProps = {
+  /** Slot de auth desktop (Server Component renderizado en layout) */
+  authDesktop?: ReactNode
+  /** Slot de auth mobile */
+  authMobile?: ReactNode
+}
+
+export function Navbar({ authDesktop, authMobile }: NavbarProps) {
   const pathname = usePathname()
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   /**
    * OPTIMIZACIÓN DE RENDIMIENTO - Evento Scroll:
-   * 1. Usamos { passive: true } para evitar el bloqueo del hilo principal (main thread) durante el desplazamiento de página.
-   * 2. Mantenemos una guarda de estado (prev !== scrolled) para evitar invocar el renderizado de React en cada frame de scroll si el estado no cambia.
+   * 1. Usamos { passive: true } para evitar el bloqueo del hilo principal durante el scroll.
+   * 2. Guarda de estado (prev !== scrolled) para no re-renderizar en cada frame.
    */
   useEffect(() => {
     const handleScroll = () => {
@@ -28,7 +35,11 @@ export function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Navigation link configuration
+  // Cerrar menú mobile al cambiar de ruta
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [pathname])
+
   const navItems = [
     { label: 'Shop', href: '/shop', icon: ShoppingBag, badge: 'NUEVO' },
     { label: 'Comunidad', href: '/community', icon: Users },
@@ -45,13 +56,6 @@ export function Navbar() {
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
-          
-          {/* 
-            SECCIÓN LOGOTIPO PRINCIPAL (sleepyred999):
-            - Tamaño optimizado e incrementado (h-11 a h-15) para máxima legibilidad visual.
-            - Dimensiones especificadas a Next/Image (width=240, height=75) para evitar distorsiones de aspecto.
-            - Flag 'priority' activo para precarga LCP inmediata.
-          */}
           <Link
             href="/"
             aria-label="Inicio sleepyred999 - Ir al inicio"
@@ -69,9 +73,7 @@ export function Navbar() {
             </div>
           </Link>
 
-          {/* CENTER / NAVIGATION LINKS (Desktop) */}
           <nav className="hidden md:flex items-center gap-1 bg-neutral-900/60 p-1.5 rounded-full border border-neutral-800/80 backdrop-blur-md shadow-inner">
-            {/* Logo / Home indicator */}
             <Link
               href="/"
               className={cn(
@@ -112,26 +114,9 @@ export function Navbar() {
             })}
           </nav>
 
-          {/* RIGHT: AUTH ACTION BUTTONS */}
-          <div className="hidden md:flex items-center gap-3">
-            <button
-              onClick={() => alert('Sistema de Login en desarrollo')}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium text-neutral-300 hover:text-white rounded-lg hover:bg-neutral-800/60 border border-transparent hover:border-neutral-700/60 transition-all duration-200 cursor-pointer"
-            >
-              <LogIn className="w-3.5 h-3.5 text-red-400" />
-              Iniciar Sesión
-            </button>
+          {/* Auth desktop — renderizado en el servidor vía layout */}
+          {authDesktop}
 
-            <button
-              onClick={() => alert('Sistema de Registro en desarrollo')}
-              className="relative group inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-white rounded-lg bg-gradient-to-r from-red-700 via-red-600 to-red-700 hover:from-red-600 hover:to-red-600 border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.35)] hover:shadow-[0_0_22px_rgba(220,38,38,0.6)] transition-all duration-300 active:scale-95 cursor-pointer"
-            >
-              <UserPlus className="w-3.5 h-3.5 text-red-200 group-hover:scale-110 transition-transform" />
-              Registrarse
-            </button>
-          </div>
-
-          {/* MOBILE MENU TOGGLE BUTTON */}
           <div className="md:hidden flex items-center">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -141,17 +126,14 @@ export function Navbar() {
               {mobileMenuOpen ? <X className="w-5 h-5 text-red-400" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
-
         </div>
       </div>
 
-      {/* MOBILE DROPDOWN DRAWER */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-red-950/40 bg-neutral-950/95 backdrop-blur-2xl px-4 pt-3 pb-5 space-y-3 mt-2 shadow-2xl animate-in slide-in-from-top-4 duration-200">
           <nav className="flex flex-col space-y-1">
             <Link
               href="/"
-              onClick={() => setMobileMenuOpen(false)}
               className={cn(
                 'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 pathname === '/'
@@ -170,7 +152,6 @@ export function Navbar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
                   className={cn(
                     'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                     isActive
@@ -192,29 +173,7 @@ export function Navbar() {
             })}
           </nav>
 
-          <div className="pt-3 border-t border-neutral-800/80 flex flex-col gap-2">
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false)
-                alert('Sistema de Login en desarrollo')
-              }}
-              className="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-lg hover:text-white cursor-pointer"
-            >
-              <LogIn className="w-3.5 h-3.5 text-red-400" />
-              Iniciar Sesión
-            </button>
-
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false)
-                alert('Sistema de Registro en desarrollo')
-              }}
-              className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold text-white bg-gradient-to-r from-red-700 to-red-600 rounded-lg shadow-md cursor-pointer"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              Registrarse
-            </button>
-          </div>
+          {authMobile}
         </div>
       )}
     </header>

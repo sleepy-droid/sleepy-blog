@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Navbar } from "@/components/Navbar";
+import { AuthNav } from "@/components/auth/AuthNav";
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -28,11 +29,18 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="es"
       className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", geist.variable)}
     >
       <body className="min-h-full flex flex-col pt-20">
-        <Navbar />
+        {/*
+          AuthNav es Server Component; se pasa como slot al Navbar (Client).
+          Así leemos la sesión en el servidor sin convertir todo el header a client.
+        */}
+        <Navbar
+          authDesktop={<AuthNav />}
+          authMobile={<AuthNav mobile />}
+        />
         {children}
       </body>
     </html>
