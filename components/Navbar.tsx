@@ -4,14 +4,13 @@ import { useState, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { ShoppingBag, Users, Menu, X, Sparkles } from 'lucide-react'
+import { ShoppingBag, Users, Menu, X, Sparkles, Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'
-// Nav: Productos + Comunidad (foro)
+import { useCart } from '@/lib/cart'
+import { useLanguage } from '@/lib/i18n'
 
 type NavbarProps = {
-  /** Slot de auth desktop (Server Component renderizado en layout) */
   authDesktop?: ReactNode
-  /** Slot de auth mobile */
   authMobile?: ReactNode
 }
 
@@ -19,12 +18,10 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
   const pathname = usePathname()
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  
+  const { totalItemsCount, setIsOpen: setCartOpen } = useCart()
+  const { lang, setLang, t } = useLanguage()
 
-  /**
-   * OPTIMIZACIÓN DE RENDIMIENTO - Evento Scroll:
-   * 1. Usamos { passive: true } para evitar el bloqueo del hilo principal durante el scroll.
-   * 2. Guarda de estado (prev !== scrolled) para no re-renderizar en cada frame.
-   */
   useEffect(() => {
     const handleScroll = () => {
       const scrolled = window.scrollY > 15
@@ -36,20 +33,19 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Cerrar menú mobile al cambiar de ruta
   useEffect(() => {
     setMobileMenuOpen(false)
   }, [pathname])
 
   const navItems = [
-    { label: 'Productos', href: '/shop', icon: ShoppingBag, badge: 'NUEVO' },
-    { label: 'Foro', href: '/community', icon: Users },
+    { label: t('nav_shop'), href: '/shop', icon: ShoppingBag, badge: 'NUEVO' },
+    { label: t('nav_community'), href: '/community', icon: Users },
   ]
 
   return (
     <header
       className={cn(
-        'fixed top-0 left-0 right-0 z-50 transition-all duration-300 transform-gpu',
+        'fixed top-0 left-0 right-0 z-40 transition-all duration-300 transform-gpu',
         isScrolled
           ? 'bg-neutral-950/85 backdrop-blur-xl border-b border-red-950/50 shadow-xl shadow-black/70 py-2'
           : 'bg-gradient-to-b from-neutral-950/95 via-neutral-950/60 to-transparent py-3.5'
@@ -59,13 +55,13 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
         <div className="flex items-center justify-between">
           <Link
             href="/"
-            aria-label="Inicio sleepyred999 - Ir al inicio"
-            className="group relative flex items-center gap-3 transition-transform duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-xl"
+            aria-label="Inicio sleepyred999"
+            className="group relative flex items-center gap-3 transition-transform duration-200 active:scale-95 rounded-xl"
           >
             <div className="relative flex items-center justify-center rounded-xl overflow-hidden p-1 group-hover:drop-shadow-[0_0_16px_rgba(239,68,68,0.65)] transition-all">
               <Image
                 src="/images/logos/PNG-04.png"
-                alt="sleepyred999 logo oficial"
+                alt="sleepyred999 logo"
                 width={240}
                 height={75}
                 priority
@@ -85,7 +81,7 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
               )}
             >
               <Sparkles className="w-3.5 h-3.5 text-red-500" />
-              Inicio
+              {t('nav_home')}
             </Link>
 
             {navItems.map((item) => {
@@ -115,17 +111,53 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
             })}
           </nav>
 
-          {/* Auth desktop — renderizado en el servidor vía layout */}
-          {authDesktop}
+          {/* Right Header Actions: Language Switcher, Cart Icon & Auth */}
+          <div className="flex items-center gap-3">
+            {/* Global ES / EN Language Toggle */}
+            <div className="flex items-center gap-1 bg-neutral-900/80 border border-neutral-800 px-2.5 py-1 rounded-full text-xs font-mono">
+              <Globe className="w-3.5 h-3.5 text-red-500" />
+              <button
+                onClick={() => setLang('es')}
+                className={cn('px-1 transition-colors cursor-pointer', lang === 'es' ? 'text-white font-bold' : 'text-neutral-500 hover:text-neutral-300')}
+              >
+                ES
+              </button>
+              <span className="text-neutral-700">|</span>
+              <button
+                onClick={() => setLang('en')}
+                className={cn('px-1 transition-colors cursor-pointer', lang === 'en' ? 'text-white font-bold' : 'text-neutral-500 hover:text-neutral-300')}
+              >
+                EN
+              </button>
+            </div>
 
-          <div className="md:hidden flex items-center">
+            {/* Shopping Cart Button & Badge Counter */}
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Abrir menú de navegación"
-              className="p-2 rounded-xl bg-neutral-900/80 border border-neutral-800 text-neutral-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-red-600 cursor-pointer"
+              type="button"
+              onClick={() => setCartOpen(true)}
+              className="relative p-2 rounded-xl bg-neutral-900/80 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-all cursor-pointer"
+              title="Abrir Carrito de Compras"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5 text-red-400" /> : <Menu className="w-5 h-5" />}
+              <ShoppingBag className="w-4 h-4 text-red-400" />
+              {totalItemsCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white font-mono text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-neutral-950 shadow-md">
+                  {totalItemsCount}
+                </span>
+              )}
             </button>
+
+            {/* Auth desktop */}
+            {authDesktop}
+
+            <div className="md:hidden flex items-center">
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label="Abrir menú de navegación"
+                className="p-2 rounded-xl bg-neutral-900/80 border border-neutral-800 text-neutral-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-red-600 cursor-pointer"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5 text-red-400" /> : <Menu className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
         </div>
       </div>

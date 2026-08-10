@@ -33,10 +33,12 @@ export function PostCarousel({ posts }: PostCarouselProps) {
   const nextSlide = () => setCurrentIndex((prev) => (prev + 1) % carouselPosts.length)
   const prevSlide = () => setCurrentIndex((prev) => (prev - 1 + carouselPosts.length) % carouselPosts.length)
 
+  const postUrl = `/posts/${activePost.id}`
+
   return (
-    <section className="relative w-full rounded-3xl overflow-hidden border border-neutral-800/90 bg-neutral-950 shadow-2xl shadow-red-950/20 group">
-      {/* Background Cover Image with Gradient Mask */}
-      <div className="relative w-full aspect-[2/1] sm:aspect-[2.5/1] md:aspect-[3/1] max-h-[380px] overflow-hidden">
+    <section className="relative w-full rounded-3xl overflow-hidden border border-neutral-800/90 bg-neutral-950 shadow-2xl shadow-red-950/20 group min-h-[320px] sm:min-h-[380px] flex flex-col justify-end">
+      {/* Background Cover Image Link */}
+      <Link href={postUrl} className="absolute inset-0 block overflow-hidden">
         <Image
           src={coverImage}
           alt={activePost.title}
@@ -47,10 +49,10 @@ export function PostCarousel({ posts }: PostCarouselProps) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/75 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-950/90 via-neutral-950/40 to-transparent" />
-      </div>
+      </Link>
 
       {/* Content Overlay */}
-      <div className="absolute inset-0 p-6 sm:p-8 flex flex-col justify-between">
+      <div className="relative z-10 p-6 sm:p-8 flex flex-col justify-between h-full space-y-6">
         <div className="flex items-center justify-between">
           <span className="text-xs uppercase tracking-wider font-semibold text-red-400 bg-red-950/90 border border-red-900/60 px-3 py-1 rounded-full backdrop-blur-md flex items-center gap-1.5 shadow-md">
             <Sparkles className="w-3.5 h-3.5" />
@@ -65,16 +67,18 @@ export function PostCarousel({ posts }: PostCarouselProps) {
         </div>
 
         <div className="space-y-2 max-w-xl">
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight leading-tight line-clamp-2">
-            {activePost.title}
-          </h2>
-          <p className="text-xs sm:text-sm text-neutral-300 line-clamp-2 leading-relaxed font-sans">
-            {activePost.content}
-          </p>
+          <Link href={postUrl} className="block group/title">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white group-hover/title:text-red-400 transition-colors tracking-tight leading-tight line-clamp-2">
+              {activePost.title}
+            </h2>
+            <p className="text-xs sm:text-sm text-neutral-300 line-clamp-2 leading-relaxed font-sans mt-1">
+              {activePost.content}
+            </p>
+          </Link>
 
           <div className="pt-2 flex items-center gap-3">
             <Link
-              href={`/posts/${activePost.id}`}
+              href={postUrl}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 active:scale-95 transition-all shadow-lg shadow-red-950 cursor-pointer"
             >
               <span>Ver Bitácora Completa</span>
@@ -102,20 +106,20 @@ export function PostCarousel({ posts }: PostCarouselProps) {
           <button
             onClick={prevSlide}
             aria-label="Anterior publicación"
-            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-neutral-950/70 border border-neutral-800 text-white hover:bg-red-950 hover:border-red-800 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-neutral-950/70 border border-neutral-800 text-white hover:bg-red-950 hover:border-red-800 opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-20"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button
             onClick={nextSlide}
             aria-label="Siguiente publicación"
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-neutral-950/70 border border-neutral-800 text-white hover:bg-red-950 hover:border-red-800 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-neutral-950/70 border border-neutral-800 text-white hover:bg-red-950 hover:border-red-800 opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-20"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
 
           {/* Dots Indicator */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
             {carouselPosts.map((_, idx) => (
               <button
                 key={idx}

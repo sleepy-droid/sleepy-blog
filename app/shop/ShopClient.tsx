@@ -14,6 +14,7 @@ type ShopClientProps = {
 
 export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientProps) {
   const [searchRaw, setSearchRaw] = useState(initialQuery)
+  const [searchExpanded, setSearchExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState<'all' | 'music' | 'physical'>('all')
   const [sortBy, setSortBy] = useState<'recent' | 'popular' | 'price_low' | 'price_high'>('recent')
 
@@ -24,7 +25,6 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
   const filteredProducts = useMemo(() => {
     return initialProducts
       .filter((product) => {
-        // Search Filter (anti-SQL injection sanitized)
         if (sanitizedQuery) {
           const q = sanitizedQuery.toLowerCase()
           const nameMatch = product.name.toLowerCase().includes(q)
@@ -33,7 +33,6 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
           if (!nameMatch && !descMatch && !catMatch) return false
         }
 
-        // Tab Classification Filter (Music vs Physical vs All)
         if (activeTab === 'music') {
           return product.category === 'music' || product.fulfillment === 'digital'
         }
@@ -52,12 +51,10 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
         if (sortBy === 'price_high') {
           return b.price_cents - a.price_cents
         }
-        // default recent
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       })
   }, [initialProducts, sanitizedQuery, activeTab, sortBy])
 
-  // Distinct Music Releases vs Merch Catalog splitting for highlighted section
   const musicProducts = useMemo(
     () => filteredProducts.filter((p) => p.category === 'music' || p.fulfillment === 'digital'),
     [filteredProducts]
@@ -68,30 +65,10 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
   )
 
   return (
-    <div className="space-y-8">
-      {/* Controls Bar: Search Input + Classification Tabs + Sort Dropdown */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-neutral-900/40 backdrop-blur-md p-4 rounded-2xl border border-neutral-800/80">
+    <div className="space-y-6">
+      {/* Controls Bar: Discrete Search Button + Classification Tabs + Sort Dropdown */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-neutral-900/40 backdrop-blur-md p-3.5 rounded-2xl border border-neutral-800/80">
         
-        {/* SQL Injection Safe Search Input */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-          <input
-            type="text"
-            value={searchRaw}
-            onChange={(e) => setSearchRaw(e.target.value)}
-            placeholder="Buscar por canción, ropa, póster…"
-            className="w-full pl-10 pr-4 py-2.5 bg-neutral-950/80 border border-neutral-800 rounded-xl text-sm text-white placeholder:text-neutral-500 outline-none focus:border-red-600 focus:ring-2 focus:ring-red-950 transition-all font-sans"
-          />
-          {searchRaw && (
-            <button
-              onClick={() => setSearchRaw('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500 hover:text-white"
-            >
-              Limpiar
-            </button>
-          )}
-        </div>
-
         {/* Classification Filter Tabs */}
         <div className="flex items-center gap-1.5 bg-neutral-950/90 p-1.5 rounded-xl border border-neutral-800 text-xs font-medium overflow-x-auto">
           <button
@@ -127,23 +104,54 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
             }`}
           >
             <Package className="w-3.5 h-3.5 text-red-400" />
-            Merch & Físicos ({physicalProducts.length})
+            Merch ({physicalProducts.length})
           </button>
         </div>
 
-        {/* Sort Selector */}
+        {/* Right Section: Discrete Expandable Search & Sort */}
         <div className="flex items-center gap-2">
-          <SlidersHorizontal className="w-4 h-4 text-neutral-500 hidden sm:block" />
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            className="bg-neutral-950 border border-neutral-800 text-xs font-medium text-neutral-300 rounded-xl px-3 py-2.5 outline-none focus:border-red-600 cursor-pointer"
-          >
-            <option value="recent">Más recientes</option>
-            <option value="popular">Más populares</option>
-            <option value="price_low">Precio: menor a mayor</option>
-            <option value="price_high">Precio: mayor a menor</option>
-          </select>
+          {searchExpanded ? (
+            <div className="relative flex-1 min-w-[200px] sm:min-w-[260px] animate-in fade-in duration-200">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
+              <input
+                type="text"
+                autoFocus
+                value={searchRaw}
+                onChange={(e) => setSearchRaw(e.target.value)}
+                placeholder="Buscar canción, hoodie…"
+                className="w-full pl-9 pr-7 py-1.5 bg-neutral-950 border border-red-900/60 rounded-xl text-xs text-white placeholder:text-neutral-500 outline-none focus:ring-1 focus:ring-red-600 font-sans"
+              />
+              <button
+                onClick={() => { setSearchRaw(''); setSearchExpanded(false); }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white text-xs"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSearchExpanded(true)}
+              className="p-2 rounded-xl bg-neutral-950 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-all flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+            >
+              <Search className="w-3.5 h-3.5 text-red-400" />
+              <span className="hidden sm:inline">Buscar</span>
+            </button>
+          )}
+
+          <div className="flex items-center gap-1.5">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-neutral-500 hidden sm:block" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="bg-neutral-950 border border-neutral-800 text-xs font-medium text-neutral-300 rounded-xl px-2.5 py-1.5 outline-none focus:border-red-600 cursor-pointer"
+            >
+              <option value="recent">Recientes</option>
+              <option value="popular">Populares</option>
+              <option value="price_low">Precio ↑</option>
+              <option value="price_high">Precio ↓</option>
+            </select>
+          </div>
         </div>
       </div>
 

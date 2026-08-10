@@ -61,6 +61,46 @@ export default async function LibraryPage() {
     ]
   }
 
+  const digitalItems = ownedProducts.map((p, idx) => ({
+    id: `lib-${idx}`,
+    user_id: currentUser.id,
+    product_id: p.id,
+    source: 'purchase' as const,
+    created_at: p.created_at,
+    product: p,
+  }))
+
+  const physicalOrders = [
+    {
+      id: 'ord-883921',
+      product: {
+        id: 'sleepyred-hoodie-neon',
+        slug: 'sleepyred-hoodie-neon',
+        name: 'Sleepyred Neon Hoodie (Reflectivo Negro)',
+        description: 'Hoodie oversize tejido pesado 400g.',
+        fulfillment: 'physical' as const,
+        category: 'merch' as const,
+        thumbnail_url: '/images/logos/SLEEPYRED JPG NEON-02.jpg',
+        gallery: [],
+        price_cents: 5500,
+        currency: 'USD',
+        stock: 20,
+        is_published: true,
+        is_featured: true,
+        audio_preview_url: null,
+        duration_seconds: null,
+        specs: { Talla: 'XL' },
+        popularity_score: 80,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      variantLabel: 'Talla XL',
+      quantity: 1,
+      status: 'shipped' as const,
+      created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    },
+  ]
+
   return (
     <main className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 space-y-10 font-sans">
       <header className="border-b border-neutral-800/80 pb-6 space-y-3">
@@ -77,7 +117,7 @@ export default async function LibraryPage() {
       </header>
 
       {/* Interactive Web Player Top Bar and Downloads List */}
-      <LibraryClient ownedProducts={ownedProducts} />
+      <LibraryClient digitalItems={digitalItems} physicalOrders={physicalOrders} />
 
       {/* Assurance Footer */}
       <footer className="p-4 rounded-2xl border border-neutral-800/60 bg-neutral-900/20 text-center text-xs text-neutral-400 flex items-center justify-center gap-2">

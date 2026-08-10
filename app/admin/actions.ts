@@ -130,33 +130,23 @@ export async function deletePost(formData: FormData): Promise<void> {
 /**
  * Actualizar comentario desde el panel admin.
  */
-export async function adminUpdateComment(
-  _prev: AdminActionState,
-  formData: FormData
-): Promise<AdminActionState> {
+export async function adminUpdateComment(formData: FormData): Promise<void> {
   await requireAdmin()
 
   const id = String(formData.get('id') ?? '').trim()
   const body = String(formData.get('body') ?? '').trim()
   const postId = String(formData.get('post_id') ?? '').trim()
 
-  if (!id || body.length < 1) {
-    return { error: 'Comentario inválido.' }
-  }
+  if (!id || body.length < 1) return
 
   const supabase = await createClient()
-  const { error } = await supabase
+  await supabase
     .from('comments')
     .update({ body, updated_at: new Date().toISOString() })
     .eq('id', id)
 
-  if (error) {
-    return { error: error.message || 'No se pudo actualizar.' }
-  }
-
   if (postId) revalidatePath(`/posts/${postId}`)
   revalidatePath('/admin/comments')
-  return { success: 'Comentario actualizado.' }
 }
 
 /**
@@ -232,3 +222,64 @@ export async function adminDeleteComment(formData: FormData): Promise<void> {
   revalidatePath('/admin')
   revalidatePath('/admin/comments')
 }
+
+/**
+ * Crear producto en el catálogo (solo admin).
+ */
+export async function createProduct(
+  _prev: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  await requireAdmin()
+
+  const name = String(formData.get('name') ?? '').trim()
+  const description = String(formData.get('description') ?? '').trim()
+  const category = String(formData.get('category') ?? 'music').trim()
+  const fulfillment = String(formData.get('fulfillment') ?? 'digital').trim()
+  const price_cents = Math.round(Number(formData.get('price') || 0) * 100)
+  const thumbnail_url = String(formData.get('thumbnail_url') ?? '').trim() || null
+  const mp3_url = String(formData.get('mp3_url') ?? '').trim() || null
+  const wav_url = String(formData.get('wav_url') ?? '').trim() || null
+  const video_url = String(formData.get('video_url') ?? '').trim() || null
+  const acapella_url = String(formData.get('acapella_url') ?? '').trim() || null
+  const instrumental_url = String(formData.get('instrumental_url') ?? '').trim() || null
+
+  if (!name || name.length < 2) {
+    return { error: 'El nombre del producto es obligatorio.' }
+  }
+
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || `product-${Date.now()}`
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('products').insert({
+    slug,
+    name,
+    description,
+    category,
+    fulfillment,
+    price_cents,
+    currency: 'USD',
+    thumbnail_url,
+    mp3_url,
+    wav_url,
+    video_url,
+    acapella_url,
+    instrumental_url,
+    audio_preview_url: mp3_url || wav_url,
+    is_published: true,
+    is_featured: true,
+  })
+
+  if (error) {
+    return { error: error.message || 'Error al guardar el producto.' }
+  }
+
+  revalidatePath('/shop')
+  revalidatePath('/admin')
+  revalidatePath('/admin/products')
+  redirect('/admin/products?created=1')
+}
+

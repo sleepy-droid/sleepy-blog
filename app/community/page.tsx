@@ -23,6 +23,9 @@ export type ThreadWithAuthor = {
   image_url: string | null
   youtube_url: string | null
   linked_product_id: string | null
+  tags?: string[]
+  upvotes?: number
+  downvotes?: number
   created_at: string
   author_id: string
   profiles: {

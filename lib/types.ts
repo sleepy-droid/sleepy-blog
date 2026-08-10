@@ -37,6 +37,8 @@ export type Post = {
   is_published?: boolean
   view_count?: number
   like_count?: number
+  upvotes?: number
+  downvotes?: number
   status?: string
 }
 
@@ -55,9 +57,16 @@ export type Product = {
   is_published: boolean
   is_featured: boolean
   audio_preview_url: string | null
+  video_url?: string | null
+  acapella_url?: string | null
+  instrumental_url?: string | null
+  wav_url?: string | null
+  mp3_url?: string | null
   duration_seconds: number | null
   specs: Record<string, string> | null
   popularity_score: number
+  upvotes?: number
+  downvotes?: number
   created_at: string
   updated_at: string
 }
@@ -80,6 +89,53 @@ export type LibraryItem = {
   created_at: string
 }
 
+export type CartItem = {
+  id: string
+  user_id: string
+  product_id: string
+  variant_label?: string | null
+  quantity: number
+  product?: Product
+  created_at?: string
+}
+
+export type OrderStatus = 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled'
+
+export type Order = {
+  id: string
+  user_id: string
+  status: OrderStatus
+  total_cents: number
+  currency: string
+  shipping_address?: string | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+  items?: OrderItem[]
+}
+
+export type OrderItem = {
+  id: string
+  order_id: string
+  product_id: string
+  variant_label?: string | null
+  quantity: number
+  unit_price_cents: number
+  product?: Product
+  created_at?: string
+}
+
+export type VoteTargetType = 'post' | 'product' | 'forum_thread' | 'comment'
+
+export type Vote = {
+  id: string
+  user_id: string
+  target_type: VoteTargetType
+  target_id: string
+  vote_value: 1 | -1
+  created_at: string
+}
+
 export type CommentTargetType = 'post' | 'product' | 'forum_thread' | 'profile_update'
 
 /** Fila de public.comments */
@@ -93,6 +149,8 @@ export type Comment = {
   status?: ModerationStatus
   hidden_at?: string | null
   hidden_by?: string | null
+  upvotes?: number
+  downvotes?: number
   created_at: string
   updated_at: string
 }

@@ -2,16 +2,27 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
-import { Play, Pause, ShoppingBag, ShieldCheck, Sparkles, Music, Package, Check, Maximize2, X, Volume2, VolumeX, Tag } from 'lucide-react'
+import { Play, Pause, ShoppingBag, ShieldCheck, Sparkles, Music, Package, Check, Maximize2, X, Volume2, VolumeX, Tag, ThumbsUp, ThumbsDown } from 'lucide-react'
 import { formatPrice, type Product } from '@/lib/types'
+import { useCart } from '@/lib/cart'
+import { useLanguage } from '@/lib/i18n'
 
 type SingleProductClientProps = {
   product: Product
 }
 
 export function SingleProductClient({ product }: SingleProductClientProps) {
+  const { addToCart } = useCart()
+  const { t } = useLanguage()
+
   // Size selection for physical merch (S, M, L, XL)
   const [selectedSize, setSelectedSize] = useState<'S' | 'M' | 'L' | 'XL'>('L')
+  
+  // Upvote / Downvote local rating state
+  const [upvotes, setUpvotes] = useState(product.upvotes || 12)
+  const [downvotes, setDownvotes] = useState(product.downvotes || 1)
+  const [userVote, setUserVote] = useState<1 | -1 | 0>(0)
+
   // Audio Player State (SoundCloud style)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -22,11 +33,27 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
   // Lightbox modal state for Amazon-style image viewing
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
 
-  // Added to library status notification
-  const [addedStatus, setAddedStatus] = useState<string | null>(null)
-
   const isMusic = product.category === 'music' || product.fulfillment === 'digital' || !!product.audio_preview_url
   const previewUrl = product.audio_preview_url || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
+
+  const handleVote = (val: 1 | -1) => {
+    if (userVote === val) {
+      setUserVote(0)
+      if (val === 1) setUpvotes((v) => v - 1)
+      else setDownvotes((v) => v - 1)
+    } else {
+      if (userVote === 1) setUpvotes((v) => v - 1)
+      if (userVote === -1) setDownvotes((v) => v - 1)
+      setUserVote(val)
+      if (val === 1) setUpvotes((v) => v + 1)
+      else setDownvotes((v) => v + 1)
+    }
+  }
+
+  const handleAddToCart = () => {
+    const variant = product.fulfillment === 'physical' ? selectedSize : 'Digital Master'
+    addToCart(product, variant, 1)
+  }
 
   // Audio Time Update Handlers
   useEffect(() => {
@@ -83,10 +110,6 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
     return `${m}:${s < 10 ? '0' : ''}${s}`
   }
 
-  const handlePurchase = () => {
-    setAddedStatus('¡Producto añadido a tu biblioteca!')
-    setTimeout(() => setAddedStatus(null), 4000)
-  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -285,23 +308,46 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
           </div>
         </div>
 
-        {/* Purchase & Library CTA Button */}
+        {/* Rating & Upvote / Downvote Section */}
+        <div className="flex items-center justify-between bg-neutral-950/80 border border-neutral-800 p-3 rounded-2xl">
+          <span className="text-xs font-semibold text-neutral-400">Calificación del producto:</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleVote(1)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                userVote === 1
+                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                  : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+              }`}
+            >
+              <ThumbsUp className="w-3.5 h-3.5" />
+              <span>{upvotes}</span>
+            </button>
+            <button
+              onClick={() => handleVote(-1)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                userVote === -1
+                  ? 'bg-red-950 text-red-400 border border-red-800'
+                  : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+              }`}
+            >
+              <ThumbsDown className="w-3.5 h-3.5" />
+              <span>{downvotes}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Purchase & Add to Cart Button */}
         <div className="space-y-3 pt-2">
           <button
             type="button"
-            onClick={handlePurchase}
+            onClick={handleAddToCart}
             className="w-full py-3.5 px-6 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-red-700 via-red-600 to-red-700 hover:from-red-600 hover:to-red-600 active:scale-[0.99] border border-red-500/40 shadow-[0_0_20px_rgba(220,38,38,0.4)] transition-all cursor-pointer flex items-center justify-center gap-2"
           >
             <ShoppingBag className="w-4 h-4" />
-            <span>Comprar Ahora • {formatPrice(product.price_cents, product.currency)}</span>
+            <span>{t('add_to_cart')} • {formatPrice(product.price_cents, product.currency)}</span>
           </button>
 
-          {addedStatus && (
-            <div className="p-3 bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 text-xs rounded-xl text-center flex items-center justify-center gap-2 animate-in fade-in duration-300">
-              <Check className="w-4 h-4 text-emerald-400" />
-              <span>{addedStatus}</span>
-            </div>
-          )}
 
           <div className="flex items-center justify-center gap-2 text-xs text-neutral-400">
             <ShieldCheck className="w-4 h-4 text-red-500" />

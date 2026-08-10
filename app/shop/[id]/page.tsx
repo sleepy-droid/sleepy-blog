@@ -176,16 +176,16 @@ export default async function SingleProductPage({ params }: ProductPageProps) {
     .neq('id', product.id)
     .limit(3)
 
-  const relatedProducts: Product[] = (relatedDb && relatedDb.length > 0) 
-    ? relatedDb 
+  const relatedProducts: Product[] = (relatedDb && relatedDb.length > 0)
+    ? relatedDb
     : Object.values(DEMO_PRODUCTS).filter(p => p.id !== product.id)
 
   return (
     <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-12 font-sans">
       {/* Top Header Controls: Back Button & Language Selector Placeholder */}
       <nav className="flex items-center justify-between border-b border-neutral-800/80 pb-4">
-        <Link 
-          href="/shop" 
+        <Link
+          href="/shop"
           className="inline-flex items-center gap-2 text-sm font-medium text-neutral-400 hover:text-red-400 transition-colors group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />

@@ -22,6 +22,11 @@ export const metadata: Metadata = {
   description: "Bitácora oficial, diario, lanzamientos directos y tienda de sleepyred999",
 };
 
+import { LanguageProvider } from "@/lib/i18n";
+import { CartProvider } from "@/lib/cart";
+import { CartDrawer } from "@/components/cart/CartDrawer";
+import { Footer } from "@/components/Footer";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -32,16 +37,18 @@ export default function RootLayout({
       lang="es"
       className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", geist.variable)}
     >
-      <body className="min-h-full flex flex-col pt-20">
-        {/*
-          AuthNav es Server Component; se pasa como slot al Navbar (Client).
-          Así leemos la sesión en el servidor sin convertir todo el header a client.
-        */}
-        <Navbar
-          authDesktop={<AuthNav />}
-          authMobile={<AuthNav mobile />}
-        />
-        {children}
+      <body className="min-h-full flex flex-col pt-20 bg-neutral-950 text-neutral-100">
+        <LanguageProvider>
+          <CartProvider>
+            <Navbar
+              authDesktop={<AuthNav />}
+              authMobile={<AuthNav mobile />}
+            />
+            <div className="flex-1">{children}</div>
+            <CartDrawer />
+            <Footer />
+          </CartProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

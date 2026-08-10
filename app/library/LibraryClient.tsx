@@ -1,89 +1,73 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
-import { Play, Pause, Download, Music, Package, Volume2, VolumeX, ShieldCheck, Sparkles } from 'lucide-react'
-import { formatPrice, type Product } from '@/lib/types'
+import Image from 'next/image'
+import { Play, Pause, Download, Video, Music, Package, Sparkles, Check, ChevronDown, Clock, ShieldCheck } from 'lucide-react'
+import { formatPrice, type LibraryItem, type Product } from '@/lib/types'
 
-type LibraryClientProps = {
-  ownedProducts: Product[]
+export type PhysicalOrderType = {
+  id: string
+  product: Product
+  variantLabel: string
+  quantity: number
+  status: 'processing' | 'shipped' | 'delivered'
+  created_at: string
 }
 
-export function LibraryClient({ ownedProducts }: LibraryClientProps) {
-  const musicProducts = ownedProducts.filter(
-    (p) => p.category === 'music' || p.fulfillment === 'digital' || !!p.audio_preview_url
-  )
-  const physicalProducts = ownedProducts.filter((p) => p.fulfillment === 'physical')
+type LibraryClientProps = {
+  digitalItems: Array<LibraryItem & { product: Product }>
+  physicalOrders: PhysicalOrderType[]
+}
 
-  // Currently playing track index in music list
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
+export function LibraryClient({ digitalItems, physicalOrders }: LibraryClientProps) {
+  // Audio Player State
+  const [activeItem, setActiveItem] = useState<(LibraryItem & { product: Product }) | null>(digitalItems[0] || null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [isMuted, setIsMuted] = useState(false)
+  const [showVideoModal, setShowVideoModal] = useState(false)
+
+  // Download Dropdown Toggle
+  const [openDownloadId, setOpenDownloadId] = useState<string | null>(null)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  const activeTrack = musicProducts[currentTrackIndex] || musicProducts[0]
-  const audioSrc = activeTrack?.audio_preview_url || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
+  const currentAudioUrl = activeItem?.product?.wav_url || activeItem?.product?.mp3_url || activeItem?.product?.audio_preview_url || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
 
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
 
     const updateTime = () => setCurrentTime(audio.currentTime)
-    const updateDuration = () => {
-      if (audio.duration && !isNaN(audio.duration)) {
-        setDuration(audio.duration)
-      }
-    }
-    const handleEnded = () => setIsPlaying(false)
+    const updateDuration = () => setDuration(audio.duration || 0)
+    const onEnded = () => setIsPlaying(false)
 
     audio.addEventListener('timeupdate', updateTime)
     audio.addEventListener('loadedmetadata', updateDuration)
-    audio.addEventListener('ended', handleEnded)
+    audio.addEventListener('ended', onEnded)
 
     return () => {
       audio.removeEventListener('timeupdate', updateTime)
       audio.removeEventListener('loadedmetadata', updateDuration)
-      audio.removeEventListener('ended', handleEnded)
+      audio.removeEventListener('ended', onEnded)
     }
-  }, [activeTrack])
+  }, [activeItem])
 
-  const togglePlay = () => {
-    if (!audioRef.current) return
-    if (isPlaying) {
-      audioRef.current.pause()
-      setIsPlaying(false)
-    } else {
-      audioRef.current.play()
-      setIsPlaying(true)
-    }
-  }
-
-  const selectTrack = (index: number) => {
-    setCurrentTrackIndex(index)
-    setIsPlaying(true)
-    setTimeout(() => {
-      if (audioRef.current) {
-        audioRef.current.play()
+  const togglePlay = (item: LibraryItem & { product: Product }) => {
+    if (activeItem?.id === item.id) {
+      if (isPlaying) {
+        audioRef.current?.pause()
+        setIsPlaying(false)
+      } else {
+        audioRef.current?.play()
+        setIsPlaying(true)
       }
-    }, 100)
-  }
-
-  const handleScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = Number(e.target.value)
-    setCurrentTime(time)
-    if (audioRef.current) {
-      audioRef.current.currentTime = time
+    } else {
+      setActiveItem(item)
+      setIsPlaying(true)
+      setTimeout(() => audioRef.current?.play(), 100)
     }
-  }
-
-  const toggleMute = () => {
-    if (!audioRef.current) return
-    audioRef.current.muted = !isMuted
-    setIsMuted(!isMuted)
   }
 
   const formatTime = (secs: number) => {
@@ -92,179 +76,232 @@ export function LibraryClient({ ownedProducts }: LibraryClientProps) {
     return `${m}:${s < 10 ? '0' : ''}${s}`
   }
 
+  const getStatusBadge = (status: PhysicalOrderType['status']) => {
+    switch (status) {
+      case 'processing':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-amber-950/80 text-amber-400 border border-amber-800/80">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            Procesando
+          </span>
+        )
+      case 'shipped':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-yellow-950/80 text-yellow-400 border border-yellow-800/80">
+            <span className="w-2 h-2 rounded-full bg-yellow-400 animate-ping" />
+            Enviado
+          </span>
+        )
+      case 'delivered':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800/80">
+            <Check className="w-3.5 h-3.5" />
+            Entregado
+          </span>
+        )
+    }
+  }
+
   return (
-    <div className="space-y-8">
-      {/* Hidden Audio Element */}
-      {activeTrack && <audio ref={audioRef} src={audioSrc} preload="metadata" />}
+    <div className="space-y-12">
+      {/* Hidden Audio Tag */}
+      {activeItem && <audio ref={audioRef} src={currentAudioUrl} preload="metadata" />}
 
-      {/* BUILT-IN WEB PLAYER SECTION (TOP BAR) */}
-      {activeTrack && (
-        <section className="bg-gradient-to-r from-red-950/80 via-neutral-950 to-neutral-900 border border-red-900/60 rounded-3xl p-6 shadow-2xl space-y-4">
-          <div className="flex items-center justify-between border-b border-red-900/40 pb-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-red-400" />
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-                Reproductor Web de la Biblioteca
-              </h2>
+      {/* Discrete Sticky Audio/Video Player Bar (Appears when activeItem is playing) */}
+      {activeItem && (
+        <div className="bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-950 border border-red-900/60 p-4 rounded-2xl shadow-2xl space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              {/* Circular Play / Pause Button */}
+              <button
+                onClick={() => togglePlay(activeItem)}
+                className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg shadow-red-950 transition-transform active:scale-95 cursor-pointer shrink-0"
+              >
+                {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+              </button>
+
+              <div className="space-y-0.5 min-w-0">
+                <span className="text-[10px] font-mono uppercase text-red-400 font-bold block">Reproduciendo de tu biblioteca</span>
+                <h3 className="text-sm font-bold text-white truncate">{activeItem.product.name}</h3>
+              </div>
             </div>
-            <span className="text-xs font-mono text-red-300 bg-red-950 border border-red-900/60 px-2.5 py-0.5 rounded-full">
-              Máster 24-bit / 44.1kHz
-            </span>
+
+            {/* Video button if available */}
+            {activeItem.product.video_url && (
+              <button
+                onClick={() => setShowVideoModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs font-semibold text-neutral-300 hover:text-white flex items-center gap-1.5"
+              >
+                <Video className="w-3.5 h-3.5 text-red-400" />
+                <span>Ver Vídeo</span>
+              </button>
+            )}
           </div>
 
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-4 w-full md:w-auto">
-              <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-neutral-800 shrink-0">
-                <Image
-                  src={activeTrack.thumbnail_url || '/images/releases/criss-angel.jpg'}
-                  alt={activeTrack.name}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-
-              <div>
-                <h3 className="text-base font-bold text-white line-clamp-1">{activeTrack.name}</h3>
-                <p className="text-xs text-neutral-400 font-mono mt-0.5">sleepyred999 • {activeTrack.category}</p>
-              </div>
-            </div>
-
-            {/* Play Controls & Scrubber */}
-            <div className="flex-1 w-full max-w-lg space-y-2">
-              <div className="flex items-center justify-center gap-4">
-                <button
-                  type="button"
-                  onClick={togglePlay}
-                  className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 active:scale-95 text-white flex items-center justify-center shadow-lg shadow-red-900/60 transition-all cursor-pointer"
-                >
-                  {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
-                </button>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className="text-[11px] font-mono text-neutral-400 w-10 text-right">{formatTime(currentTime)}</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={duration || 100}
-                  value={currentTime}
-                  onChange={handleScrub}
-                  className="w-full h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-red-500 focus:outline-none"
-                />
-                <span className="text-[11px] font-mono text-neutral-400 w-10">{formatTime(duration)}</span>
+          {/* Expanding Time Scrubber Bar when playing */}
+          {isPlaying && (
+            <div className="space-y-1 pt-1 animate-in fade-in duration-300">
+              <input
+                type="range"
+                min={0}
+                max={duration || 100}
+                value={currentTime}
+                onChange={(e) => {
+                  if (audioRef.current) audioRef.current.currentTime = Number(e.target.value)
+                }}
+                className="w-full h-1.5 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-red-600"
+              />
+              <div className="flex justify-between text-[10px] font-mono text-neutral-500">
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={toggleMute}
-              className="p-2 text-neutral-400 hover:text-white rounded-xl bg-neutral-900 border border-neutral-800"
-            >
-              {isMuted ? <VolumeX className="w-5 h-5 text-red-400" /> : <Volume2 className="w-5 h-5" />}
-            </button>
-          </div>
-        </section>
+          )}
+        </div>
       )}
 
-      {/* MUSIC PURCHASES & DOWNLOADS LIST */}
-      {musicProducts.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 border-b border-neutral-800 pb-2">
-            <Music className="w-4 h-4 text-red-400" />
-            <h2 className="text-lg font-bold text-white">Lanzamientos Musicales Desbloqueados</h2>
-          </div>
+      {/* SECTION 1: Music Releases & Digital Downloads */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 border-b border-neutral-800 pb-3">
+          <Music className="w-5 h-5 text-red-500" />
+          <h2 className="text-xl font-bold text-white tracking-tight">
+            Lanzamientos Musicales Digitales ({digitalItems.length})
+          </h2>
+        </div>
 
-          <div className="grid grid-cols-1 gap-4">
-            {musicProducts.map((product, idx) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {digitalItems.map((item) => {
+            const isCurrent = activeItem?.id === item.id
+            const isMenuOpen = openDownloadId === item.id
+
+            return (
               <div
-                key={product.id}
-                className={`border rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all ${
-                  currentTrackIndex === idx
-                    ? 'border-red-900/60 bg-red-950/20'
-                    : 'border-neutral-800/80 bg-neutral-900/40 hover:border-neutral-700'
+                key={item.id}
+                className={`border rounded-2xl p-4 flex items-center justify-between gap-4 transition-all ${
+                  isCurrent ? 'bg-neutral-900/80 border-red-900/80 shadow-lg' : 'bg-neutral-950/60 border-neutral-800/80 hover:border-neutral-700'
                 }`}
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  {/* Circular Play Icon for individual track */}
                   <button
-                    type="button"
-                    onClick={() => selectTrack(idx)}
-                    className="relative w-14 h-14 rounded-xl overflow-hidden border border-neutral-800 shrink-0 group cursor-pointer"
+                    onClick={() => togglePlay(item)}
+                    className="w-10 h-10 rounded-full bg-neutral-900 hover:bg-red-950 border border-neutral-800 hover:border-red-800 text-neutral-300 hover:text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors"
                   >
-                    <Image
-                      src={product.thumbnail_url || '/images/releases/criss-angel.jpg'}
-                      alt={product.name}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform"
-                    />
-                    <div className="absolute inset-0 bg-neutral-950/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Play className="w-5 h-5 text-white fill-current" />
-                    </div>
+                    {isCurrent && isPlaying ? (
+                      <Pause className="w-4 h-4 text-red-400 fill-current" />
+                    ) : (
+                      <Play className="w-4 h-4 text-red-400 fill-current ml-0.5" />
+                    )}
                   </button>
 
-                  <div>
-                    <h3 className="text-base font-bold text-white">{product.name}</h3>
-                    <p className="text-xs text-neutral-400 font-mono mt-0.5">
-                      Licencia Directa • {product.specs?.['Formato Audio'] || 'WAV 24-bit + MP3'}
+                  <div className="space-y-0.5 min-w-0">
+                    <h3 className="text-sm font-bold text-white truncate">{item.product.name}</h3>
+                    <p className="text-[11px] font-mono text-neutral-500">
+                      Adquirido el {new Date(item.created_at).toLocaleDateString('es-ES')}
                     </p>
                   </div>
                 </div>
 
-                {/* Offline Download Action Buttons */}
-                <div className="flex items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-neutral-800">
-                  <a
-                    href={product.audio_preview_url || '#'}
-                    download={`${product.slug || 'song'}-master.wav`}
-                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-red-800 hover:bg-red-700 transition-colors shadow-md"
+                {/* Download Menu Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setOpenDownloadId(isMenuOpen ? null : item.id)}
+                    className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white flex items-center gap-1 text-xs cursor-pointer"
+                    title="Opciones de descarga"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Descargar WAV</span>
-                  </a>
-                  <a
-                    href={product.audio_preview_url || '#'}
-                    download={`${product.slug || 'song'}-320k.mp3`}
-                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-neutral-200 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 transition-colors"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>MP3 320k</span>
-                  </a>
+                    <Download className="w-4 h-4 text-red-400" />
+                    <ChevronDown className="w-3 h-3 text-neutral-500" />
+                  </button>
+
+                  {isMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-44 bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl p-1.5 z-20 space-y-1 text-xs font-mono">
+                      <a
+                        href={item.product.mp3_url || currentAudioUrl}
+                        download
+                        className="block w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-neutral-300 hover:text-white transition-colors"
+                      >
+                        Descargar MP3 320k
+                      </a>
+                      <a
+                        href={item.product.wav_url || currentAudioUrl}
+                        download
+                        className="block w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-red-400 hover:text-red-300 font-bold transition-colors"
+                      >
+                        Descargar WAV Máster
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+            )
+          })}
+        </div>
+      </section>
 
-      {/* PHYSICAL ORDERS LIST */}
-      {physicalProducts.length > 0 && (
-        <section className="space-y-4 pt-4">
-          <div className="flex items-center gap-2 border-b border-neutral-800 pb-2">
-            <Package className="w-4 h-4 text-red-400" />
-            <h2 className="text-lg font-bold text-white">Pedidos Físicos & Merch</h2>
-          </div>
+      {/* SECTION 2: Physical Merch Orders Tracking (Traffic Light Badges) */}
+      <section className="space-y-4 pt-4 border-t border-neutral-900">
+        <div className="flex items-center gap-2 border-b border-neutral-800 pb-3">
+          <Package className="w-5 h-5 text-red-500" />
+          <h2 className="text-xl font-bold text-white tracking-tight">
+            Pedidos Físicos y Prendas ({physicalOrders.length})
+          </h2>
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {physicalProducts.map((product) => (
-              <div key={product.id} className="border border-neutral-800/80 rounded-2xl p-4 bg-neutral-900/40 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-neutral-800 shrink-0">
-                    <Image
-                      src={product.thumbnail_url || '/images/logos/PNG-04.png'}
-                      alt={product.name}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white line-clamp-1">{product.name}</h3>
-                    <span className="text-[10px] font-mono uppercase text-emerald-400 bg-emerald-950 border border-emerald-900 px-2 py-0.5 rounded">
-                      Procesado / En camino
-                    </span>
+        <div className="space-y-3">
+          {physicalOrders.map((order) => (
+            <div
+              key={order.id}
+              className="border border-neutral-800/80 bg-neutral-950/60 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 backdrop-blur-md"
+            >
+              <div className="flex items-center gap-4">
+                <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800 shrink-0">
+                  {order.product.thumbnail_url ? (
+                    <Image src={order.product.thumbnail_url} alt={order.product.name} fill className="object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[10px] text-neutral-600">
+                      Prenda
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-white">{order.product.name}</h3>
+                  <div className="flex items-center gap-3 text-xs font-mono text-neutral-400">
+                    <span>Talla: <strong className="text-white">{order.variantLabel}</strong></span>
+                    <span>Cantidad: <strong className="text-white">{order.quantity}</strong></span>
+                    <span>ID: <strong className="text-neutral-500">#{order.id.slice(0, 8)}</strong></span>
                   </div>
                 </div>
               </div>
-            ))}
+
+              {/* Status Badge Traffic Light */}
+              <div className="flex items-center justify-between w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-neutral-800">
+                {getStatusBadge(order.status)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Video Modal (if user clicks video button) */}
+      {showVideoModal && activeItem?.product?.video_url && (
+        <div className="fixed inset-0 z-50 bg-neutral-950/90 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="w-full max-w-3xl space-y-4 bg-neutral-900 border border-neutral-800 p-4 rounded-3xl">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-white">{activeItem.product.name} — Vídeo Oficial</h3>
+              <button onClick={() => setShowVideoModal(false)} className="text-neutral-400 hover:text-white text-xs">
+                Cerrar ✕
+              </button>
+            </div>
+            <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black">
+              <iframe
+                src={activeItem.product.video_url}
+                className="w-full h-full border-0"
+                allowFullScreen
+              />
+            </div>
           </div>
-        </section>
+        </div>
       )}
     </div>
   )

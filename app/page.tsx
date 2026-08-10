@@ -1,20 +1,10 @@
-/**
- * Homepage - Newsfeed & Featured Posts
- * File Path: app/page.tsx
- * 
- * Features:
- * 1. PostCarousel component for featured / latest releases.
- * 2. SQL injection-proof search bar input for newsfeed posts (`PostFeedClient`).
- * 3. Ordering by recent or popularity.
- * 4. Social Media Bar placeholders (Instagram, X/Twitter, Discord).
- */
-
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/utils/supabase/server'
+import { getCurrentUser } from '@/lib/auth'
 import { PostCarousel } from '@/components/home/PostCarousel'
 import { PostFeedClient } from '@/components/home/PostFeedClient'
-import { Sparkles, Camera, Share2, MessageSquare, ExternalLink } from 'lucide-react'
+import { Sparkles, PlusCircle, Shield, Camera, Share2, MessageSquare, ExternalLink } from 'lucide-react'
 import type { Post } from '@/lib/types'
 
 /** Seed demo posts in case database is initializing */
@@ -49,6 +39,7 @@ const DEMO_POSTS: Post[] = [
 
 export default async function Home() {
   const supabase = await createClient()
+  const currentUser = await getCurrentUser()
 
   const { data: dbPosts } = await supabase
     .from('posts')
@@ -61,9 +52,21 @@ export default async function Home() {
     <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-10 font-sans">
       {/* Header Banner */}
       <header className="space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-950/60 border border-red-900/40 text-red-400">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Bitácora Oficial & Diario</span>
+        <div className="flex items-center justify-between">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-950/60 border border-red-900/40 text-red-400">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Bitácora Oficial & Diario</span>
+          </div>
+
+          {currentUser?.isAdmin && (
+            <Link
+              href="/admin/posts/new"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-red-800 hover:bg-red-700 transition-colors shadow-md border border-red-700/50"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>+ Crear Publicación</span>
+            </Link>
+          )}
         </div>
         <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
           sleepyred999
