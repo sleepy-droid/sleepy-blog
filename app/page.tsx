@@ -1,125 +1,117 @@
-// Paso 1: Importamos 'Link' e 'Image' de Next.js para optimización de navegación e imágenes.
+/**
+ * Homepage - Newsfeed & Featured Posts
+ * File Path: app/page.tsx
+ * 
+ * Features:
+ * 1. PostCarousel component for featured / latest releases.
+ * 2. SQL injection-proof search bar input for newsfeed posts (`PostFeedClient`).
+ * 3. Ordering by recent or popularity.
+ * 4. Social Media Bar placeholders (Instagram, X/Twitter, Discord).
+ */
+
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/utils/supabase/server'
+import { PostCarousel } from '@/components/home/PostCarousel'
+import { PostFeedClient } from '@/components/home/PostFeedClient'
+import { Sparkles, Camera, Share2, MessageSquare, ExternalLink } from 'lucide-react'
+import type { Post } from '@/lib/types'
+
+/** Seed demo posts in case database is initializing */
+const DEMO_POSTS: Post[] = [
+  {
+    id: 'criss-angel-post',
+    title: 'Criss Angel — Lanzamiento Oficial & Arte Digital',
+    content: 'Criss Angel ya está disponible en todas las plataformas y exclusivamente en nuestra tienda oficial con audio máster WAV 24-bit + libro de letras.',
+    category: 'Lanzamiento',
+    created_at: new Date().toISOString(),
+    image_url: '/images/releases/criss-angel.jpg',
+    media_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    price: 12,
+    is_featured: true,
+    view_count: 320,
+    like_count: 45
+  },
+  {
+    id: 'sleepyred-neon-post',
+    title: 'Nueva Colección Neón & Merchandising Oficial',
+    content: 'Anunciamos la llegada de los hoodies oversize neón y pósters A2. Revisa la tienda para apartar tu prenda oficial.',
+    category: 'Merchandising',
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+    image_url: '/images/logos/SLEEPYRED JPG NEON-02.jpg',
+    media_url: null,
+    price: 55,
+    is_featured: true,
+    view_count: 210,
+    like_count: 30
+  }
+]
 
 export default async function Home() {
   const supabase = await createClient()
 
-  const { data: posts, error } = await supabase
+  const { data: dbPosts } = await supabase
     .from('posts')
     .select('*')
     .order('created_at', { ascending: false })
 
-  if (error) {
-    return (
-      <main className="max-w-2xl mx-auto p-6">
-        <div className="p-4 bg-red-950/40 border border-red-800 text-red-400 rounded-lg text-sm">
-          Error al cargar bitácora: {error.message}
-        </div>
-      </main>
-    )
-  }
+  const posts: Post[] = (dbPosts && dbPosts.length > 0) ? dbPosts : DEMO_POSTS
 
   return (
-    <main className="max-w-2xl mx-auto p-6 space-y-8 font-sans">
-      <header className="border-b border-neutral-800 pb-5">
-        <h1 className="text-3xl font-bold tracking-tight text-white">sleepyred999</h1>
-        <p className="text-sm text-neutral-400 mt-1">Bitácora oficial, diario & lanzamientos directos</p>
+    <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-10 font-sans">
+      {/* Header Banner */}
+      <header className="space-y-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-950/60 border border-red-900/40 text-red-400">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Bitácora Oficial & Diario</span>
+        </div>
+        <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
+          sleepyred999
+        </h1>
+        <p className="text-sm text-neutral-400 max-w-xl leading-relaxed">
+          Novedades, lanzamientos directos de audio sin compresión, tienda exclusiva y comunidad.
+        </p>
+
+        {/* Social Media Link Placeholders (Instagram, X, Discord) */}
+        <div className="pt-2 flex flex-wrap items-center gap-2">
+          <a
+            href="https://instagram.com/sleepyred999"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 text-xs font-medium text-neutral-300 hover:text-white transition-all"
+          >
+            <Camera className="w-3.5 h-3.5 text-pink-500" />
+            <span>Instagram</span>
+            <ExternalLink className="w-3 h-3 text-neutral-500" />
+          </a>
+          <a
+            href="https://x.com/SLEEPYRED999"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 text-xs font-medium text-neutral-300 hover:text-white transition-all"
+          >
+            <Share2 className="w-3.5 h-3.5 text-sky-400" />
+            <span>X (Twitter)</span>
+            <ExternalLink className="w-3 h-3 text-neutral-500" />
+          </a>
+          <a
+            href="https://discord.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 text-xs font-medium text-neutral-300 hover:text-white transition-all"
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Discord</span>
+            <ExternalLink className="w-3 h-3 text-neutral-500" />
+          </a>
+        </div>
       </header>
 
-      <section className="space-y-6">
-        {posts?.map((post) => {
-          // Detectamos si el post incluye campo 'image_url' o 'cover_url' en Supabase,
-          // o usamos la imagen local de 'criss-angel' guardada en public/images/releases/criss-angel.jpg
-          const coverImage = post.image_url || post.cover_url || 
-            (post.title?.toLowerCase().includes('criss angel') ? '/images/releases/criss-angel.jpg' : null)
+      {/* Featured Posts Carousel */}
+      <PostCarousel posts={posts} />
 
-          return (
-            <article 
-              key={post.id} 
-              className="border border-neutral-800/80 rounded-xl p-5 space-y-4 bg-neutral-900/40 backdrop-blur-md hover:border-red-900/40 transition-colors overflow-hidden"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs uppercase tracking-wider font-semibold text-red-500 bg-red-950/50 px-2.5 py-1 rounded-md border border-red-900/30">
-                  {post.category}
-                </span>
-                <span className="text-xs text-neutral-500">
-                  {new Date(post.created_at).toLocaleDateString()}
-                </span>
-              </div>
-
-              {/* 
-                IMAGEN DE PORTADA INTERACTIVA:
-                - Enlazada dinámicamente mediante la etiqueta <Link href={`/posts/${post.id}`}> (la cual genera una etiqueta HTML <a>).
-                - Permite al usuario hacer clic en la imagen para ingresar directamente al post especializado.
-                - Incluye estado hover con zoom suave (scale-105) y anillo de foco para accesibilidad teclado.
-                - Optimización de carga: 'priority' activo en la imagen LCP principal, y 'sizes' responsivo para evitar descargar peso innecesario.
-              */}
-              {coverImage && (
-                <Link
-                  href={`/posts/${post.id}`}
-                  aria-label={`Ver publicación completa: ${post.title}`}
-                  className="group/img block relative w-full aspect-video sm:aspect-[2/1] rounded-lg overflow-hidden border border-neutral-800/80 bg-neutral-950 focus:outline-none focus:ring-2 focus:ring-red-600 transition-all cursor-pointer"
-                >
-                  <Image 
-                    src={coverImage} 
-                    alt={post.title}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 700px"
-                    className="object-cover group-hover/img:scale-105 transition-transform duration-500 transform-gpu"
-                    priority={post.title?.toLowerCase().includes('criss angel')}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/60 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                    <span className="text-xs font-semibold text-white bg-red-950/90 border border-red-800/60 px-2.5 py-1 rounded-md backdrop-blur-md shadow-lg">
-                      Ver Publicación Completa →
-                    </span>
-                  </div>
-                </Link>
-              )}
-
-              <div>
-                {/* 
-                  Enlazamos el título del post hacia su página especializada '/posts/[id]'.
-                  Next.js enrutará automáticamente esta URL hacia 'app/posts/[id]/page.tsx'.
-                */}
-                <h2 className="text-xl font-semibold text-white tracking-tight hover:text-red-400 transition-colors">
-                  <Link href={`/posts/${post.id}`}>
-                    {post.title}
-                  </Link>
-                </h2>
-                <p className="text-neutral-300 text-sm mt-2 whitespace-pre-line leading-relaxed">
-                  {post.content}
-                </p>
-              </div>
-
-              {/* Enlace o Reproductor Multimedia */}
-              {post.media_url && (
-                <div className="pt-2">
-                  <a 
-                    href={post.media_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-xs font-medium text-red-400 hover:text-red-300 bg-neutral-800/60 px-3 py-2 rounded-lg border border-neutral-700/50 transition-colors"
-                  >
-                    ▶ Escuchar / Ver recurso multimedia
-                  </a>
-                </div>
-              )}
-
-              {/* Bloque de Precio (si aplica) */}
-              {post.price > 0 && (
-                <div className="flex items-center justify-between pt-3 border-t border-neutral-800/60 text-xs">
-                  <span className="text-neutral-400 font-medium">Edición Digital Directa</span>
-                  <span className="font-mono bg-red-950/80 text-red-300 border border-red-800/50 px-2.5 py-1 rounded-md font-bold">
-                    ${post.price} USD
-                  </span>
-                </div>
-              )}
-            </article>
-          )
-        })}
-      </section>
+      {/* Interactive Post Feed with Anti SQL Injection Search */}
+      <PostFeedClient posts={posts} />
     </main>
   )
 }

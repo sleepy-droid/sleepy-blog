@@ -1,11 +1,44 @@
 import Link from 'next/link'
-import { LogIn, UserPlus, LogOut, Shield, User } from 'lucide-react'
+import Image from 'next/image'
+import { LogIn, UserPlus, LogOut, Shield, Library, User } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { logout } from '@/app/auth/actions'
 
+function AvatarChip({
+  name,
+  avatarUrl,
+  href,
+}: {
+  name: string
+  avatarUrl?: string | null
+  href: string
+}) {
+  const initial = name.charAt(0).toUpperCase()
+
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-2 max-w-[160px] group"
+      title="Ver perfil"
+    >
+      <span className="relative w-7 h-7 rounded-full overflow-hidden border border-red-900/50 bg-neutral-900 shrink-0 ring-1 ring-red-950/40 group-hover:ring-red-600/50 transition-all">
+        {avatarUrl ? (
+          <Image src={avatarUrl} alt={name} fill className="object-cover" sizes="28px" />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center text-[11px] font-bold text-red-300">
+            {initial}
+          </span>
+        )}
+      </span>
+      <span className="truncate text-xs font-medium text-white group-hover:text-red-300 transition-colors">
+        {name}
+      </span>
+    </Link>
+  )
+}
+
 /**
  * Botones de auth del Navbar (Server Component).
- * Lee la sesión en el servidor → no hay flash de "no logueado" tan agresivo.
  */
 export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
   const user = await getCurrentUser()
@@ -53,19 +86,35 @@ export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
   }
 
   const name = user.profile?.display_name || user.email?.split('@')[0] || 'Miembro'
+  const username = user.profile?.username
+  const profileHref = username ? `/u/${username}` : '/perfil'
+  const avatarUrl = user.profile?.avatar_url
 
   if (mobile) {
     return (
       <div className="pt-3 border-t border-neutral-800/80 flex flex-col gap-2">
-        <div className="flex items-center gap-2 px-3 py-2 text-xs text-neutral-300">
-          <User className="w-3.5 h-3.5 text-red-400" />
-          <span className="font-medium text-white truncate">{name}</span>
+        <div className="flex items-center gap-2 px-3 py-2">
+          <AvatarChip name={name} avatarUrl={avatarUrl} href={profileHref} />
           {user.isAdmin && (
             <span className="ml-auto text-[9px] font-bold uppercase tracking-wide text-red-300 bg-red-950 border border-red-900/60 px-1.5 py-0.5 rounded">
               Admin
             </span>
           )}
         </div>
+        <Link
+          href="/library"
+          className="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-lg hover:text-white"
+        >
+          <Library className="w-3.5 h-3.5 text-red-400" />
+          Biblioteca
+        </Link>
+        <Link
+          href="/profile"
+          className="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-lg hover:text-white"
+        >
+          <User className="w-3.5 h-3.5 text-red-400" />
+          Perfil
+        </Link>
         {user.isAdmin && (
           <Link
             href="/admin"
@@ -90,6 +139,13 @@ export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
 
   return (
     <div className="hidden md:flex items-center gap-2">
+      <Link
+        href="/library"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-300 hover:text-white rounded-lg hover:bg-neutral-800/60 border border-transparent hover:border-neutral-700/50 transition-all"
+      >
+        <Library className="w-3.5 h-3.5 text-red-400" />
+        Biblioteca
+      </Link>
       {user.isAdmin && (
         <Link
           href="/admin"
@@ -99,10 +155,7 @@ export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
           Admin
         </Link>
       )}
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-neutral-300 max-w-[140px]">
-        <User className="w-3.5 h-3.5 text-red-400 shrink-0" />
-        <span className="truncate font-medium text-white">{name}</span>
-      </span>
+      <AvatarChip name={name} avatarUrl={avatarUrl} href={profileHref} />
       <form action={logout}>
         <button
           type="submit"

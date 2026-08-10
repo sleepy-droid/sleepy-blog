@@ -42,10 +42,11 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
   const isAdminRoute = pathname.startsWith('/admin')
-  const isAuthRoute = pathname.startsWith('/auth')
+  const isLibraryRoute = pathname.startsWith('/biblioteca')
+  const isPerfilRoute = pathname.startsWith('/perfil')
 
-  // Solo /admin exige sesión. El resto del sitio es público.
-  if (isAdminRoute && !user) {
+  // Rutas que exigen sesión (no todo el sitio público)
+  if ((isAdminRoute || isLibraryRoute || isPerfilRoute) && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     url.searchParams.set('next', pathname)
@@ -58,9 +59,6 @@ export async function updateSession(request: NextRequest) {
     url.pathname = '/'
     return NextResponse.redirect(url)
   }
-
-  // Evitar warning de variable no usada si isAuthRoute se usa en el futuro
-  void isAuthRoute
 
   return supabaseResponse
 }

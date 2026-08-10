@@ -7,12 +7,17 @@ import { createComment, type CommentActionState } from '@/app/comments/actions'
 const initialState: CommentActionState = {}
 
 type CommentFormProps = {
-  postId: string
+  postId?: string
+  targetType?: 'post' | 'product' | 'forum_thread' | 'profile_update'
+  targetId?: string
 }
 
-export function CommentForm({ postId }: CommentFormProps) {
+export function CommentForm({ postId, targetType = 'post', targetId }: CommentFormProps) {
   const [state, formAction, pending] = useActionState(createComment, initialState)
   const formRef = useRef<HTMLFormElement>(null)
+
+  const effectiveTargetId = targetId || postId || ''
+  const effectiveTargetType = targetType || (postId ? 'post' : 'product')
 
   useEffect(() => {
     if (state?.success) {
@@ -22,7 +27,9 @@ export function CommentForm({ postId }: CommentFormProps) {
 
   return (
     <form ref={formRef} action={formAction} className="space-y-3">
-      <input type="hidden" name="post_id" value={postId} />
+      <input type="hidden" name="post_id" value={postId || effectiveTargetId} />
+      <input type="hidden" name="target_type" value={effectiveTargetType} />
+      <input type="hidden" name="target_id" value={effectiveTargetId} />
       <label htmlFor="body" className="block text-xs font-medium text-neutral-300">
         Escribe un comentario
       </label>

@@ -4,6 +4,7 @@ import { useActionState } from 'react'
 import Link from 'next/link'
 import { LogIn, Loader2 } from 'lucide-react'
 import { login, type AuthActionState } from '@/app/auth/actions'
+import { PasswordInput } from '@/components/auth/PasswordInput'
 
 const initialState: AuthActionState = {}
 
@@ -33,21 +34,12 @@ export function LoginForm({ next = '/' }: LoginFormProps) {
         />
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor="password" className="block text-xs font-medium text-neutral-300">
-          Contraseña
-        </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          minLength={8}
-          placeholder="••••••••"
-          className="w-full rounded-lg border border-neutral-800 bg-neutral-950/80 px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 outline-none focus:border-red-700/60 focus:ring-2 focus:ring-red-900/40"
-        />
-      </div>
+      <PasswordInput
+        id="password"
+        name="password"
+        label="Contraseña"
+        autoComplete="current-password"
+      />
 
       {state?.error && (
         <div

@@ -5,12 +5,24 @@ import { deleteComment } from '@/app/comments/actions'
 import { CommentForm } from '@/components/comments/CommentForm'
 
 type CommentListProps = {
-  postId: string
+  postId?: string
+  targetType?: 'post' | 'product' | 'forum_thread' | 'profile_update'
+  targetId?: string
   comments: CommentWithAuthor[]
   currentUser: AppUser | null
 }
 
-export function CommentList({ postId, comments, currentUser }: CommentListProps) {
+export function CommentList({
+  postId,
+  targetType = 'post',
+  targetId,
+  comments,
+  currentUser,
+}: CommentListProps) {
+  const effectiveTargetId = targetId || postId || ''
+  const effectiveTargetType = targetType || (postId ? 'post' : 'product')
+  const returnUrl = effectiveTargetType === 'product' ? `/shop/${effectiveTargetId}` : `/posts/${effectiveTargetId}`
+
   return (
     <section className="space-y-5 border-t border-neutral-800/80 pt-8">
       <div className="flex items-center gap-2">
@@ -25,7 +37,7 @@ export function CommentList({ postId, comments, currentUser }: CommentListProps)
 
       {currentUser ? (
         <div className="rounded-xl border border-neutral-800/80 bg-neutral-950/40 p-4">
-          <CommentForm postId={postId} />
+          <CommentForm postId={postId} targetType={effectiveTargetType} targetId={effectiveTargetId} />
         </div>
       ) : (
         <div className="rounded-xl border border-red-950/40 bg-red-950/10 p-4 text-center space-y-2">
@@ -33,7 +45,7 @@ export function CommentList({ postId, comments, currentUser }: CommentListProps)
             Inicia sesión para unirte a la conversación.
           </p>
           <Link
-            href={`/auth/login?next=${encodeURIComponent(`/posts/${postId}`)}`}
+            href={`/auth/login?next=${encodeURIComponent(returnUrl)}`}
             className="inline-flex text-xs font-semibold text-red-400 hover:text-red-300"
           >
             Iniciar sesión →

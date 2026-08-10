@@ -160,19 +160,75 @@ export async function adminUpdateComment(
 }
 
 /**
- * Eliminar comentario desde admin.
+ * Ocultar comentario (moderación suave para spam).
+ */
+export async function adminHideComment(formData: FormData): Promise<void> {
+  const admin = await requireAdmin()
+
+  const id = String(formData.get('id') ?? '').trim()
+  const postId = String(formData.get('post_id') ?? '').trim()
+  const targetId = String(formData.get('target_id') ?? postId).trim()
+  if (!id) return
+
+  const supabase = await createClient()
+  await supabase
+    .from('comments')
+    .update({
+      status: 'hidden',
+      hidden_at: new Date().toISOString(),
+      hidden_by: admin.id,
+    })
+    .eq('id', id)
+
+  if (targetId) revalidatePath(`/posts/${targetId}`)
+  if (targetId) revalidatePath(`/shop/${targetId}`)
+  revalidatePath('/admin')
+  revalidatePath('/admin/comments')
+}
+
+/**
+ * Restablecer comentario a visible.
+ */
+export async function adminRestoreComment(formData: FormData): Promise<void> {
+  await requireAdmin()
+
+  const id = String(formData.get('id') ?? '').trim()
+  const postId = String(formData.get('post_id') ?? '').trim()
+  const targetId = String(formData.get('target_id') ?? postId).trim()
+  if (!id) return
+
+  const supabase = await createClient()
+  await supabase
+    .from('comments')
+    .update({
+      status: 'visible',
+      hidden_at: null,
+      hidden_by: null,
+    })
+    .eq('id', id)
+
+  if (targetId) revalidatePath(`/posts/${targetId}`)
+  if (targetId) revalidatePath(`/shop/${targetId}`)
+  revalidatePath('/admin')
+  revalidatePath('/admin/comments')
+}
+
+/**
+ * Eliminar comentario permanentemente desde admin.
  */
 export async function adminDeleteComment(formData: FormData): Promise<void> {
   await requireAdmin()
 
   const id = String(formData.get('id') ?? '').trim()
   const postId = String(formData.get('post_id') ?? '').trim()
+  const targetId = String(formData.get('target_id') ?? postId).trim()
   if (!id) return
 
   const supabase = await createClient()
   await supabase.from('comments').delete().eq('id', id)
 
-  if (postId) revalidatePath(`/posts/${postId}`)
+  if (targetId) revalidatePath(`/posts/${targetId}`)
+  if (targetId) revalidatePath(`/shop/${targetId}`)
   revalidatePath('/admin')
   revalidatePath('/admin/comments')
 }

@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { ShoppingBag, Users, Menu, X, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
+// Nav: Productos + Comunidad (foro)
 
 type NavbarProps = {
   /** Slot de auth desktop (Server Component renderizado en layout) */
@@ -41,8 +42,8 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
   }, [pathname])
 
   const navItems = [
-    { label: 'Shop', href: '/shop', icon: ShoppingBag, badge: 'NUEVO' },
-    { label: 'Comunidad', href: '/community', icon: Users },
+    { label: 'Productos', href: '/shop', icon: ShoppingBag, badge: 'NUEVO' },
+    { label: 'Foro', href: '/community', icon: Users },
   ]
 
   return (
