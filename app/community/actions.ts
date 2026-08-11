@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 
@@ -66,7 +67,7 @@ export async function createForumThread(
     upvotes: 1,
   }
 
-  const { error } = await supabase.from('forum_threads').insert(insertData)
+  const { data, error } = await supabase.from('forum_threads').insert(insertData).select('id').single()
 
   if (error) {
     return { error: error.message || 'No se pudo crear el hilo en el foro.' }
@@ -75,5 +76,5 @@ export async function createForumThread(
   revalidatePath('/community')
   revalidatePath('/')
   revalidatePath('/admin')
-  return { success: 'Hilo publicado exitosamente en el foro.' }
+  redirect(`/community/${data.id}`)
 }

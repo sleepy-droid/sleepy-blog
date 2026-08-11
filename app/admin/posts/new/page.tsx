@@ -43,7 +43,7 @@ export default function NewPostPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-neutral-300">Categoría</label>
+              <label className="block text-xs font-medium text-neutral-300">Categoría General</label>
               <input
                 type="text"
                 name="category"
@@ -53,12 +53,34 @@ export default function NewPostPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-neutral-300">Precio USD (Opcional)</label>
+              <label className="block text-xs font-medium text-neutral-300">Etiqueta del Carrusel (Highlight Tag)</label>
+              <input
+                type="text"
+                name="highlight_tag"
+                placeholder="Lanzamiento Destacado, Avance, Historia..."
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-sans"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-neutral-300">Precio USD Manual (Opcional)</label>
               <input
                 type="number"
                 step="0.01"
                 name="price"
                 placeholder="12.00"
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-neutral-300">ID de Producto Vinculado (Opcional)</label>
+              <input
+                type="text"
+                name="linked_product_id"
+                placeholder="UUID de la canción o hoodie..."
                 className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
               />
             </div>

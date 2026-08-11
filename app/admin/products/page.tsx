@@ -56,7 +56,7 @@ export default async function AdminProductsPage() {
                 <th className="p-4">Categoría</th>
                 <th className="p-4">Formato</th>
                 <th className="p-4">Precio</th>
-                <th className="p-4 text-right">Ver</th>
+                <th className="p-4 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-900">
@@ -74,7 +74,7 @@ export default async function AdminProductsPage() {
                       <div>
                         <h3 className="font-bold text-white line-clamp-1">{p.name}</h3>
                         <p className="text-[11px] text-neutral-500 font-mono">
-                          {p.slug}
+                          ID: #{p.id.slice(0, 8)} • {p.slug}
                         </p>
                       </div>
                     </div>
@@ -100,13 +100,21 @@ export default async function AdminProductsPage() {
                     {formatPrice(p.price_cents, p.currency)}
                   </td>
 
-                  <td className="p-4 text-right">
+                  <td className="p-4 text-right space-x-2">
+                    <Link
+                      href={`/admin/products/${p.id}/edit`}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-950 text-red-300 hover:bg-red-900 border border-red-800 transition-colors font-bold"
+                    >
+                      <span>Editar</span>
+                    </Link>
+
                     <Link
                       href={`/shop/${p.slug || p.id}`}
+                      target="_blank"
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white border border-neutral-800 transition-colors"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Tienda</span>
+                      <span>Ver</span>
                     </Link>
                   </td>
                 </tr>

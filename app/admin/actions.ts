@@ -28,6 +28,8 @@ export async function createPost(
   const title = String(formData.get('title') ?? '').trim()
   const content = String(formData.get('content') ?? '').trim()
   const category = String(formData.get('category') ?? '').trim() || 'General'
+  const highlight_tag = String(formData.get('highlight_tag') ?? '').trim() || null
+  const linked_product_id = String(formData.get('linked_product_id') ?? '').trim() || null
   const image_url = String(formData.get('image_url') ?? '').trim() || null
   const media_url = String(formData.get('media_url') ?? '').trim() || null
   const price = parsePrice(formData.get('price'))
@@ -41,16 +43,18 @@ export async function createPost(
 
   const supabase = await createClient()
 
-  // Try inserting with both image_url and cover_url to satisfy any Supabase schema version
   const postPayload: Record<string, unknown> = {
     title,
     content,
     category,
+    highlight_tag,
+    linked_product_id,
     image_url,
     cover_url: image_url,
     media_url,
     price,
     is_published: true,
+    status: 'visible',
   }
 
   let { data, error } = await supabase
@@ -89,6 +93,8 @@ export async function updatePost(
   const title = String(formData.get('title') ?? '').trim()
   const content = String(formData.get('content') ?? '').trim()
   const category = String(formData.get('category') ?? '').trim() || 'General'
+  const highlight_tag = String(formData.get('highlight_tag') ?? '').trim() || null
+  const linked_product_id = String(formData.get('linked_product_id') ?? '').trim() || null
   const image_url = String(formData.get('image_url') ?? '').trim() || null
   const media_url = String(formData.get('media_url') ?? '').trim() || null
   const price = parsePrice(formData.get('price'))
@@ -104,6 +110,8 @@ export async function updatePost(
     title,
     content,
     category,
+    highlight_tag,
+    linked_product_id,
     image_url,
     cover_url: image_url,
     media_url,
@@ -130,6 +138,29 @@ export async function updatePost(
   revalidatePath('/admin')
   revalidatePath('/admin/posts')
   return { success: 'Publicación actualizada.' }
+}
+
+/**
+ * Alternar visibilidad de un post (Ocultar / Archivar sin eliminar).
+ */
+export async function adminTogglePostVisibility(formData: FormData): Promise<void> {
+  await requireAdmin()
+
+  const id = String(formData.get('id') ?? '').trim()
+  const currentStatus = String(formData.get('status') ?? 'visible').trim()
+  if (!id) return
+
+  const newStatus = currentStatus === 'visible' ? 'hidden' : 'visible'
+
+  const supabase = await createClient()
+  await supabase
+    .from('posts')
+    .update({ status: newStatus, is_published: newStatus === 'visible' })
+    .eq('id', id)
+
+  revalidatePath('/')
+  revalidatePath('/admin')
+  revalidatePath('/admin/posts')
 }
 
 /**
@@ -350,4 +381,72 @@ export async function createProduct(
   revalidatePath('/admin')
   revalidatePath('/admin/products')
   redirect('/admin/products?created=1')
+}
+
+/**
+ * Actualizar producto existente (ej. cambiar precio a $0.99).
+ */
+export async function updateProduct(
+  _prev: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  await requireAdmin()
+
+  const id = String(formData.get('id') ?? '').trim()
+  const name = String(formData.get('name') ?? '').trim()
+  const description = String(formData.get('description') ?? '').trim()
+  const category = String(formData.get('category') ?? 'music').trim()
+  const fulfillment = String(formData.get('fulfillment') ?? 'digital').trim()
+  const price_cents = Math.round(Number(formData.get('price') || 0) * 100)
+  const thumbnail_url = String(formData.get('thumbnail_url') ?? '').trim() || null
+  const mp3_url = String(formData.get('mp3_url') ?? '').trim() || null
+  const wav_url = String(formData.get('wav_url') ?? '').trim() || null
+
+  if (!id || !name) {
+    return { error: 'ID y Nombre de producto son obligatorios.' }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('products')
+    .update({
+      name,
+      description,
+      category,
+      fulfillment,
+      price_cents,
+      thumbnail_url,
+      mp3_url,
+      wav_url,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+
+  if (error) {
+    return { error: error.message || 'No se pudo actualizar el producto.' }
+  }
+
+  revalidatePath('/shop')
+  revalidatePath(`/shop/${id}`)
+  revalidatePath('/admin')
+  revalidatePath('/admin/products')
+  return { success: 'Producto actualizado exitosamente.' }
+}
+
+/**
+ * Eliminar producto.
+ */
+export async function deleteProduct(formData: FormData): Promise<void> {
+  await requireAdmin()
+
+  const id = String(formData.get('id') ?? '').trim()
+  if (!id) return
+
+  const supabase = await createClient()
+  await supabase.from('products').delete().eq('id', id)
+
+  revalidatePath('/shop')
+  revalidatePath('/admin')
+  revalidatePath('/admin/products')
+  redirect('/admin/products')
 }

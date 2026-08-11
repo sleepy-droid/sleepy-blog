@@ -80,12 +80,13 @@ export default async function AdminUsersPage() {
                     </td>
 
                     <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${
+                      <span className={`whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${
                         p.role === 'admin'
                           ? 'bg-red-950 text-red-400 border-red-800'
                           : 'bg-neutral-900 text-neutral-400 border-neutral-800'
                       }`}>
-                        {p.role === 'admin' ? '🛡️ Admin' : '👤 Usuario'}
+                        <span>{p.role === 'admin' ? '🛡️' : '👤'}</span>
+                        <span>{p.role === 'admin' ? 'Admin' : 'Usuario'}</span>
                       </span>
                     </td>
 

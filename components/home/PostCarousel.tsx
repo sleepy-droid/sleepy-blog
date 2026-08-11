@@ -53,16 +53,35 @@ export function PostCarousel({ posts }: PostCarouselProps) {
 
       {/* Content Overlay */}
       <div className="relative z-10 p-6 sm:p-8 flex flex-col justify-between h-full space-y-6">
-        <div className="flex items-center justify-between">
-          <span className="text-xs uppercase tracking-wider font-semibold text-red-400 bg-red-950/90 border border-red-900/60 px-3 py-1 rounded-full backdrop-blur-md flex items-center gap-1.5 shadow-md">
-            <Sparkles className="w-3.5 h-3.5" />
-            Lanzamiento Destacado
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-xs uppercase tracking-wider font-semibold text-red-400 bg-red-950/90 border border-red-900/60 px-3 py-1 rounded-full backdrop-blur-md flex items-center gap-1.5 shadow-md truncate max-w-[220px]">
+            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+            <span>{activePost.highlight_tag || activePost.category || 'Lanzamiento Destacado'}</span>
           </span>
 
-          <div className="flex items-center gap-1 bg-neutral-950/80 backdrop-blur-md px-2.5 py-1 rounded-full border border-neutral-800 text-[11px] font-mono text-neutral-400">
-            <span>{currentIndex + 1}</span>
-            <span>/</span>
-            <span>{carouselPosts.length}</span>
+          {/* Top Controls: Prev / Next Buttons + Slide Counter outside text area */}
+          <div className="flex items-center gap-2 bg-neutral-950/80 backdrop-blur-md px-3 py-1 rounded-full border border-neutral-800 text-[11px] font-mono text-neutral-300 shadow-md shrink-0">
+            {carouselPosts.length > 1 && (
+              <button
+                onClick={prevSlide}
+                aria-label="Anterior publicación"
+                className="p-1 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            <span>{currentIndex + 1} / {carouselPosts.length}</span>
+
+            {carouselPosts.length > 1 && (
+              <button
+                onClick={nextSlide}
+                aria-label="Siguiente publicación"
+                className="p-1 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -100,38 +119,20 @@ export function PostCarousel({ posts }: PostCarouselProps) {
         </div>
       </div>
 
-      {/* Slide Navigation Buttons */}
+      {/* Dots Indicator */}
       {carouselPosts.length > 1 && (
-        <>
-          <button
-            onClick={prevSlide}
-            aria-label="Anterior publicación"
-            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-neutral-950/70 border border-neutral-800 text-white hover:bg-red-950 hover:border-red-800 opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-20"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={nextSlide}
-            aria-label="Siguiente publicación"
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-neutral-950/70 border border-neutral-800 text-white hover:bg-red-950 hover:border-red-800 opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-20"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-
-          {/* Dots Indicator */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
-            {carouselPosts.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentIndex(idx)}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  currentIndex === idx ? 'w-6 bg-red-500' : 'w-1.5 bg-neutral-600 hover:bg-neutral-400'
-                }`}
-                aria-label={`Ir al slide ${idx + 1}`}
-              />
-            ))}
-          </div>
-        </>
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+          {carouselPosts.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentIndex(idx)}
+              className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                currentIndex === idx ? 'w-6 bg-red-500' : 'w-1.5 bg-neutral-600 hover:bg-neutral-400'
+              }`}
+              aria-label={`Ir al slide ${idx + 1}`}
+            />
+          ))}
+        </div>
       )}
     </section>
   )

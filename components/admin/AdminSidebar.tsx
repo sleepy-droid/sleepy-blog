@@ -5,7 +5,10 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   FileText,
+  ShoppingBag,
   MessageSquare,
+  Flame,
+  Users,
   ArrowLeft,
   Shield,
 } from 'lucide-react'
@@ -14,7 +17,10 @@ import { cn } from '@/lib/utils'
 const links = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard, exact: true },
   { href: '/admin/posts', label: 'Publicaciones', icon: FileText },
+  { href: '/admin/products', label: 'Productos', icon: ShoppingBag },
   { href: '/admin/comments', label: 'Comentarios', icon: MessageSquare },
+  { href: '/admin/community', label: 'Foro Comunidad', icon: Flame },
+  { href: '/admin/users', label: 'Usuarios', icon: Users },
 ]
 
 export function AdminSidebar({ adminName }: { adminName: string }) {

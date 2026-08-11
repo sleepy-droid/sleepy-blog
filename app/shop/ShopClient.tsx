@@ -155,39 +155,30 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
         </div>
       </div>
 
-      {/* DISTINCT MUSIC HIGHLIGHT SECTION (If 'all' or 'music' tab selected) */}
-      {(activeTab === 'all' || activeTab === 'music') && musicProducts.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 border-b border-neutral-800/80 pb-2">
-            <Music className="w-4 h-4 text-red-400" />
-            <h2 className="text-lg font-bold text-white tracking-tight">Lanzamientos Musicales Directos</h2>
-            <span className="text-xs font-mono text-neutral-400">({musicProducts.length})</span>
+      {/* UNIFIED CATALOG GRID (Allows sorting $55 Hoodie above $12 Music) */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2">
+          <div className="flex items-center gap-2">
+            {activeTab === 'music' ? (
+              <Music className="w-4 h-4 text-red-400" />
+            ) : activeTab === 'physical' ? (
+              <Package className="w-4 h-4 text-red-400" />
+            ) : (
+              <Sparkles className="w-4 h-4 text-red-400" />
+            )}
+            <h2 className="text-lg font-bold text-white tracking-tight">
+              {activeTab === 'music' ? 'Lanzamientos Musicales Directos' : activeTab === 'physical' ? 'Merchandising & Ediciones Físicas' : 'Todos los Productos & Lanzamientos'}
+            </h2>
           </div>
+          <span className="text-xs font-mono text-neutral-400">({filteredProducts.length} productos)</span>
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {musicProducts.map((product) => (
-              <ProductCard key={product.id} product={product} isMusicSection={true} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* MERCH & PHYSICAL SECTION */}
-      {(activeTab === 'all' || activeTab === 'physical') && physicalProducts.length > 0 && (
-        <section className="space-y-4 pt-4">
-          <div className="flex items-center gap-2 border-b border-neutral-800/80 pb-2">
-            <Package className="w-4 h-4 text-red-400" />
-            <h2 className="text-lg font-bold text-white tracking-tight">Merchandising & Ediciones Físicas</h2>
-            <span className="text-xs font-mono text-neutral-400">({physicalProducts.length})</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {physicalProducts.map((product) => (
-              <ProductCard key={product.id} product={product} isMusicSection={false} />
-            ))}
-          </div>
-        </section>
-      )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredProducts.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      </section>
 
       {/* Empty State */}
       {filteredProducts.length === 0 && (
@@ -208,8 +199,8 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
   )
 }
 
-/** Product Card with 4:3 Vertical Aspect Ratio Container */
-function ProductCard({ product, isMusicSection }: { product: Product; isMusicSection: boolean }) {
+/** Product Card with 4:3 Vertical Aspect Ratio Container & Heart Likes beside price */
+function ProductCard({ product }: { product: Product }) {
   const targetHref = `/shop/${product.slug || product.id}`
 
   return (
@@ -238,7 +229,7 @@ function ProductCard({ product, isMusicSection }: { product: Product; isMusicSec
           {/* Top Badge: Category / Fulfillment */}
           <div className="absolute top-3 left-3">
             <span className="text-[10px] uppercase font-mono font-bold text-red-300 bg-red-950/90 border border-red-900/60 px-2.5 py-1 rounded-md backdrop-blur-md">
-              {isMusicSection ? 'Canción / Audio' : product.category}
+              {product.category === 'music' ? 'Música' : product.category}
             </span>
           </div>
 
@@ -266,9 +257,17 @@ function ProductCard({ product, isMusicSection }: { product: Product; isMusicSec
       </div>
 
       <div className="pt-3 border-t border-neutral-800/60 flex items-center justify-between mt-4">
-        <span className="text-base font-mono font-bold text-red-400">
-          {formatPrice(product.price_cents, product.currency)}
-        </span>
+        {/* Price & Heart Likes Count side by side */}
+        <div className="flex items-center gap-2">
+          <span className="text-base font-mono font-bold text-red-400">
+            {formatPrice(product.price_cents, product.currency)}
+          </span>
+          <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-neutral-400 bg-neutral-950 px-2 py-0.5 rounded-full border border-neutral-800">
+            <span className="text-red-500">❤️</span>
+            <span>{product.upvotes || 0}</span>
+          </span>
+        </div>
+
         <Link
           href={targetHref}
           className="px-3 py-1.5 text-xs font-semibold text-white bg-neutral-800 group-hover:bg-red-700 rounded-lg transition-all cursor-pointer flex items-center gap-1"

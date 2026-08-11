@@ -72,7 +72,7 @@ export default async function AdminDashboardPage() {
       label: 'Hilos del Foro',
       value: forumThreadsCount ?? 0,
       icon: Flame,
-      href: '/community',
+      href: '/admin/community',
       color: 'text-red-500',
     },
   ]

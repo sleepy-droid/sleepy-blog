@@ -82,8 +82,8 @@ export default async function PostPage({ params }: PostPageProps) {
 
   const { data: commentsData } = await supabase
     .from('comments')
-    .select('*, profiles:user_id (display_name, email, avatar_url)')
-    .eq('post_id', id)
+    .select('*, profiles:user_id (display_name, email, avatar_url, username)')
+    .or(`post_id.eq.${id},target_id.eq.${id}`)
     .order('created_at', { ascending: false })
 
   const comments = (commentsData ?? []) as CommentWithAuthor[]

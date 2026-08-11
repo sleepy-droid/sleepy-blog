@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { PlusCircle, Edit3, Trash2, ArrowLeft, FileText, Sparkles, ExternalLink } from 'lucide-react'
 import type { Post } from '@/lib/types'
-import { deletePost } from '../actions'
+import { deletePost, adminTogglePostVisibility } from '../actions'
 
 export const metadata = {
   title: 'Gestión de Publicaciones | Panel Admin sleepyred999',
@@ -103,6 +103,21 @@ export default async function AdminPostsPage() {
                       <Edit3 className="w-3.5 h-3.5 text-sky-400" />
                       <span>Editar</span>
                     </Link>
+
+                    <form action={adminTogglePostVisibility} className="inline-block">
+                      <input type="hidden" name="id" value={post.id} />
+                      <input type="hidden" name="status" value={post.status || (post.is_published === false ? 'hidden' : 'visible')} />
+                      <button
+                        type="submit"
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                          post.status === 'hidden' || post.is_published === false
+                            ? 'bg-amber-950 text-amber-300 border-amber-800'
+                            : 'bg-neutral-900 text-neutral-300 hover:text-white border-neutral-800'
+                        }`}
+                      >
+                        {post.status === 'hidden' || post.is_published === false ? 'Oculto (Mostrar)' : 'Ocultar'}
+                      </button>
+                    </form>
 
                     <form action={deletePost} className="inline-block">
                       <input type="hidden" name="id" value={post.id} />

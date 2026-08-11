@@ -37,6 +37,9 @@ export type Post = {
   cover_url?: string | null
   media_url?: string | null
   price?: number | null
+  highlight_tag?: string | null
+  linked_product_id?: string | null
+  linked_product?: Product | null
   is_featured?: boolean
   is_published?: boolean
   view_count?: number

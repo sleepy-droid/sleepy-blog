@@ -288,17 +288,17 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
             <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
               <span className="text-neutral-500 block text-[10px] uppercase">Portada HD</span>
-              <span className="text-emerald-400 font-semibold">{product.thumbnail_url ? 'Incluido (HD 3000x3000px)' : 'No disponible'}</span>
+              <span className="text-neutral-200 font-semibold">{product.thumbnail_url ? 'Incluido (HD 3000x3000px)' : 'No disponible'}</span>
             </div>
 
             <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
               <span className="text-neutral-500 block text-[10px] uppercase">Audio WAV Máster</span>
-              <span className="text-emerald-400 font-semibold">{product.wav_url || isMusic ? 'Incluido (24-bit / 44.1kHz)' : 'N/A'}</span>
+              <span className="text-neutral-200 font-semibold">{product.wav_url || isMusic ? 'Incluido (24-bit / 44.1kHz)' : 'N/A'}</span>
             </div>
 
             <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
               <span className="text-neutral-500 block text-[10px] uppercase">Audio MP3 320kbps</span>
-              <span className="text-emerald-400 font-semibold">{product.mp3_url || isMusic ? 'Incluido' : 'N/A'}</span>
+              <span className="text-neutral-200 font-semibold">{product.mp3_url || isMusic ? 'Incluido' : 'N/A'}</span>
             </div>
 
             <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
@@ -309,21 +309,21 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
             {product.video_url && (
               <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
                 <span className="text-neutral-500 block text-[10px] uppercase">Vídeo Oficial</span>
-                <span className="text-purple-400 font-semibold">Disponible (HD Video)</span>
+                <span className="text-neutral-200 font-semibold">Disponible (HD Video)</span>
               </div>
             )}
 
             {product.acapella_url && (
               <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
                 <span className="text-neutral-500 block text-[10px] uppercase">Vocal Acapella</span>
-                <span className="text-amber-400 font-semibold">Disponible (Stem WAV)</span>
+                <span className="text-neutral-200 font-semibold">Disponible (Stem WAV)</span>
               </div>
             )}
 
             {product.instrumental_url && (
               <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
                 <span className="text-neutral-500 block text-[10px] uppercase">Pista Instrumental</span>
-                <span className="text-sky-400 font-semibold">Disponible (Beat WAV)</span>
+                <span className="text-neutral-200 font-semibold">Disponible (Beat WAV)</span>
               </div>
             )}
 
@@ -339,31 +339,33 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
           </div>
         </div>
 
-        {/* Rating & Upvote / Downvote Section */}
-        <div className="flex items-center justify-between bg-neutral-950/80 border border-neutral-800 p-3 rounded-2xl">
-          <span className="text-xs font-semibold text-neutral-400">Calificación del producto:</span>
+        {/* Rating & Heart (❤️) / Broken Heart (💔) Voting Section */}
+        <div className="flex items-center justify-between bg-neutral-950/80 border border-neutral-800 p-3.5 rounded-2xl">
+          <span className="text-xs font-semibold text-neutral-400">Votación del producto:</span>
           <div className="flex items-center gap-2">
             <button
               onClick={() => handleVote(1)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
                 userVote === 1
-                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                  ? 'bg-red-950 text-red-400 border border-red-800 shadow-[0_0_10px_rgba(220,38,38,0.3)]'
                   : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
               }`}
+              title="Me gusta este producto"
             >
-              <ThumbsUp className="w-3.5 h-3.5" />
+              <span>❤️</span>
               <span>{upvotes}</span>
             </button>
+
             <button
               onClick={() => handleVote(-1)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
                 userVote === -1
-                  ? 'bg-red-950 text-red-400 border border-red-800'
-                  : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                  ? 'bg-neutral-800 text-neutral-200 border border-neutral-700'
+                  : 'bg-neutral-900 text-neutral-500 hover:text-neutral-300 border border-neutral-800'
               }`}
+              title="No me convence este producto"
             >
-              <ThumbsDown className="w-3.5 h-3.5" />
-              <span>{downvotes}</span>
+              <span>💔</span>
             </button>
           </div>
         </div>

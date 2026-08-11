@@ -12,7 +12,7 @@ type AdminCommentListProps = {
 }
 
 export function AdminCommentList({ comments }: AdminCommentListProps) {
-  const [activeTab, setActiveTab] = useState<'posts' | 'products' | 'forum'>('posts')
+  const [activeTab, setActiveTab] = useState<'all' | 'posts' | 'products' | 'forum'>('all')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
 
@@ -32,13 +32,26 @@ export function AdminCommentList({ comments }: AdminCommentListProps) {
   const activeComments = useMemo(() => {
     if (activeTab === 'posts') return postComments
     if (activeTab === 'products') return productComments
-    return forumComments
-  }, [activeTab, postComments, productComments, forumComments])
+    if (activeTab === 'forum') return forumComments
+    return comments
+  }, [activeTab, comments, postComments, productComments, forumComments])
 
   return (
     <div className="space-y-6">
-      {/* 3 Categories Filter Tabs */}
+      {/* Categories Filter Tabs */}
       <div className="flex items-center gap-2 bg-neutral-900/60 p-1.5 rounded-2xl border border-neutral-800 backdrop-blur-md overflow-x-auto text-xs font-medium">
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'all'
+              ? 'bg-red-950 text-white border border-red-800/80 font-bold shadow-md'
+              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+          }`}
+        >
+          <MessageSquare className="w-3.5 h-3.5 text-red-400" />
+          <span>Todos los Comentarios ({comments.length})</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('posts')}
           className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
@@ -48,7 +61,7 @@ export function AdminCommentList({ comments }: AdminCommentListProps) {
           }`}
         >
           <FileText className="w-3.5 h-3.5 text-red-400" />
-          <span>Comentarios de Publicaciones ({postComments.length})</span>
+          <span>Publicaciones ({postComments.length})</span>
         </button>
 
         <button
@@ -60,7 +73,7 @@ export function AdminCommentList({ comments }: AdminCommentListProps) {
           }`}
         >
           <ShoppingBag className="w-3.5 h-3.5 text-red-400" />
-          <span>Comentarios de Productos ({productComments.length})</span>
+          <span>Productos ({productComments.length})</span>
         </button>
 
         <button
@@ -72,7 +85,7 @@ export function AdminCommentList({ comments }: AdminCommentListProps) {
           }`}
         >
           <Users className="w-3.5 h-3.5 text-red-400" />
-          <span>Comentarios del Foro ({forumComments.length})</span>
+          <span>Foro ({forumComments.length})</span>
         </button>
       </div>
 

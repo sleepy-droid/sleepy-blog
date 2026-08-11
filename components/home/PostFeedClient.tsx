@@ -44,7 +44,9 @@ export function PostFeedClient({ posts }: PostFeedClientProps) {
       })
       .sort((a, b) => {
         if (sortBy === 'popular') {
-          return (b.like_count || b.view_count || 0) - (a.like_count || a.view_count || 0)
+          const likesDiff = (b.like_count || 0) - (a.like_count || 0)
+          if (likesDiff !== 0) return likesDiff
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         }
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       })
@@ -125,7 +127,7 @@ export function PostFeedClient({ posts }: PostFeedClientProps) {
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs uppercase tracking-wider font-semibold text-red-500 bg-red-950/50 px-2.5 py-1 rounded-md border border-red-900/30">
-                  {post.category || 'Lanzamiento'}
+                  {post.highlight_tag || post.category || 'Lanzamiento'}
                 </span>
                 <span className="text-xs font-mono text-neutral-500">
                   {new Date(post.created_at).toLocaleDateString('es-ES', {
@@ -184,10 +186,18 @@ export function PostFeedClient({ posts }: PostFeedClientProps) {
 
               {/* Card Footer Actions: Likes & Price / Link */}
               <div className="flex items-center justify-between pt-3 border-t border-neutral-800/60 text-xs">
-                <PostLikeButton postId={post.id} initialLikes={post.like_count || 45} />
+                <PostLikeButton postId={post.id} initialLikes={post.like_count || 0} />
 
                 <div className="flex items-center gap-3">
-                  {post.price && post.price > 0 ? (
+                  {post.linked_product ? (
+                    <Link
+                      href={`/shop/${post.linked_product.slug || post.linked_product.id}`}
+                      className="font-mono bg-red-950/80 text-red-300 border border-red-800/50 px-3 py-1 rounded-lg font-bold hover:bg-red-900 transition-colors flex items-center gap-1.5"
+                    >
+                      <span>{post.linked_product.name}:</span>
+                      <span>${(post.linked_product.price_cents / 100).toFixed(2)} USD</span>
+                    </Link>
+                  ) : post.price && post.price > 0 ? (
                     <Link 
                       href={`/posts/${post.id}`}
                       className="font-mono bg-red-950/80 text-red-300 border border-red-800/50 px-3 py-1 rounded-lg font-bold hover:bg-red-900 transition-colors"
