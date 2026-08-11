@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Search, Flame, Clock, Play, ArrowRight, Camera, MessageSquare, Share2 } from 'lucide-react'
 import { sanitizeSearch } from '@/lib/search'
+import { PostLikeButton } from './PostLikeButton'
 import type { Post } from '@/lib/types'
 
 type PostFeedClientProps = {
@@ -181,17 +182,29 @@ export function PostFeedClient({ posts }: PostFeedClientProps) {
                 </div>
               )}
 
-              {post.price && post.price > 0 ? (
-                <div className="flex items-center justify-between pt-3 border-t border-neutral-800/60 text-xs">
-                  <span className="text-neutral-400 font-medium">Edición Digital Directa</span>
-                  <Link 
-                    href={`/posts/${post.id}`}
-                    className="font-mono bg-red-950/80 text-red-300 border border-red-800/50 px-3 py-1 rounded-lg font-bold hover:bg-red-900 transition-colors"
-                  >
-                    ${post.price} USD
-                  </Link>
+              {/* Card Footer Actions: Likes & Price / Link */}
+              <div className="flex items-center justify-between pt-3 border-t border-neutral-800/60 text-xs">
+                <PostLikeButton postId={post.id} initialLikes={post.like_count || 45} />
+
+                <div className="flex items-center gap-3">
+                  {post.price && post.price > 0 ? (
+                    <Link 
+                      href={`/posts/${post.id}`}
+                      className="font-mono bg-red-950/80 text-red-300 border border-red-800/50 px-3 py-1 rounded-lg font-bold hover:bg-red-900 transition-colors"
+                    >
+                      ${post.price} USD
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/posts/${post.id}`}
+                      className="text-neutral-400 hover:text-white font-medium flex items-center gap-1"
+                    >
+                      <span>Leer completo</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  )}
                 </div>
-              ) : null}
+              </div>
             </article>
           )
         })}

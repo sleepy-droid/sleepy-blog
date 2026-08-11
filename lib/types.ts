@@ -17,6 +17,10 @@ export type Profile = {
   banner_url: string | null
   favorite_product_id: string | null
   is_public: boolean
+  birthday?: string | null
+  gender?: 'male' | 'female' | 'gender_neutral' | 'unspecified' | null
+  status_update?: string | null
+  can_comment?: boolean
   role: UserRole
   created_at: string
   updated_at: string
@@ -108,6 +112,7 @@ export type Order = {
   total_cents: number
   currency: string
   shipping_address?: string | null
+  billing_info?: string | null
   notes?: string | null
   created_at: string
   updated_at: string

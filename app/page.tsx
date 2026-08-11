@@ -75,39 +75,7 @@ export default async function Home() {
           Novedades, lanzamientos directos de audio sin compresión, tienda exclusiva y comunidad.
         </p>
 
-        {/* Social Media Link Placeholders (Instagram, X, Discord) */}
-        <div className="pt-2 flex flex-wrap items-center gap-2">
-          <a
-            href="https://instagram.com/sleepyred999"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 text-xs font-medium text-neutral-300 hover:text-white transition-all"
-          >
-            <Camera className="w-3.5 h-3.5 text-pink-500" />
-            <span>Instagram</span>
-            <ExternalLink className="w-3 h-3 text-neutral-500" />
-          </a>
-          <a
-            href="https://x.com/SLEEPYRED999"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 text-xs font-medium text-neutral-300 hover:text-white transition-all"
-          >
-            <Share2 className="w-3.5 h-3.5 text-sky-400" />
-            <span>X (Twitter)</span>
-            <ExternalLink className="w-3 h-3 text-neutral-500" />
-          </a>
-          <a
-            href="https://discord.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 text-xs font-medium text-neutral-300 hover:text-white transition-all"
-          >
-            <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Discord</span>
-            <ExternalLink className="w-3 h-3 text-neutral-500" />
-          </a>
-        </div>
+
       </header>
 
       {/* Featured Posts Carousel */}

@@ -283,28 +283,59 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
         <div className="border border-neutral-800 rounded-2xl p-4 bg-neutral-950/60 space-y-3">
           <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
             <Tag className="w-3.5 h-3.5 text-red-400" />
-            Especificaciones Técnicas
+            Especificaciones Técnicas del Proyecto
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
-            {product.specs && Object.keys(product.specs).length > 0 ? (
-              Object.entries(product.specs).map(([key, val]) => (
-                <div key={key} className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
-                  <span className="text-neutral-500 block text-[10px] uppercase">{key}</span>
-                  <span className="text-neutral-200 font-semibold">{val}</span>
-                </div>
-              ))
-            ) : (
-              <>
-                <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
-                  <span className="text-neutral-500 block text-[10px] uppercase">Formato</span>
-                  <span className="text-neutral-200 font-semibold">{product.fulfillment === 'digital' ? 'Digital Download' : 'Físico'}</span>
-                </div>
-                <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
-                  <span className="text-neutral-500 block text-[10px] uppercase">Estado</span>
-                  <span className="text-neutral-200 font-semibold">Disponible</span>
-                </div>
-              </>
+            <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
+              <span className="text-neutral-500 block text-[10px] uppercase">Portada HD</span>
+              <span className="text-emerald-400 font-semibold">{product.thumbnail_url ? 'Incluido (HD 3000x3000px)' : 'No disponible'}</span>
+            </div>
+
+            <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
+              <span className="text-neutral-500 block text-[10px] uppercase">Audio WAV Máster</span>
+              <span className="text-emerald-400 font-semibold">{product.wav_url || isMusic ? 'Incluido (24-bit / 44.1kHz)' : 'N/A'}</span>
+            </div>
+
+            <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
+              <span className="text-neutral-500 block text-[10px] uppercase">Audio MP3 320kbps</span>
+              <span className="text-emerald-400 font-semibold">{product.mp3_url || isMusic ? 'Incluido' : 'N/A'}</span>
+            </div>
+
+            <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
+              <span className="text-neutral-500 block text-[10px] uppercase">PDF de Letras & Arte</span>
+              <span className="text-neutral-200 font-semibold">Incluido</span>
+            </div>
+
+            {product.video_url && (
+              <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
+                <span className="text-neutral-500 block text-[10px] uppercase">Vídeo Oficial</span>
+                <span className="text-purple-400 font-semibold">Disponible (HD Video)</span>
+              </div>
             )}
+
+            {product.acapella_url && (
+              <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
+                <span className="text-neutral-500 block text-[10px] uppercase">Vocal Acapella</span>
+                <span className="text-amber-400 font-semibold">Disponible (Stem WAV)</span>
+              </div>
+            )}
+
+            {product.instrumental_url && (
+              <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
+                <span className="text-neutral-500 block text-[10px] uppercase">Pista Instrumental</span>
+                <span className="text-sky-400 font-semibold">Disponible (Beat WAV)</span>
+              </div>
+            )}
+
+            <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
+              <span className="text-neutral-500 block text-[10px] uppercase">Licencia</span>
+              <span className="text-neutral-200 font-semibold">Uso Personal & Colección</span>
+            </div>
+
+            <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
+              <span className="text-neutral-500 block text-[10px] uppercase">Tamaño del Proyecto</span>
+              <span className="text-neutral-200 font-semibold">{product.fulfillment === 'digital' ? '~245 MB' : 'Envío Físico'}</span>
+            </div>
           </div>
         </div>
 

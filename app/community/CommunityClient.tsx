@@ -3,9 +3,9 @@
 import { useState, useMemo, useActionState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { PlusCircle, MessageSquare, Tag, Video, Sparkles, X, Search, Flame, Clock, ThumbsUp, ThumbsDown, ArrowRight, ShoppingBag } from 'lucide-react'
+import { PlusCircle, MessageSquare, Tag, Video, Sparkles, X, Search, Flame, Clock, ThumbsUp, ArrowRight, ShoppingBag, Check } from 'lucide-react'
 import { createForumThread, type ThreadActionState } from './actions'
-import { formatPrice, type AppUser, type Product } from '@/lib/types'
+import { formatPrice, type AppUser } from '@/lib/types'
 import type { ThreadWithAuthor } from './page'
 
 type CommunityClientProps = {
@@ -22,7 +22,11 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
   const [searchRaw, setSearchRaw] = useState('')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [selectedProductTag, setSelectedProductTag] = useState<string | null>(null)
-  const [sortBy, setSortBy] = useState<'rating' | 'recent'>('rating')
+  const [sortBy, setSortBy] = useState<'rating' | 'recent'>('recent')
+
+  // Product tagging autocomplete state
+  const [productSearchInput, setProductSearchInput] = useState('')
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
 
   const [state, formAction, pending] = useActionState(createForumThread, initialState)
   const formRef = useRef<HTMLFormElement>(null)
@@ -31,6 +35,8 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
     if (state?.success) {
       formRef.current?.reset()
       setShowForm(false)
+      setSelectedProductIds([])
+      setProductSearchInput('')
     }
   }, [state?.success])
 
@@ -61,6 +67,7 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
         if (sortBy === 'rating') {
           return (b.upvotes || 0) - (a.upvotes || 0)
         }
+        // Strict chronological sort (newer posts first)
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       })
   }, [threads, searchRaw, selectedTag, selectedProductTag, sortBy])
@@ -71,42 +78,54 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
     return products.find((p) => p.slug === selectedProductTag || p.id === selectedProductTag) || null
   }, [products, selectedProductTag])
 
+  // Product autocomplete list for creation
+  const filteredProductOptions = useMemo(() => {
+    if (!productSearchInput.trim()) return products
+    const q = productSearchInput.toLowerCase()
+    return products.filter((p) => p.name.toLowerCase().includes(q))
+  }, [products, productSearchInput])
+
+  const clearAllFilters = () => {
+    setSelectedTag(null)
+    setSelectedProductTag(null)
+    setSearchRaw('')
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Product Showcase Banner (Displayed when filtering by product tag) */}
-      {showcaseProduct && (
-        <div className="bg-gradient-to-r from-red-950/80 via-neutral-950 to-neutral-900 border border-red-900/60 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl animate-in fade-in duration-300">
-          <div className="flex items-center gap-4">
-            <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800 shrink-0">
-              {showcaseProduct.thumbnail_url ? (
+    <div className="space-y-6 font-sans">
+      {/* Product Showcase Banner & Clear Filter CTA */}
+      {(showcaseProduct || selectedTag || selectedProductTag || searchRaw) && (
+        <div className="bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-950 border border-neutral-800 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3">
+            {showcaseProduct?.thumbnail_url && (
+              <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800 shrink-0">
                 <Image src={showcaseProduct.thumbnail_url} alt={showcaseProduct.name} fill className="object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-[10px] text-neutral-600">Tienda</div>
-              )}
-            </div>
+              </div>
+            )}
             <div>
-              <span className="text-[10px] font-mono font-bold uppercase text-red-400">Producto Vinculado en el Foro</span>
-              <h3 className="text-sm font-bold text-white line-clamp-1">{showcaseProduct.name}</h3>
-              {showcaseProduct.price_cents && (
-                <p className="text-xs font-mono font-bold text-red-400">{formatPrice(showcaseProduct.price_cents)}</p>
-              )}
+              <span className="text-[10px] font-mono font-bold uppercase text-red-400">Filtro Activo</span>
+              <h3 className="text-sm font-bold text-white">
+                {showcaseProduct ? showcaseProduct.name : selectedTag ? `#${selectedTag}` : `Búsqueda: "${searchRaw}"`}
+              </h3>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <Link
-              href={`/shop/${showcaseProduct.slug || showcaseProduct.id}`}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 transition-colors shadow-md"
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              <span>Ver Producto en Tienda</span>
-            </Link>
+            {showcaseProduct && (
+              <Link
+                href={`/shop/${showcaseProduct.slug || showcaseProduct.id}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 transition-colors"
+              >
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>Ver en Tienda</span>
+              </Link>
+            )}
             <button
-              onClick={() => setSelectedProductTag(null)}
-              className="p-2 text-neutral-500 hover:text-white rounded-xl bg-neutral-900 border border-neutral-800"
-              title="Quitar filtro"
+              onClick={clearAllFilters}
+              className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl text-xs font-bold text-red-400 bg-red-950/80 border border-red-900/60 hover:bg-red-900 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
+              <span>Eliminar Filtros</span>
             </button>
           </div>
         </div>
@@ -135,18 +154,9 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
             )}
           </div>
 
-          {/* Rating Sort Toggle */}
+          {/* Rating / Recent Sort Toggle */}
           <div className="flex items-center gap-2">
             <div className="flex bg-neutral-950 p-1 rounded-xl border border-neutral-800 text-xs">
-              <button
-                type="button"
-                onClick={() => setSortBy('rating')}
-                className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer ${
-                  sortBy === 'rating' ? 'bg-red-950 text-white font-semibold border border-red-800/60' : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <Flame className="w-3 h-3 text-red-400" /> Mejor Valorados
-              </button>
               <button
                 type="button"
                 onClick={() => setSortBy('recent')}
@@ -155,6 +165,15 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
                 }`}
               >
                 <Clock className="w-3 h-3 text-red-400" /> Recientes
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortBy('rating')}
+                className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer ${
+                  sortBy === 'rating' ? 'bg-red-950 text-white font-semibold border border-red-800/60' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Flame className="w-3 h-3 text-red-400" /> Votos
               </button>
             </div>
 
@@ -182,9 +201,9 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
         <div className="flex items-center gap-1.5 overflow-x-auto text-xs pt-1">
           <span className="text-neutral-500 font-mono text-[11px]">Etiquetas:</span>
           <button
-            onClick={() => { setSelectedTag(null); setSelectedProductTag(null); }}
-            className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
-              !selectedTag && !selectedProductTag ? 'bg-red-950 text-white border border-red-800' : 'bg-neutral-950 text-neutral-400 hover:text-white'
+            onClick={clearAllFilters}
+            className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-colors cursor-pointer ${
+              !selectedTag && !selectedProductTag ? 'bg-red-950 text-white border border-red-800 font-bold' : 'bg-neutral-950 text-neutral-400 hover:text-white'
             }`}
           >
             Todas
@@ -193,7 +212,7 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
             <button
               key={tag}
               onClick={() => { setSelectedTag(selectedTag === tag ? null : tag); setSelectedProductTag(null); }}
-              className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
+              className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-colors cursor-pointer ${
                 selectedTag === tag ? 'bg-red-950 text-white border border-red-800 font-bold' : 'bg-neutral-950 text-neutral-400 hover:text-white'
               }`}
             >
@@ -233,31 +252,58 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-neutral-300">Etiquetar Producto del Catálogo</label>
-              <select
-                name="linked_product_id"
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-red-600 cursor-pointer font-sans"
-              >
-                <option value="">-- Ninguno (Discusión General) --</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-neutral-300">Etiquetas (separadas por comas)</label>
+          {/* Typing Product Autocomplete Input & Selector */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-neutral-300">
+              Etiquetar Productos de la Tienda (Escribe para buscar)
+            </label>
+            <div className="space-y-2">
               <input
                 type="text"
-                name="tags"
-                placeholder="Música, Fotografía, 2026…"
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
+                value={productSearchInput}
+                onChange={(e) => setProductSearchInput(e.target.value)}
+                placeholder="Escribe el nombre de la canción o hoodie…"
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-sans"
               />
+
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 bg-neutral-950 border border-neutral-800 rounded-xl">
+                {filteredProductOptions.map((p) => {
+                  const isSelected = selectedProductIds.includes(p.id)
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedProductIds(selectedProductIds.filter((id) => id !== p.id))
+                        } else {
+                          setSelectedProductIds([...selectedProductIds, p.id])
+                        }
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-red-950 text-red-300 border border-red-800 font-bold'
+                          : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3 h-3 text-red-400" />}
+                      <span>{p.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <input type="hidden" name="linked_product_id" value={selectedProductIds[0] || ''} />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-neutral-300">Etiquetas (separadas por comas)</label>
+            <input
+              type="text"
+              name="tags"
+              placeholder="Música, Fotografía, 2026…"
+              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -288,7 +334,7 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-neutral-300">URL de Imagen Adjunta (Opcional)</label>
+              <label className="block text-xs font-medium text-neutral-300">URL de Imagen (Opcional)</label>
               <input
                 type="url"
                 name="image_url"
@@ -313,42 +359,60 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
         </form>
       )}
 
-      {/* Threads Feed (Excerpts & Clean Preview without full YouTube embed on main list) */}
+      {/* Threads Feed */}
       <div className="space-y-4">
         {filteredThreads.map((thread) => {
           const authorName = thread.profiles?.display_name || thread.profiles?.username || thread.profiles?.email?.split('@')[0] || 'Miembro'
+          const authorUsername = thread.profiles?.username || thread.profiles?.email?.split('@')[0] || thread.author_id
           const authorAvatar = thread.profiles?.avatar_url
+
+          // Linked product details
+          const linkedProduct = products.find(p => p.slug === thread.linked_product_id || p.id === thread.linked_product_id) || thread.products
 
           return (
             <article
               key={thread.id}
               className="group border border-neutral-800/80 rounded-2xl p-5 space-y-3 bg-neutral-900/40 backdrop-blur-md hover:border-red-900/60 transition-all duration-200"
             >
-              {/* Header: Author, Tags & Product Badge */}
+              {/* Header: Clickable Author Profile & Product Tag with Thumbnail */}
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800/60 pb-2.5">
-                <div className="flex items-center gap-2.5">
-                  <div className="relative w-6 h-6 rounded-full overflow-hidden border border-red-900/50 bg-neutral-950 shrink-0">
+                <Link
+                  href={`/u/${authorUsername}`}
+                  className="flex items-center gap-2.5 group/author hover:text-red-400 transition-colors"
+                >
+                  <div className="relative w-7 h-7 rounded-full overflow-hidden border border-red-900/50 bg-neutral-950 shrink-0">
                     {authorAvatar ? (
                       <Image src={authorAvatar} alt={authorName} fill className="object-cover" />
                     ) : (
-                      <span className="flex h-full w-full items-center justify-center text-[10px] font-bold text-red-400">
+                      <span className="flex h-full w-full items-center justify-center text-xs font-bold text-red-400">
                         {authorName.charAt(0).toUpperCase()}
                       </span>
                     )}
                   </div>
-                  <span className="text-xs font-bold text-white">@{authorName}</span>
-                </div>
+                  <span className="text-xs font-bold text-white group-hover/author:text-red-400 transition-colors">
+                    @{authorName}
+                  </span>
+                </Link>
 
                 <div className="flex items-center gap-2 text-xs font-mono">
-                  {thread.products && (
+                  {linkedProduct && (
                     <button
-                      onClick={() => setSelectedProductTag(thread.products?.slug || thread.linked_product_id || null)}
-                      className="inline-flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-950/80 border border-red-900/60 px-2 py-0.5 rounded-full hover:bg-red-900 transition-colors"
+                      onClick={() => {
+                        const tagVal = linkedProduct.slug || ('id' in linkedProduct ? (linkedProduct as { id?: string }).id : null)
+                        if (tagVal) setSelectedProductTag(tagVal)
+                      }}
+                      className="inline-flex items-center gap-1.5 text-[10px] font-bold text-red-400 bg-red-950/80 border border-red-900/60 px-2.5 py-1 rounded-full hover:bg-red-900 transition-colors cursor-pointer"
                     >
+                      {Boolean(('thumbnail_url' in linkedProduct) && (linkedProduct as { thumbnail_url?: string | null }).thumbnail_url) && (
+                        <div className="relative w-3.5 h-3.5 rounded-full overflow-hidden shrink-0 border border-neutral-800">
+                          <Image src={(linkedProduct as { thumbnail_url?: string }).thumbnail_url!} alt="" fill className="object-cover" />
+                        </div>
+                      )}
                       <Tag className="w-3 h-3" />
-                      <span>{thread.products.name}</span>
+                      <span>{linkedProduct.name}</span>
                     </button>
                   )}
+
                   <time dateTime={thread.created_at} className="text-neutral-500 text-[10px]">
                     {new Date(thread.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                   </time>
@@ -367,11 +431,11 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
                 </p>
               </div>
 
-              {/* Footer Actions: Upvote Count, Reply count & "Leer más →" Link */}
+              {/* Footer Actions: Upvote Net Count & "Leer más →" Link */}
               <div className="flex items-center justify-between pt-3 border-t border-neutral-800/60 text-xs">
                 <div className="flex items-center gap-4 font-mono text-neutral-400">
                   <span className="flex items-center gap-1 text-red-400 font-bold">
-                    <ThumbsUp className="w-3.5 h-3.5" /> {thread.upvotes || 0}
+                    <ThumbsUp className="w-3.5 h-3.5" /> {thread.upvotes || 0} votos
                   </span>
                   <span className="flex items-center gap-1">
                     <MessageSquare className="w-3.5 h-3.5 text-neutral-500" /> Discusión
@@ -391,8 +455,14 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
         })}
 
         {filteredThreads.length === 0 && (
-          <div className="p-8 text-center border border-neutral-800 rounded-2xl text-neutral-400 text-sm">
-            No se encontraron hilos de la comunidad para este filtro.
+          <div className="p-8 text-center border border-neutral-800 rounded-2xl text-neutral-400 text-sm space-y-2">
+            <p>No se encontraron hilos de la comunidad para este filtro.</p>
+            <button
+              onClick={clearAllFilters}
+              className="text-xs font-bold text-red-400 hover:underline cursor-pointer"
+            >
+              Ver todos los hilos
+            </button>
           </div>
         )}
       </div>

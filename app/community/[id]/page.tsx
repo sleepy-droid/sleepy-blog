@@ -121,17 +121,17 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
 
   const comments = (commentsData ?? []) as CommentWithAuthor[]
 
-  // 3. Fetch Sidebar threads (latest & highest rated)
+  // 3. Fetch Sidebar threads (latest & highest rated, excluding current thread)
   const { data: sidebarData } = await supabase
     .from('forum_threads')
     .select('id, title, upvotes, created_at')
     .neq('id', thread.id)
     .eq('status', 'visible')
-    .order('created_at', { ascending: false })
+    .order('upvotes', { ascending: false })
     .limit(5)
 
-  const sidebarThreads = sidebarData || [
-    { id: 'demo-thread-2', title: '¿Cuándo llega el próximo restock de los Hoodies Neón?', upvotes: 28, created_at: new Date().toISOString() }
+  const sidebarThreads = (sidebarData && sidebarData.length > 0) ? sidebarData : [
+    { id: 'demo-thread-2', title: '¿Cuándo llega el próximo restock de los Hoodies Neón?', upvotes: 28, created_at: new Date(Date.now() - 86400000).toISOString() },
   ]
 
   return (

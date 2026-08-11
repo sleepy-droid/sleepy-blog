@@ -96,7 +96,7 @@ export default async function LibraryPage() {
       },
       variantLabel: 'Talla XL',
       quantity: 1,
-      status: 'shipped' as const,
+      status: 'processing' as const,
       created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
     },
   ]

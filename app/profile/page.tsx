@@ -1,20 +1,10 @@
-/**
- * User Profile Page: /profile
- * File Path: app/profile/page.tsx
- * 
- * Features MySpace-like experience:
- * 1. Banner & Avatar customization.
- * 2. Favorite song tag with Medal/Badge if owned in library (`library_items`).
- * 3. Status updates feed (`profile_updates`).
- * 4. User activity (comments on songs & posts).
- */
-
 import Link from 'next/link'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { Award, Music, Sparkles, MessageSquare, ShieldCheck, Camera, Edit3 } from 'lucide-react'
+import { Award, Music, Sparkles, MessageSquare, ShieldCheck, Camera, Edit3, Cake, UserCheck, Calendar } from 'lucide-react'
+import { ProfileEditForm } from './ProfileEditForm'
 
 export default async function ProfilePage() {
   const currentUser = await getCurrentUser()
@@ -53,6 +43,18 @@ export default async function ProfilePage() {
   const username = profile?.username || currentUser.email?.split('@')[0] || 'user'
   const bannerUrl = profile?.banner_url || '/images/releases/criss-angel.jpg'
   const avatarUrl = profile?.avatar_url
+  const statusUpdate = profile?.status_update || 'Disfrutando los lanzamientos oficiales en máster sin compresión.'
+  const birthday = profile?.birthday
+  const gender = profile?.gender
+
+  const getGenderLabel = (g?: string | null) => {
+    switch (g) {
+      case 'male': return 'Hombre ♂'
+      case 'female': return 'Mujer ♀'
+      case 'gender_neutral': return 'Género Neutro ⚥'
+      default: return 'No especificado'
+    }
+  }
 
   return (
     <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8 font-sans">
@@ -87,7 +89,7 @@ export default async function ProfilePage() {
                 <h1 className="text-2xl font-extrabold text-white tracking-tight">{name}</h1>
                 {currentUser.isAdmin && (
                   <span className="text-[10px] font-bold uppercase tracking-wider text-red-300 bg-red-950 border border-red-900 px-2 py-0.5 rounded-full">
-                    Admin
+                    Creador / Admin
                   </span>
                 )}
               </div>
@@ -100,23 +102,32 @@ export default async function ProfilePage() {
               href="/library"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-800 hover:bg-red-700 transition-colors shadow-md"
             >
-              <span>Ir a Biblioteca</span>
+              <span>Mi Biblioteca</span>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* MySpace Favorite Song & Badge Section */}
+      {/* Status Update Feed Banner */}
+      <section className="bg-neutral-900/60 border border-neutral-800 p-4 rounded-2xl flex items-center gap-3 backdrop-blur-md">
+        <Sparkles className="w-5 h-5 text-red-400 shrink-0" />
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <span className="text-[10px] font-mono uppercase text-red-400 font-bold block">Status Update Actual</span>
+          <p className="text-xs font-medium text-neutral-200 italic truncate">"{statusUpdate}"</p>
+        </div>
+      </section>
+
+      {/* Personal Info & Favorite Song Grid */}
       <section className="grid grid-cols-1 md:grid-cols-12 gap-6">
         <div className="md:col-span-6 border border-neutral-800/90 rounded-2xl p-5 bg-neutral-900/40 backdrop-blur-md space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
             <div className="flex items-center gap-2">
               <Music className="w-4 h-4 text-red-400" />
-              <h2 className="text-sm font-bold text-white">Canción Favorita</h2>
+              <h2 className="text-sm font-bold text-white">Canción Favorita & Medalla</h2>
             </div>
             {hasPurchasedFav && (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-950/80 border border-amber-800/60 px-2.5 py-0.5 rounded-full">
-                <Award className="w-3 h-3 text-amber-400" /> Medalla de Coleccionista
+                <Award className="w-3 h-3 text-amber-400" /> Medalla de Creador
               </span>
             )}
           </div>
@@ -135,14 +146,30 @@ export default async function ProfilePage() {
               <p className="text-xs text-neutral-400 font-mono mt-0.5">sleepyred999</p>
             </div>
           </div>
+
+          {/* Birthday & Gender Info Badges */}
+          <div className="pt-2 border-t border-neutral-800/60 grid grid-cols-2 gap-2 text-xs font-mono">
+            <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800/80 space-y-0.5">
+              <span className="text-[10px] text-neutral-500 flex items-center gap-1">
+                <Cake className="w-3 h-3 text-pink-400" /> Cumpleaños
+              </span>
+              <span className="text-neutral-200 font-semibold block">{birthday || 'No especificado'}</span>
+            </div>
+            <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800/80 space-y-0.5">
+              <span className="text-[10px] text-neutral-500 flex items-center gap-1">
+                <UserCheck className="w-3 h-3 text-sky-400" /> Género
+              </span>
+              <span className="text-neutral-200 font-semibold block">{getGenderLabel(gender)}</span>
+            </div>
+          </div>
         </div>
 
-        {/* User Bio & Updates Feed */}
+        {/* User Bio & Edit Profile Form */}
         <div className="md:col-span-6 border border-neutral-800/90 rounded-2xl p-5 bg-neutral-900/40 backdrop-blur-md space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-red-400" />
-              <h2 className="text-sm font-bold text-white">Estado MySpace & Biografía</h2>
+              <Edit3 className="w-4 h-4 text-red-400" />
+              <h2 className="text-sm font-bold text-white">Biografía & Configuración</h2>
             </div>
           </div>
 
@@ -150,9 +177,7 @@ export default async function ProfilePage() {
             {profile?.bio || 'Miembro oficial de la comunidad sleepyred999. Apoyando producciones musicales y drops exclusivos.'}
           </p>
 
-          <div className="pt-2 border-t border-neutral-800/60 text-xs text-neutral-400 font-mono">
-            <span>Miembro desde {new Date(profile?.created_at || Date.now()).toLocaleDateString('es-ES')}</span>
-          </div>
+          <ProfileEditForm profile={profile} />
         </div>
       </section>
     </main>

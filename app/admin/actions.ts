@@ -16,7 +16,8 @@ function parsePrice(raw: FormDataEntryValue | null): number {
 }
 
 /**
- * Crear un post (solo admin).
+ * Crear un post (solo admin). Imagen NO es obligatoria.
+ * Guarda tanto image_url como cover_url para evitar errores de cache de esquema en Supabase.
  */
 export async function createPost(
   _prev: AdminActionState,
@@ -39,18 +40,31 @@ export async function createPost(
   }
 
   const supabase = await createClient()
-  const { data, error } = await supabase
+
+  // Try inserting with both image_url and cover_url to satisfy any Supabase schema version
+  const postPayload: Record<string, unknown> = {
+    title,
+    content,
+    category,
+    image_url,
+    cover_url: image_url,
+    media_url,
+    price,
+    is_published: true,
+  }
+
+  let { data, error } = await supabase
     .from('posts')
-    .insert({
-      title,
-      content,
-      category,
-      image_url,
-      media_url,
-      price,
-    })
+    .insert(postPayload)
     .select('id')
     .single()
+
+  if (error && error.message.includes('image_url')) {
+    delete postPayload.image_url
+    const res = await supabase.from('posts').insert(postPayload).select('id').single()
+    data = res.data
+    error = res.error
+  }
 
   if (error) {
     return { error: error.message || 'No se pudo crear la publicación.' }
@@ -59,7 +73,7 @@ export async function createPost(
   revalidatePath('/')
   revalidatePath('/admin')
   revalidatePath('/admin/posts')
-  redirect(`/admin/posts/${data.id}/edit?created=1`)
+  redirect(`/admin/posts/${data?.id}/edit?created=1`)
 }
 
 /**
@@ -85,17 +99,27 @@ export async function updatePost(
   }
 
   const supabase = await createClient()
-  const { error } = await supabase
+
+  const updatePayload: Record<string, unknown> = {
+    title,
+    content,
+    category,
+    image_url,
+    cover_url: image_url,
+    media_url,
+    price,
+  }
+
+  let { error } = await supabase
     .from('posts')
-    .update({
-      title,
-      content,
-      category,
-      image_url,
-      media_url,
-      price,
-    })
+    .update(updatePayload)
     .eq('id', id)
+
+  if (error && error.message.includes('image_url')) {
+    delete updatePayload.image_url
+    const res = await supabase.from('posts').update(updatePayload).eq('id', id)
+    error = res.error
+  }
 
   if (error) {
     return { error: error.message || 'No se pudo guardar.' }
@@ -224,6 +248,51 @@ export async function adminDeleteComment(formData: FormData): Promise<void> {
 }
 
 /**
+ * Moderar privilegios de comentario de un usuario (mutear spam sin quitar compras o cuenta).
+ */
+export async function toggleUserCommentPrivilege(formData: FormData): Promise<void> {
+  await requireAdmin()
+
+  const userId = String(formData.get('user_id') ?? '').trim()
+  const canComment = String(formData.get('can_comment') ?? '') === 'true'
+
+  if (!userId) return
+
+  const supabase = await createClient()
+  await supabase
+    .from('profiles')
+    .update({ can_comment: canComment })
+    .eq('id', userId)
+
+  revalidatePath('/admin/users')
+}
+
+/**
+ * Moderar hilos del foro desde admin (Ocultar / Eliminar hilos spam).
+ */
+export async function adminHideThread(formData: FormData): Promise<void> {
+  await requireAdmin()
+  const id = String(formData.get('id') ?? '').trim()
+  if (!id) return
+
+  const supabase = await createClient()
+  await supabase.from('forum_threads').update({ status: 'hidden' }).eq('id', id)
+  revalidatePath('/admin')
+  revalidatePath('/community')
+}
+
+export async function adminDeleteThread(formData: FormData): Promise<void> {
+  await requireAdmin()
+  const id = String(formData.get('id') ?? '').trim()
+  if (!id) return
+
+  const supabase = await createClient()
+  await supabase.from('forum_threads').delete().eq('id', id)
+  revalidatePath('/admin')
+  revalidatePath('/community')
+}
+
+/**
  * Crear producto en el catálogo (solo admin).
  */
 export async function createProduct(
@@ -282,4 +351,3 @@ export async function createProduct(
   revalidatePath('/admin/products')
   redirect('/admin/products?created=1')
 }
-

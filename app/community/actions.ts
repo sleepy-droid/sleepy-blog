@@ -39,6 +39,7 @@ export async function createForumThread(
   const body = String(formData.get('body') ?? '').trim()
   const imageUrl = String(formData.get('image_url') ?? '').trim()
   const linkedProductId = String(formData.get('linked_product_id') ?? '').trim()
+  const rawTags = String(formData.get('tags') ?? '').trim()
   const rawYoutubeUrl = String(formData.get('youtube_url') ?? '').trim()
 
   if (title.length < 3 || title.length > 150) {
@@ -48,23 +49,31 @@ export async function createForumThread(
     return { error: 'El contenido debe tener entre 5 y 5000 caracteres.' }
   }
 
+  const tags = rawTags ? rawTags.split(',').map((t) => t.trim()).filter(Boolean) : []
   const embedYoutube = rawYoutubeUrl ? extractYouTubeEmbedUrl(rawYoutubeUrl) : null
 
   const supabase = await createClient()
-  const { error } = await supabase.from('forum_threads').insert({
+
+  const insertData: Record<string, unknown> = {
     author_id: user.id,
     title,
     body,
     image_url: imageUrl || null,
     linked_product_id: linkedProductId || null,
+    tags,
     youtube_url: embedYoutube || rawYoutubeUrl || null,
     status: 'visible',
-  })
+    upvotes: 1,
+  }
+
+  const { error } = await supabase.from('forum_threads').insert(insertData)
 
   if (error) {
     return { error: error.message || 'No se pudo crear el hilo en el foro.' }
   }
 
   revalidatePath('/community')
+  revalidatePath('/')
+  revalidatePath('/admin')
   return { success: 'Hilo publicado exitosamente en el foro.' }
 }

@@ -2,7 +2,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/utils/supabase/server'
 import { requireAdmin } from '@/lib/auth'
-import { Users, ArrowLeft, Shield, User as UserIcon } from 'lucide-react'
+import { Users, ArrowLeft, Shield, VolumeX, CheckCircle, Ban } from 'lucide-react'
+import { toggleUserCommentPrivilege } from '../actions'
 import type { Profile } from '@/lib/types'
 
 export const metadata = {
@@ -30,10 +31,10 @@ export default async function AdminUsersPage() {
           <div>
             <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
               <Users className="w-6 h-6 text-red-500" />
-              Gestión de Usuarios y Roles
+              Gestión de Usuarios & Moderación de Comentarios
             </h1>
             <p className="text-xs text-neutral-400 mt-1">
-              Lista de miembros registrados en la plataforma sleepyred999.
+              Modera privilegios de comentario para cuentas sospechosas de spam sin eliminar sus compras o accesos.
             </p>
           </div>
         </div>
@@ -47,13 +48,14 @@ export default async function AdminUsersPage() {
                 <th className="p-4">Usuario</th>
                 <th className="p-4">Correo</th>
                 <th className="p-4">Rol</th>
-                <th className="p-4">Registro</th>
-                <th className="p-4 text-right">Perfil</th>
+                <th className="p-4">Permiso de Comentario</th>
+                <th className="p-4 text-right">Acciones de Moderación</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-900">
               {profiles.map((p) => {
                 const displayName = p.display_name || p.username || 'Miembro'
+                const canComment = p.can_comment !== false
 
                 return (
                   <tr key={p.id} className="hover:bg-neutral-900/40 transition-colors">
@@ -87,30 +89,44 @@ export default async function AdminUsersPage() {
                       </span>
                     </td>
 
-                    <td className="p-4 font-mono text-neutral-500">
-                      {new Date(p.created_at).toLocaleDateString('es-ES')}
+                    <td className="p-4">
+                      {canComment ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                          <CheckCircle className="w-3 h-3" /> Habilitado
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-950 text-amber-400 border border-amber-800">
+                          <Ban className="w-3 h-3" /> Restringido (Muted)
+                        </span>
+                      )}
                     </td>
 
-                    <td className="p-4 text-right">
+                    <td className="p-4 text-right space-x-2">
+                      <form action={toggleUserCommentPrivilege} className="inline-block">
+                        <input type="hidden" name="user_id" value={p.id} />
+                        <input type="hidden" name="can_comment" value={canComment ? 'false' : 'true'} />
+                        <button
+                          type="submit"
+                          className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                            canComment
+                              ? 'bg-amber-950 hover:bg-amber-900 text-amber-300 border-amber-800'
+                              : 'bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border-emerald-800'
+                          }`}
+                        >
+                          {canComment ? 'Restringir Comentarios' : 'Habilitar Comentarios'}
+                        </button>
+                      </form>
+
                       <Link
                         href={`/u/${p.username || p.id}`}
                         className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white border border-neutral-800 text-xs transition-colors"
                       >
-                        <UserIcon className="w-3.5 h-3.5" />
-                        <span>Ver Perfil</span>
+                        <span>Perfil</span>
                       </Link>
                     </td>
                   </tr>
                 )
               })}
-
-              {profiles.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-neutral-500 font-mono">
-                    No hay otros usuarios registrados en la base de datos local.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>

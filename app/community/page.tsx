@@ -37,6 +37,7 @@ export type ThreadWithAuthor = {
   products: {
     name: string
     slug: string
+    thumbnail_url?: string | null
   } | null
 }
 

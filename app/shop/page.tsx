@@ -103,18 +103,20 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const products: Product[] = (dbProducts && dbProducts.length > 0) ? dbProducts : SEED_PRODUCTS
 
   return (
-    <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-10 font-sans">
-      {/* Header Section */}
-      <header className="border-b border-neutral-800/80 pb-6 space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-950/60 border border-red-900/40 text-red-400">
-          <ShoppingBag className="w-3.5 h-3.5" />
-          <span>Tienda Oficial & Lanzamientos</span>
+    <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-4 font-sans">
+      {/* Compact Header Section */}
+      <header className="border-b border-neutral-800/80 pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-950/60 border border-red-900/40 text-red-400">
+            <ShoppingBag className="w-3 h-3" />
+            <span>Tienda Oficial & Lanzamientos</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white mt-1">
+            Catálogo de Productos
+          </h1>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-          Catálogo de Productos
-        </h1>
-        <p className="text-sm text-neutral-400 max-w-2xl leading-relaxed">
-          Adquiere producciones musicales originales en alta definición, merchandising oficial de edición limitada y pósters de colección.
+        <p className="text-xs text-neutral-400 max-w-md hidden sm:block text-right">
+          Música máster sin compresión y merchandising oficial.
         </p>
       </header>
 

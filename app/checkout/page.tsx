@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { ShieldCheck, CreditCard, CheckCircle2, ArrowLeft, Lock, Sparkles, Loader2 } from 'lucide-react'
+import { ShieldCheck, CreditCard, CheckCircle2, ArrowLeft, Lock, Sparkles, Loader2, User, AlertTriangle, MapPin } from 'lucide-react'
 import { useCart } from '@/lib/cart'
 import { formatPrice } from '@/lib/types'
 
@@ -14,10 +14,14 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
 
+  // Guest vs Logged-in state (Simulated check or prompt)
+  const [isGuest, setIsGuest] = useState(false)
+  const [useSavedAddress, setUseSavedAddress] = useState(true)
+
   const [formData, setFormData] = useState({
     name: 'Sleepy Member',
-    email: 'fan@example.com',
-    address: 'Calle 123 # 45 - 67',
+    email: 'member@sleepyred999.com',
+    address: 'Calle 123 # 45 - 67, Apt 402',
     city: 'Bogotá',
     country: 'Colombia',
   })
@@ -26,9 +30,13 @@ export default function CheckoutPage() {
 
   const handlePay = (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
 
-    // Simulate order placement
+    if (isGuest) {
+      alert('Debes iniciar sesión para que tus compras se guarden en tu biblioteca personal.')
+      return
+    }
+
+    setIsSubmitting(true)
     setTimeout(() => {
       setIsSubmitting(false)
       setIsCompleted(true)
@@ -44,9 +52,9 @@ export default function CheckoutPage() {
         </div>
 
         <div className="space-y-2">
-          <h1 className="text-3xl font-extrabold text-white">¡Pago Confirmado y Orden Recibida!</h1>
+          <h1 className="text-3xl font-extrabold text-white">¡Orden Confirmada y Procesando!</h1>
           <p className="text-sm text-neutral-300 max-w-md mx-auto">
-            Tu compra ha sido procesada con éxito. Los lanzamientos musicales ya están disponibles en tu biblioteca personal para escuchar o descargar offline.
+            Tu pedido ha sido procesado. Tus canciones ya están desbloqueadas en tu biblioteca y tus prendas físicas han entrado en estado <strong className="text-amber-400">Procesando</strong>.
           </p>
         </div>
 
@@ -55,7 +63,7 @@ export default function CheckoutPage() {
             href="/library"
             className="w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 transition-all shadow-lg"
           >
-            Ir a mi Biblioteca
+            Ver en mi Biblioteca
           </Link>
           <Link
             href="/shop"
@@ -85,10 +93,10 @@ export default function CheckoutPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
             <Lock className="w-5 h-5 text-red-500" />
-            Finalizar Compra Seguro
+            Finalizar Compra
           </h1>
           <p className="text-xs text-neutral-400 mt-1">
-            Ingresa tus datos para completar la orden y desbloquear tus descargas.
+            Revisa tu resumen de orden e ingresa tus datos de envío.
           </p>
         </div>
 
@@ -97,14 +105,81 @@ export default function CheckoutPage() {
         </Link>
       </header>
 
+      {/* Guest Warning Banner if Guest */}
+      {isGuest && (
+        <div className="bg-amber-950/80 border border-amber-800 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+            <p className="text-amber-200 font-medium">
+              Estás navegando como invitado. Para vincular esta compra a tu biblioteca personal y descargar archivos ilimitados, debes iniciar sesión.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/auth/login?next=/checkout"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 transition-colors"
+            >
+              Iniciar Sesión
+            </Link>
+            <Link
+              href="/auth/register?next=/checkout"
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-neutral-300 bg-neutral-900 border border-neutral-800 hover:text-white"
+            >
+              Registrarse
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Checkout Form */}
         <form onSubmit={handlePay} className="lg:col-span-7 space-y-6">
+          
+          {/* Address & Customer Info */}
           <div className="border border-neutral-800/80 bg-neutral-900/40 p-6 rounded-2xl space-y-4 backdrop-blur-md">
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 border-b border-neutral-800 pb-3">
-              <Sparkles className="w-4 h-4 text-red-500" />
-              Datos del Cliente
-            </h2>
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-red-500" />
+                Información de Cliente y Envío
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsGuest(!isGuest)}
+                className="text-[11px] text-neutral-400 hover:text-white font-mono underline"
+              >
+                {isGuest ? 'Modo Miembro' : 'Probar como Invitado'}
+              </button>
+            </div>
+
+            {/* Saved Address Selector for Recurring Buyers */}
+            {!isGuest && (
+              <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-800 space-y-2 text-xs">
+                <span className="text-neutral-400 font-bold block text-[11px]">Direcciones Guardadas:</span>
+                <div className="space-y-1 font-mono">
+                  <label className="flex items-center gap-2 text-neutral-200 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="address_option"
+                      checked={useSavedAddress}
+                      onChange={() => setUseSavedAddress(true)}
+                      className="accent-red-600"
+                    />
+                    <span>Usar dirección predeterminada ({formData.address})</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-neutral-200 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="address_option"
+                      checked={!useSavedAddress}
+                      onChange={() => setUseSavedAddress(false)}
+                      className="accent-red-600"
+                    />
+                    <span>Ingresar nueva información de envío</span>
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -130,10 +205,11 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {hasPhysical && (
+            {(hasPhysical || !useSavedAddress) && (
               <div className="space-y-3 pt-2">
-                <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider">
-                  Dirección de Envío (Para prendas / mercancía física)
+                <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-red-400" />
+                  Dirección de Envío & Facturación
                 </h3>
                 <div className="space-y-3">
                   <input
@@ -179,14 +255,14 @@ export default function CheckoutPage() {
                 <span className="text-emerald-400 font-bold">VERIFICADO</span>
               </div>
               <p className="text-[11px] text-neutral-500">
-                Simulación de transacción segura sin cobro real.
+                Simulación de pago sin cobro real.
               </p>
             </div>
           </div>
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isGuest}
             className="w-full py-4 px-6 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-red-700 via-red-600 to-red-700 hover:from-red-600 hover:to-red-600 active:scale-[0.99] border border-red-500/40 shadow-xl shadow-red-950 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {isSubmitting ? (
@@ -194,6 +270,8 @@ export default function CheckoutPage() {
                 <Loader2 className="w-5 h-5 animate-spin" />
                 <span>Procesando pago seguro…</span>
               </>
+            ) : isGuest ? (
+              <span>Inicia sesión para pagar</span>
             ) : (
               <>
                 <ShieldCheck className="w-5 h-5 text-white" />
