@@ -4,7 +4,7 @@ import { useState, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { ShoppingBag, Users, Menu, X, Sparkles, Globe } from 'lucide-react'
+import { ShoppingBag, Users, Menu, X, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCart } from '@/lib/cart'
 import { useLanguage } from '@/lib/i18n'
@@ -18,9 +18,15 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
   const pathname = usePathname()
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [prevPathname, setPrevPathname] = useState(pathname)
+
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname)
+    setMobileMenuOpen(false)
+  }
   
   const { totalItemsCount, setIsOpen: setCartOpen } = useCart()
-  const { lang, setLang, t } = useLanguage()
+  const { t } = useLanguage()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -32,10 +38,6 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
-
-  useEffect(() => {
-    setMobileMenuOpen(false)
-  }, [pathname])
 
   const navItems = [
     { label: t('nav_shop'), href: '/shop', icon: ShoppingBag, badge: 'NUEVO' },
@@ -111,26 +113,8 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
             })}
           </nav>
 
-          {/* Right Header Actions: Language Switcher, Cart Icon & Auth */}
-          <div className="flex items-center gap-3">
-            {/* Global ES / EN Language Toggle */}
-            <div className="flex items-center gap-1 bg-neutral-900/80 border border-neutral-800 px-2.5 py-1 rounded-full text-xs font-mono">
-              <Globe className="w-3.5 h-3.5 text-red-500" />
-              <button
-                onClick={() => setLang('es')}
-                className={cn('px-1 transition-colors cursor-pointer', lang === 'es' ? 'text-white font-bold' : 'text-neutral-500 hover:text-neutral-300')}
-              >
-                ES
-              </button>
-              <span className="text-neutral-700">|</span>
-              <button
-                onClick={() => setLang('en')}
-                className={cn('px-1 transition-colors cursor-pointer', lang === 'en' ? 'text-white font-bold' : 'text-neutral-500 hover:text-neutral-300')}
-              >
-                EN
-              </button>
-            </div>
-
+          {/* Right Header Actions: Shopping Cart & Auth Profile Menu */}
+          <div className="flex items-center gap-2.5">
             {/* Shopping Cart Button & Badge Counter */}
             <button
               type="button"
@@ -146,7 +130,7 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
               )}
             </button>
 
-            {/* Auth desktop */}
+            {/* Auth desktop (User Profile Menu on Hover or Guest Actions) */}
             {authDesktop}
 
             <div className="md:hidden flex items-center">

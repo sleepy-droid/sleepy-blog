@@ -1,14 +1,16 @@
 import Link from 'next/link'
 import { LoginForm } from '@/components/auth/LoginForm'
-import { LogIn } from 'lucide-react'
+import { LogIn, CheckCircle2, AlertCircle } from 'lucide-react'
 
 type LoginPageProps = {
-  searchParams: Promise<{ next?: string }>
+  searchParams: Promise<{ next?: string; updated?: string; error?: string }>
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams
   const next = params.next && params.next.startsWith('/') ? params.next : '/'
+  const isUpdated = params.updated === 'true'
+  const isRecoveryFailed = params.error === 'recovery_failed'
 
   return (
     <main className="max-w-md mx-auto p-6 font-sans">
@@ -23,6 +25,28 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             Entra para comentar y acceder a tu espacio sleepyred999.
           </p>
         </header>
+
+        {isUpdated && (
+          <div className="flex items-center gap-2.5 p-3 rounded-xl border border-emerald-800/60 bg-emerald-950/30 text-emerald-300 text-xs">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+            <span>
+              ¡Contraseña actualizada con éxito! Ya puedes iniciar sesión con tus nuevas credenciales.
+            </span>
+          </div>
+        )}
+
+        {isRecoveryFailed && (
+          <div className="flex items-center gap-2.5 p-3 rounded-xl border border-red-900/60 bg-red-950/30 text-red-300 text-xs">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+            <span>
+              El enlace de recuperación no es válido o ha expirado. Por favor{' '}
+              <Link href="/auth/forgot-password" className="underline font-semibold hover:text-white">
+                solicita uno nuevo
+              </Link>
+              .
+            </span>
+          </div>
+        )}
 
         <LoginForm next={next} />
 

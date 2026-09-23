@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 
 export type AuthActionState = {
@@ -98,6 +99,78 @@ export async function register(
 
   revalidatePath('/', 'layout')
   redirect('/')
+}
+
+/**
+ * Solicitar correo de recuperación de contraseña con Supabase Auth.
+ */
+export async function requestPasswordReset(
+  _prev: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const email = String(formData.get('email') ?? '').trim().toLowerCase()
+
+  if (!email || !isValidEmail(email)) {
+    return { error: 'Ingresa un correo electrónico válido.' }
+  }
+
+  const headerList = await headers()
+  const host = headerList.get('x-forwarded-host') || headerList.get('host')
+  const proto =
+    headerList.get('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https')
+  const origin = host
+    ? `${proto}://${host}`
+    : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/auth/reset-password`,
+  })
+
+  if (error) {
+    return {
+      error:
+        error.message ||
+        'No se pudo enviar el correo de recuperación. Inténtalo de nuevo más tarde.',
+    }
+  }
+
+  return {
+    success:
+      '¡Enlace enviado! Hemos remitido las instrucciones a tu correo electrónico. Por favor revisa tu bandeja de entrada o spam.',
+  }
+}
+
+/**
+ * Actualizar contraseña una vez autenticado mediante el token de recuperación.
+ */
+export async function updatePassword(
+  _prev: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const password = String(formData.get('password') ?? '')
+  const confirmPassword = String(formData.get('confirm_password') ?? '')
+
+  if (!password || password.length < 8) {
+    return { error: 'La nueva contraseña debe tener al menos 8 caracteres.' }
+  }
+  if (password !== confirmPassword) {
+    return { error: 'Las contraseñas no coinciden.' }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.updateUser({ password })
+
+  if (error) {
+    return {
+      error:
+        error.message ||
+        'No se pudo actualizar la contraseña. El enlace de recuperación puede haber caducado.',
+    }
+  }
+
+  revalidatePath('/', 'layout')
+  redirect('/auth/login?updated=true')
 }
 
 /**

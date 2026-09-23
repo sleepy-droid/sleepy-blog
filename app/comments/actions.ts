@@ -10,7 +10,7 @@ export type CommentActionState = {
 }
 
 /**
- * Crear comentario polimórfico (en post, producto, hilo de foro o actualización).
+ * Crear comentario polimórfico (en post, prod   ucto, hilo de foro o actualización).
  * Requiere sesión activa.
  */
 export async function createComment(

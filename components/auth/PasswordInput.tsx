@@ -8,6 +8,7 @@ type PasswordInputProps = {
   id: string
   name: string
   label: string
+  labelAction?: React.ReactNode
   autoComplete?: string
   required?: boolean
   minLength?: number
@@ -22,6 +23,7 @@ export function PasswordInput({
   id,
   name,
   label,
+  labelAction,
   autoComplete = 'current-password',
   required = true,
   minLength = 8,
@@ -32,9 +34,12 @@ export function PasswordInput({
 
   return (
     <div className={cn('space-y-1.5', className)}>
-      <label htmlFor={id} className="block text-xs font-medium text-neutral-300">
-        {label}
-      </label>
+      <div className="flex items-center justify-between">
+        <label htmlFor={id} className="block text-xs font-medium text-neutral-300">
+          {label}
+        </label>
+        {labelAction}
+      </div>
       <div className="relative">
         <input
           id={id}

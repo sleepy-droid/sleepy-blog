@@ -17,7 +17,7 @@ const DEMO_POSTS: Post[] = [
     created_at: new Date().toISOString(),
     image_url: '/images/releases/criss-angel.jpg',
     media_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    price: 12,
+    price: 0.99,
     is_featured: true,
     view_count: 320,
     like_count: 45

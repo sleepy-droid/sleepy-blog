@@ -39,6 +39,14 @@ export function LoginForm({ next = '/' }: LoginFormProps) {
         name="password"
         label="Contraseña"
         autoComplete="current-password"
+        labelAction={
+          <Link
+            href="/auth/forgot-password"
+            className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        }
       />
 
       {state?.error && (
