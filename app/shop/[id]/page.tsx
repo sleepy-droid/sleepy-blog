@@ -29,101 +29,22 @@ interface ProductPageProps {
   params: Promise<{ id: string }>
 }
 
-/** Demo fallback products for instant browsing when DB seed is initializing */
-const DEMO_PRODUCTS: Record<string, Product> = {
-  'criss-angel': {
-    id: '11111111-1111-1111-1111-111111111111',
-    slug: 'criss-angel',
-    name: 'Criss Angel (Edición Digital Exclusiva)',
-    description: 'Lanzamiento digital exclusivo en máster original. Incluye archivo WAV sin compresión (24-bit / 44.1kHz), versión MP3 320kbps y libro digital de arte con letras originales creadas por sleepyred999.',
-    fulfillment: 'digital',
-    category: 'music',
-    thumbnail_url: '/images/releases/criss-angel.jpg',
-    gallery: ['/images/releases/criss-angel.jpg'],
-    price_cents: 1200,
-    currency: 'USD',
-    stock: null,
-    is_published: true,
-    is_featured: true,
-    audio_preview_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    duration_seconds: 215,
-    specs: {
-      'Formato Audio': 'WAV 24-bit / 44.1 kHz + MP3 320kbps',
-      'Tamaño Descarga': '48.5 MB',
-      'Licencia': 'Uso Personal y Reproducción Ilimitada',
-      'Incluye': 'Artwork HD + PDF de Letras'
-    },
-    popularity_score: 100,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  'sleepyred-hoodie-neon': {
-    id: '22222222-2222-2222-2222-222222222222',
-    slug: 'sleepyred-hoodie-neon',
-    name: 'Sleepyred Neon Oversize Hoodie',
-    description: 'Buzo con capucha confeccionado en algodón pesado de 400 GSM de alta durabilidad. Cuenta con estampado neón reflectivo en pecho y espalda con la iconografía oficial de sleepyred999.',
-    fulfillment: 'physical',
-    category: 'merch',
-    thumbnail_url: '/images/logos/SLEEPYRED JPG NEON-02.jpg',
-    gallery: ['/images/logos/SLEEPYRED JPG NEON-02.jpg'],
-    price_cents: 5500,
-    currency: 'USD',
-    stock: 50,
-    is_published: true,
-    is_featured: true,
-    audio_preview_url: null,
-    duration_seconds: null,
-    specs: {
-      'Material': '100% Algodón Pesado (400 GSM)',
-      'Corte': 'Oversize Fit / Dropped Shoulders',
-      'Estampado': 'Serigrafía Neón Reflectiva Plastisol',
-      'Cuidado': 'Lavar en frío a máquina, no usar secadora'
-    },
-    popularity_score: 85,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  'poster-neon-01': {
-    id: '33333333-3333-3333-3333-333333333333',
-    slug: 'poster-neon-01',
-    name: 'Póster Neón Edición Limitada A2',
-    description: 'Póster impreso en papel de alta resolución de 250g con acabado mate aterciopelado. Arte gráfico neón sleepyred999 para decoración de estudio o habitación.',
-    fulfillment: 'physical',
-    category: 'poster',
-    thumbnail_url: '/images/logos/PNG-04.png',
-    gallery: ['/images/logos/PNG-04.png'],
-    price_cents: 1800,
-    currency: 'USD',
-    stock: 30,
-    is_published: true,
-    is_featured: false,
-    audio_preview_url: null,
-    duration_seconds: null,
-    specs: {
-      'Tamaño': 'A2 (420 x 594 mm)',
-      'Papel': '250g Mate Premium',
-      'Imprenta': 'Pigmentos Ecológicos Antidecoloración'
-    },
-    popularity_score: 40,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }
-}
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Dynamic Metadata for SEO & OpenGraph */
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { id } = await params
   const supabase = await createClient()
 
-  let product: Product | null = null
+  const isUUID = UUID_REGEX.test(id)
+  let query = supabase.from('products').select('*')
+  if (isUUID) {
+    query = query.or(`id.eq.${id},slug.eq.${id}`)
+  } else {
+    query = query.eq('slug', id)
+  }
 
-  const { data } = await supabase
-    .from('products')
-    .select('*')
-    .or(`id.eq.${id},slug.eq.${id}`)
-    .maybeSingle()
-
-  product = data || DEMO_PRODUCTS[id] || Object.values(DEMO_PRODUCTS).find(p => p.id === id) || null
+  const { data: product } = await query.maybeSingle()
 
   if (!product) {
     return { title: 'Producto no encontrado | sleepyred999' }
@@ -144,14 +65,16 @@ export default async function SingleProductPage({ params }: ProductPageProps) {
   const { id } = await params
   const supabase = await createClient()
 
-  // 1. Fetch Product from Supabase or fallback to DEMO_PRODUCTS
-  const { data: dbProduct } = await supabase
-    .from('products')
-    .select('*')
-    .or(`id.eq.${id},slug.eq.${id}`)
-    .maybeSingle()
+  // 1. Fetch Product from Supabase
+  const isUUID = UUID_REGEX.test(id)
+  let query = supabase.from('products').select('*')
+  if (isUUID) {
+    query = query.or(`id.eq.${id},slug.eq.${id}`)
+  } else {
+    query = query.eq('slug', id)
+  }
 
-  const product: Product | null = dbProduct || DEMO_PRODUCTS[id] || Object.values(DEMO_PRODUCTS).find(p => p.id === id) || DEMO_PRODUCTS['criss-angel']
+  const { data: product } = await query.maybeSingle()
 
   if (!product) {
     notFound()
@@ -174,11 +97,10 @@ export default async function SingleProductPage({ params }: ProductPageProps) {
     .from('products')
     .select('*')
     .neq('id', product.id)
+    .eq('is_published', true)
     .limit(3)
 
-  const relatedProducts: Product[] = (relatedDb && relatedDb.length > 0)
-    ? relatedDb
-    : Object.values(DEMO_PRODUCTS).filter(p => p.id !== product.id)
+  const relatedProducts: Product[] = relatedDb ?? []
 
   return (
     <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-12 font-sans">
@@ -207,59 +129,61 @@ export default async function SingleProductPage({ params }: ProductPageProps) {
       </article>
 
       {/* Recommended Section: "Más como esto" / "You'd also like" */}
-      <section className="space-y-6 pt-4">
-        <div className="flex items-center justify-between border-b border-neutral-800/80 pb-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-red-400" />
-            <h2 className="text-xl font-bold tracking-tight text-white">También te podría gustar</h2>
-          </div>
-          <Link href="/shop" className="text-xs font-semibold text-red-400 hover:text-red-300 flex items-center gap-1">
-            Ver todo el catálogo <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {relatedProducts.map((rel) => (
-            <Link
-              key={rel.id}
-              href={`/shop/${rel.slug || rel.id}`}
-              className="group border border-neutral-800/80 rounded-2xl p-4 bg-neutral-900/30 hover:border-red-900/50 hover:bg-neutral-900/60 transition-all duration-300 flex flex-col justify-between"
-            >
-              <div className="space-y-3">
-                <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800/80">
-                  {rel.thumbnail_url ? (
-                    <Image
-                      src={rel.thumbnail_url}
-                      alt={rel.name}
-                      fill
-                      sizes="350px"
-                      className="object-cover group-hover:scale-105 transition-transform duration-500 transform-gpu"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">Sin portada</div>
-                  )}
-                  <span className="absolute top-2.5 right-2.5 text-[10px] uppercase font-bold text-red-300 bg-red-950/90 border border-red-900/60 px-2 py-0.5 rounded-md">
-                    {rel.category === 'music' ? 'Música' : rel.fulfillment}
-                  </span>
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-white group-hover:text-red-400 transition-colors line-clamp-1">
-                    {rel.name}
-                  </h3>
-                  <p className="text-xs text-neutral-400 line-clamp-2 mt-1">
-                    {rel.description}
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-neutral-800/60 flex items-center justify-between mt-4 text-xs font-mono">
-                <span className="font-bold text-red-400">{formatPrice(rel.price_cents, rel.currency)}</span>
-                <span className="text-neutral-400 group-hover:text-white transition-colors">Ver detalle →</span>
-              </div>
+      {relatedProducts.length > 0 && (
+        <section className="space-y-6 pt-4">
+          <div className="flex items-center justify-between border-b border-neutral-800/80 pb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-red-400" />
+              <h2 className="text-xl font-bold tracking-tight text-white">También te podría gustar</h2>
+            </div>
+            <Link href="/shop" className="text-xs font-semibold text-red-400 hover:text-red-300 flex items-center gap-1">
+              Ver todo el catálogo <ArrowRight className="w-3.5 h-3.5" />
             </Link>
-          ))}
-        </div>
-      </section>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {relatedProducts.map((rel) => (
+              <Link
+                key={rel.id}
+                href={`/shop/${rel.slug || rel.id}`}
+                className="group border border-neutral-800/80 rounded-2xl p-4 bg-neutral-900/30 hover:border-red-900/50 hover:bg-neutral-900/60 transition-all duration-300 flex flex-col justify-between"
+              >
+                <div className="space-y-3">
+                  <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800/80">
+                    {rel.thumbnail_url ? (
+                      <Image
+                        src={rel.thumbnail_url}
+                        alt={rel.name}
+                        fill
+                        sizes="350px"
+                        className="object-cover group-hover:scale-105 transition-transform duration-500 transform-gpu"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">Sin portada</div>
+                    )}
+                    <span className="absolute top-2.5 right-2.5 text-[10px] uppercase font-bold text-red-300 bg-red-950/90 border border-red-900/60 px-2 py-0.5 rounded-md">
+                      {rel.category === 'music' ? 'Música' : rel.fulfillment}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white group-hover:text-red-400 transition-colors line-clamp-1">
+                      {rel.name}
+                    </h3>
+                    <p className="text-xs text-neutral-400 line-clamp-2 mt-1">
+                      {rel.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-neutral-800/60 flex items-center justify-between mt-4 text-xs font-mono">
+                  <span className="font-bold text-red-400">{formatPrice(rel.price_cents, rel.currency)}</span>
+                  <span className="text-neutral-400 group-hover:text-white transition-colors">Ver detalle →</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Polymorphic Comments Section for Products */}
       <CommentList

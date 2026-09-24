@@ -26,8 +26,23 @@ export async function updateProfile(
   const gender = String(formData.get('gender') ?? 'unspecified').trim()
   const avatarUrl = String(formData.get('avatar_url') ?? '').trim() || null
   const bannerUrl = String(formData.get('banner_url') ?? '').trim() || null
+  const favoriteProductId = String(formData.get('favorite_product_id') ?? '').trim() || null
 
   const supabase = await createClient()
+
+  // Si cambió la canción favorita, registramos un evento especial en el feed
+  if (favoriteProductId && favoriteProductId !== user.profile?.favorite_product_id) {
+    try {
+      await supabase.from('profile_updates').insert({
+        user_id: user.id,
+        body: `[FAVORITE_SONG_CHANGED]:${favoriteProductId}`,
+        status: 'visible',
+        created_at: new Date().toISOString(),
+      })
+    } catch {
+      // Ignorar fallo de log si la tabla no está accesible
+    }
+  }
 
   const { error } = await supabase
     .from('profiles')
@@ -40,6 +55,7 @@ export async function updateProfile(
       gender: gender as 'male' | 'female' | 'gender_neutral' | 'unspecified',
       avatar_url: avatarUrl,
       banner_url: bannerUrl,
+      favorite_product_id: favoriteProductId,
       updated_at: new Date().toISOString(),
     })
     .eq('id', user.id)

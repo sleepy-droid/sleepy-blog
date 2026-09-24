@@ -106,36 +106,36 @@ export default function NewProductPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-neutral-300 flex items-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-pink-400" /> Portada HD (Coverart Image URL)
+                  <ImageIcon className="w-3.5 h-3.5 text-pink-400" /> Portada HD (Coverart Image URL / Path)
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   name="thumbnail_url"
-                  placeholder="https://.../cover-hd.jpg"
+                  placeholder="/songs/criss-angel/crissangel.jpg o https://..."
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-neutral-300 flex items-center gap-1.5">
-                  <Music className="w-3.5 h-3.5 text-emerald-400" /> Audio Máster .WAV (Master WAV URL)
+                  <Music className="w-3.5 h-3.5 text-emerald-400" /> Audio Máster .WAV (Master WAV URL / Path)
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   name="wav_url"
-                  placeholder="https://.../song-master.wav"
+                  placeholder="/songs/criss-angel/crissangel.wav o https://..."
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-neutral-300 flex items-center gap-1.5">
-                  <Music className="w-3.5 h-3.5 text-sky-400" /> Audio MP3 320k (Preview & MP3 URL)
+                  <Music className="w-3.5 h-3.5 text-sky-400" /> Audio MP3 320k (Preview & MP3 URL / Path)
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   name="mp3_url"
-                  placeholder="https://.../song-preview.mp3"
+                  placeholder="/songs/criss-angel/crissangel.mp3 o https://..."
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
                 />
               </div>
@@ -145,7 +145,7 @@ export default function NewProductPage() {
                   <Video className="w-3.5 h-3.5 text-purple-400" /> Enlace a Vídeo de Lanzamiento (Video URL)
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   name="video_url"
                   placeholder="https://www.youtube.com/embed/..."
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
@@ -154,24 +154,24 @@ export default function NewProductPage() {
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-neutral-300 flex items-center gap-1.5">
-                  <Mic className="w-3.5 h-3.5 text-amber-400" /> Pista Vocal Acapella (Acapella URL)
+                  <Mic className="w-3.5 h-3.5 text-amber-400" /> Pista Vocal Acapella (Acapella URL / Path)
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   name="acapella_url"
-                  placeholder="https://.../vocal-acapella.wav"
+                  placeholder="/songs/criss-angel/acapella.wav o https://..."
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-neutral-300 flex items-center gap-1.5">
-                  <Sliders className="w-3.5 h-3.5 text-red-400" /> Pista Instrumental (Instrumental URL)
+                  <Sliders className="w-3.5 h-3.5 text-red-400" /> Pista Instrumental (Instrumental URL / Path)
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   name="instrumental_url"
-                  placeholder="https://.../instrumental.wav"
+                  placeholder="/songs/criss-angel/instrumental.wav o https://..."
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
                 />
               </div>

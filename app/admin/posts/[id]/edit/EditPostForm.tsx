@@ -24,27 +24,14 @@ export function EditPostForm({ post }: { post: Post }) {
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-neutral-300">Categoría General</label>
-          <input
-            type="text"
-            name="category"
-            defaultValue={post.category || 'General'}
-            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-red-600 font-sans"
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-neutral-300">Etiqueta del Carrusel (Highlight Tag)</label>
-          <input
-            type="text"
-            name="highlight_tag"
-            defaultValue={post.highlight_tag || ''}
-            placeholder="Lanzamiento Destacado, Avance, Historia..."
-            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-red-600 font-sans"
-          />
-        </div>
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-neutral-300">Categoría General</label>
+        <input
+          type="text"
+          name="category"
+          defaultValue={post.category || 'General'}
+          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-red-600 font-sans"
+        />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -83,21 +70,23 @@ export function EditPostForm({ post }: { post: Post }) {
       </div>
 
       <div className="space-y-1.5">
-        <label className="block text-xs font-medium text-neutral-300">URL de Imagen de Portada</label>
+        <label className="block text-xs font-medium text-neutral-300">URL / Ruta de Imagen de Portada</label>
         <input
-          type="url"
+          type="text"
           name="image_url"
           defaultValue={post.image_url || ''}
+          placeholder="/songs/... o https://..."
           className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-red-600 font-mono"
         />
       </div>
 
       <div className="space-y-1.5">
-        <label className="block text-xs font-medium text-neutral-300">URL de Audio / SoundCloud (Opcional)</label>
+        <label className="block text-xs font-medium text-neutral-300">URL / Ruta de Audio o SoundCloud (Opcional)</label>
         <input
-          type="url"
+          type="text"
           name="media_url"
           defaultValue={post.media_url || ''}
+          placeholder="/songs/... o https://..."
           className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-red-600 font-mono"
         />
       </div>

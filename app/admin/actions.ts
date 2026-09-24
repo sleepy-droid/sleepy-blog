@@ -28,7 +28,6 @@ export async function createPost(
   const title = String(formData.get('title') ?? '').trim()
   const content = String(formData.get('content') ?? '').trim()
   const category = String(formData.get('category') ?? '').trim() || 'General'
-  const highlight_tag = String(formData.get('highlight_tag') ?? '').trim() || null
   const linked_product_id = String(formData.get('linked_product_id') ?? '').trim() || null
   const image_url = String(formData.get('image_url') ?? '').trim() || null
   const media_url = String(formData.get('media_url') ?? '').trim() || null
@@ -47,7 +46,6 @@ export async function createPost(
     title,
     content,
     category,
-    highlight_tag,
     linked_product_id,
     image_url,
     cover_url: image_url,
@@ -93,7 +91,6 @@ export async function updatePost(
   const title = String(formData.get('title') ?? '').trim()
   const content = String(formData.get('content') ?? '').trim()
   const category = String(formData.get('category') ?? '').trim() || 'General'
-  const highlight_tag = String(formData.get('highlight_tag') ?? '').trim() || null
   const linked_product_id = String(formData.get('linked_product_id') ?? '').trim() || null
   const image_url = String(formData.get('image_url') ?? '').trim() || null
   const media_url = String(formData.get('media_url') ?? '').trim() || null
@@ -110,7 +107,6 @@ export async function updatePost(
     title,
     content,
     category,
-    highlight_tag,
     linked_product_id,
     image_url,
     cover_url: image_url,
@@ -353,8 +349,7 @@ export async function createProduct(
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '') || `product-${Date.now()}`
 
-  const supabase = await createClient()
-  const { error } = await supabase.from('products').insert({
+  const productPayload: Record<string, unknown> = {
     slug,
     name,
     description,
@@ -371,7 +366,33 @@ export async function createProduct(
     audio_preview_url: mp3_url || wav_url,
     is_published: true,
     is_featured: true,
-  })
+  }
+
+  const supabase = await createClient()
+  let { error } = await supabase.from('products').insert(productPayload)
+
+  if (error && (error.message.includes('column') || error.code === '42703')) {
+    const safePayload = {
+      slug,
+      name,
+      description,
+      category,
+      fulfillment,
+      price_cents,
+      currency: 'USD',
+      thumbnail_url,
+      audio_preview_url: mp3_url || wav_url,
+      is_published: true,
+      is_featured: true,
+      specs: {
+        mp3_url: mp3_url || undefined,
+        wav_url: wav_url || undefined,
+        video_url: video_url || undefined,
+      },
+    }
+    const retry = await supabase.from('products').insert(safePayload)
+    error = retry.error
+  }
 
   if (error) {
     return { error: error.message || 'Error al guardar el producto.' }

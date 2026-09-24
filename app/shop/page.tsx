@@ -18,73 +18,6 @@ import { formatPrice, type Product } from '@/lib/types'
 import { ShopClient } from './ShopClient'
 import { ShoppingBag, Sparkles, Music, ShieldCheck, Tag } from 'lucide-react'
 
-/** Seed demo catalog items for instant display */
-const SEED_PRODUCTS: Product[] = [
-  {
-    id: 'criss-angel',
-    slug: 'criss-angel',
-    name: 'Criss Angel (Edición Digital Exclusiva)',
-    description: 'Lanzamiento digital exclusivo en máster original. Incluye archivo WAV sin compresión (24-bit / 44.1kHz), versión MP3 320kbps y libro digital de arte.',
-    fulfillment: 'digital',
-    category: 'music',
-    thumbnail_url: '/images/releases/criss-angel.jpg',
-    gallery: [],
-    price_cents: 1200,
-    currency: 'USD',
-    stock: null,
-    is_published: true,
-    is_featured: true,
-    audio_preview_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    duration_seconds: 215,
-    specs: { 'Formato': 'WAV 24-bit + MP3 320kbps', 'Licencia': 'Uso Personal' },
-    popularity_score: 100,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'sleepyred-hoodie-neon',
-    slug: 'sleepyred-hoodie-neon',
-    name: 'Sleepyred Neon Oversize Hoodie',
-    description: 'Buzo negro de algodón pesado (400 GSM) con estampado neón reflectivo oficial.',
-    fulfillment: 'physical',
-    category: 'merch',
-    thumbnail_url: '/images/logos/SLEEPYRED JPG NEON-02.jpg',
-    gallery: [],
-    price_cents: 5500,
-    currency: 'USD',
-    stock: 50,
-    is_published: true,
-    is_featured: true,
-    audio_preview_url: null,
-    duration_seconds: null,
-    specs: { 'Material': 'Algodón Pesado', 'Corte': 'Oversize' },
-    popularity_score: 85,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'poster-neon-01',
-    slug: 'poster-neon-01',
-    name: 'Póster Neón Logo A2',
-    description: 'Póster de alta calidad A2 con logotipo neón oficial sleepyred999.',
-    fulfillment: 'physical',
-    category: 'poster',
-    thumbnail_url: '/images/logos/PNG-04.png',
-    gallery: [],
-    price_cents: 1800,
-    currency: 'USD',
-    stock: 30,
-    is_published: true,
-    is_featured: false,
-    audio_preview_url: null,
-    duration_seconds: null,
-    specs: { 'Tamaño': 'A2', 'Papel': '250g Mate' },
-    popularity_score: 40,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-]
-
 type ShopPageProps = {
   searchParams: Promise<{ q?: string; category?: string; sort?: string }>
 }
@@ -100,7 +33,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     .eq('is_published', true)
     .order('created_at', { ascending: false })
 
-  const products: Product[] = (dbProducts && dbProducts.length > 0) ? dbProducts : SEED_PRODUCTS
+  const products: Product[] = dbProducts ?? []
 
   return (
     <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-4 font-sans">

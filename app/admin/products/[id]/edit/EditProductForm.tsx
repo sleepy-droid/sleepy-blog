@@ -80,35 +80,35 @@ export function EditProductForm({ product }: { product: Product }) {
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-neutral-300">URL Imagen de Portada / Merch</label>
+          <label className="block text-xs font-medium text-neutral-300">URL / Ruta Imagen de Portada o Merch</label>
           <input
-            type="url"
+            type="text"
             name="thumbnail_url"
             defaultValue={product.thumbnail_url || ''}
-            placeholder="https://..."
+            placeholder="/songs/... o https://..."
             className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-red-600 font-mono"
           />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-neutral-300">URL Descarga MP3 (320kbps)</label>
+            <label className="block text-xs font-medium text-neutral-300">URL / Ruta MP3 (320kbps)</label>
             <input
-              type="url"
+              type="text"
               name="mp3_url"
               defaultValue={product.mp3_url || ''}
-              placeholder="https://..."
+              placeholder="/songs/... o https://..."
               className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-red-600 font-mono"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-neutral-300">URL Descarga WAV Máster (24-bit)</label>
+            <label className="block text-xs font-medium text-neutral-300">URL / Ruta WAV Máster (24-bit)</label>
             <input
-              type="url"
+              type="text"
               name="wav_url"
               defaultValue={product.wav_url || ''}
-              placeholder="https://..."
+              placeholder="/songs/... o https://..."
               className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-red-600 font-mono"
             />
           </div>

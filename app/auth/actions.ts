@@ -22,23 +22,53 @@ export async function login(
   _prev: AuthActionState,
   formData: FormData
 ): Promise<AuthActionState> {
-  const email = String(formData.get('email') ?? '').trim().toLowerCase()
+  const identifier = String(
+    formData.get('identifier') ?? formData.get('email') ?? ''
+  ).trim()
   const password = String(formData.get('password') ?? '')
   const next = String(formData.get('next') ?? '/') || '/'
 
-  if (!email || !password) {
-    return { error: 'Completa email y contraseña.' }
-  }
-  if (!isValidEmail(email)) {
-    return { error: 'El email no es válido.' }
+  if (!identifier || !password) {
+    return { error: 'Ingresa tu email o usuario y tu contraseña.' }
   }
 
   const supabase = await createClient()
+  let email = identifier.toLowerCase()
+
+  if (!isValidEmail(email)) {
+    // Si no es un formato de email, buscamos por username en public.profiles
+    const cleanUsername = identifier.startsWith('@') ? identifier.slice(1) : identifier
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('email')
+      .ilike('username', cleanUsername)
+      .maybeSingle()
+
+    if (!profile?.email) {
+      // Búsqueda alternativa por display_name
+      const { data: byDisplayName } = await supabase
+        .from('profiles')
+        .select('email')
+        .ilike('display_name', cleanUsername)
+        .maybeSingle()
+
+      if (!byDisplayName?.email) {
+        return {
+          error: 'No encontramos ninguna cuenta asociada a este usuario o email.',
+        }
+      }
+      email = byDisplayName.email.toLowerCase()
+    } else {
+      email = profile.email.toLowerCase()
+    }
+  }
+
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
     // Mensajes genéricos: no revelar si el email existe
-    return { error: 'Credenciales incorrectas. Revisa tu email o contraseña.' }
+    return { error: 'Credenciales incorrectas. Revisa tu usuario o contraseña.' }
   }
 
   revalidatePath('/', 'layout')

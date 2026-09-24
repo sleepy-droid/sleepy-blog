@@ -20,16 +20,16 @@ export function LoginForm({ next = '/' }: LoginFormProps) {
       <input type="hidden" name="next" value={next} />
 
       <div className="space-y-1.5">
-        <label htmlFor="email" className="block text-xs font-medium text-neutral-300">
-          Email
+        <label htmlFor="identifier" className="block text-xs font-medium text-neutral-300">
+          Email o Nombre de Usuario
         </label>
         <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
+          id="identifier"
+          name="identifier"
+          type="text"
+          autoComplete="username"
           required
-          placeholder="tu@email.com"
+          placeholder="tu@email.com o tu usuario"
           className="w-full rounded-lg border border-neutral-800 bg-neutral-950/80 px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 outline-none focus:border-red-700/60 focus:ring-2 focus:ring-red-900/40"
         />
       </div>

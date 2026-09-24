@@ -182,17 +182,36 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
 
       {/* Empty State */}
       {filteredProducts.length === 0 && (
-        <div className="p-12 text-center border border-neutral-800/80 rounded-2xl bg-neutral-900/20 space-y-3">
-          <Package className="w-10 h-10 text-neutral-600 mx-auto" />
-          <p className="text-sm text-neutral-300 font-medium">
-            No se encontraron productos para tu búsqueda.
-          </p>
-          <button
-            onClick={() => { setSearchRaw(''); setActiveTab('all'); }}
-            className="text-xs font-semibold text-red-400 hover:text-red-300 underline cursor-pointer"
-          >
-            Restablecer todos los filtros
-          </button>
+        <div className="p-12 text-center border border-neutral-800/80 rounded-2xl bg-neutral-900/20 space-y-4">
+          <Package className="w-12 h-12 text-neutral-600 mx-auto" />
+          <div className="space-y-1">
+            <p className="text-base font-bold text-white">
+              {initialProducts.length === 0
+                ? 'Catálogo en Preparación'
+                : 'No se encontraron productos'}
+            </p>
+            <p className="text-xs text-neutral-400 max-w-sm mx-auto">
+              {initialProducts.length === 0
+                ? 'Aún no se han publicado productos en la base de datos. Como administrador, puedes ingresar nuevos lanzamientos o artículos de merch.'
+                : 'No hay productos que coincidan con los filtros o término de búsqueda ingresado.'}
+            </p>
+          </div>
+          {initialProducts.length === 0 ? (
+            <Link
+              href="/admin/products/new"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 transition-all cursor-pointer shadow-lg shadow-red-950/40"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Publicar Nuevo Producto en Panel Admin</span>
+            </Link>
+          ) : (
+            <button
+              onClick={() => { setSearchRaw(''); setActiveTab('all'); }}
+              className="text-xs font-semibold text-red-400 hover:text-red-300 underline cursor-pointer"
+            >
+              Restablecer todos los filtros
+            </button>
+          )}
         </div>
       )}
     </div>

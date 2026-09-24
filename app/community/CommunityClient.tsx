@@ -334,11 +334,11 @@ export function CommunityClient({ threads, products, currentUser }: CommunityCli
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-neutral-300">URL de Imagen (Opcional)</label>
+              <label className="block text-xs font-medium text-neutral-300">URL / Ruta de Imagen (Opcional)</label>
               <input
-                type="url"
+                type="text"
                 name="image_url"
-                placeholder="https://..."
+                placeholder="/images/... o https://..."
                 className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
               />
             </div>

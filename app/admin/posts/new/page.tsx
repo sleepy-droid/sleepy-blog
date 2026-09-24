@@ -41,26 +41,14 @@ export default function NewPostPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-neutral-300">Categoría General</label>
-              <input
-                type="text"
-                name="category"
-                placeholder="Lanzamiento, Merchandising, Noticias..."
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-sans"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-neutral-300">Etiqueta del Carrusel (Highlight Tag)</label>
-              <input
-                type="text"
-                name="highlight_tag"
-                placeholder="Lanzamiento Destacado, Avance, Historia..."
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-sans"
-              />
-            </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-neutral-300">Categoría General</label>
+            <input
+              type="text"
+              name="category"
+              placeholder="Lanzamiento, Merchandising, Noticias..."
+              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-sans"
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -98,21 +86,21 @@ export default function NewPostPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-neutral-300">URL de Imagen de Portada</label>
+            <label className="block text-xs font-medium text-neutral-300">URL / Ruta de Imagen de Portada</label>
             <input
-              type="url"
+              type="text"
               name="image_url"
-              placeholder="https://..."
+              placeholder="/songs/criss-angel/crissangel.jpg o https://..."
               className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-neutral-300">URL de Audio / SoundCloud (Opcional)</label>
+            <label className="block text-xs font-medium text-neutral-300">URL / Ruta de Audio o SoundCloud (Opcional)</label>
             <input
-              type="url"
+              type="text"
               name="media_url"
-              placeholder="https://soundcloud.com/..."
+              placeholder="/songs/criss-angel/crissangel.mp3 o https://..."
               className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
             />
           </div>
