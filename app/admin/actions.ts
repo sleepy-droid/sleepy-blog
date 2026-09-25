@@ -46,13 +46,15 @@ export async function createPost(
     title,
     content,
     category,
-    linked_product_id,
     image_url,
     cover_url: image_url,
     media_url,
     price,
     is_published: true,
-    status: 'visible',
+  }
+
+  if (linked_product_id) {
+    postPayload.linked_product_id = linked_product_id
   }
 
   let { data, error } = await supabase
@@ -60,6 +62,13 @@ export async function createPost(
     .insert(postPayload)
     .select('id')
     .single()
+
+  if (error && (error.message.includes('linked_product_id') || error.message.includes('schema cache'))) {
+    delete postPayload.linked_product_id
+    const res = await supabase.from('posts').insert(postPayload).select('id').single()
+    data = res.data
+    error = res.error
+  }
 
   if (error && error.message.includes('image_url')) {
     delete postPayload.image_url
@@ -107,17 +116,26 @@ export async function updatePost(
     title,
     content,
     category,
-    linked_product_id,
     image_url,
     cover_url: image_url,
     media_url,
     price,
   }
 
+  if (linked_product_id) {
+    updatePayload.linked_product_id = linked_product_id
+  }
+
   let { error } = await supabase
     .from('posts')
     .update(updatePayload)
     .eq('id', id)
+
+  if (error && (error.message.includes('linked_product_id') || error.message.includes('schema cache'))) {
+    delete updatePayload.linked_product_id
+    const res = await supabase.from('posts').update(updatePayload).eq('id', id)
+    error = res.error
+  }
 
   if (error && error.message.includes('image_url')) {
     delete updatePayload.image_url
