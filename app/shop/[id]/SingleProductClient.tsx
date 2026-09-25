@@ -33,8 +33,8 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
   // Lightbox modal state for Amazon-style image viewing
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
 
-  const isMusic = product.category === 'music' || product.fulfillment === 'digital' || !!product.audio_preview_url
-  const previewUrl = product.audio_preview_url || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
+  const isMusic = product.category === 'music' || product.fulfillment === 'digital' || !!product.audio_preview_url || !!product.wav_url || !!product.mp3_url
+  const previewUrl = product.audio_preview_url || product.wav_url || product.mp3_url || ''
 
   const handleVote = (val: 1 | -1) => {
     if (userVote === val) {
@@ -191,7 +191,7 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
         </p>
 
         {/* SoundCloud Style Audio Preview Player */}
-        {isMusic && (
+        {isMusic && previewUrl && (
           <div className="bg-gradient-to-r from-red-950/60 via-neutral-950 to-neutral-900 border border-red-900/50 rounded-2xl p-4 sm:p-5 space-y-3 shadow-xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -281,29 +281,59 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
 
         {/* Technical Specifications Table */}
         <div className="border border-neutral-800 rounded-2xl p-4 bg-neutral-950/60 space-y-3">
-          <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
-            <Tag className="w-3.5 h-3.5 text-red-400" />
-            Especificaciones Técnicas del Proyecto
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5 text-red-400" />
+              Especificaciones Técnicas del Proyecto
+            </h3>
+            {product.folder_stats && (
+              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-red-950/80 border border-red-900/50 text-red-400">
+                ● En vivo ({product.folder_stats.totalSizeFormatted})
+              </span>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
             <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
               <span className="text-neutral-500 block text-[10px] uppercase">Portada HD</span>
-              <span className="text-neutral-200 font-semibold">{product.thumbnail_url ? 'Incluido (HD 3000x3000px)' : 'No disponible'}</span>
+              <span className="text-neutral-200 font-semibold">
+                {product.folder_stats?.coverSizeFormatted
+                  ? `Incluido (${product.folder_stats.coverSizeFormatted})`
+                  : product.thumbnail_url
+                  ? 'Incluido'
+                  : 'No disponible'}
+              </span>
             </div>
 
             <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
               <span className="text-neutral-500 block text-[10px] uppercase">Audio WAV Máster</span>
-              <span className="text-neutral-200 font-semibold">{product.wav_url || isMusic ? 'Incluido (24-bit / 44.1kHz)' : 'N/A'}</span>
+              <span className="text-neutral-200 font-semibold">
+                {product.folder_stats?.wavSizeFormatted
+                  ? `Incluido (${product.folder_stats.wavSizeFormatted}, 24-bit)`
+                  : product.wav_url
+                  ? 'Incluido (24-bit / 44.1kHz)'
+                  : isMusic
+                  ? 'Incluido'
+                  : 'N/A'}
+              </span>
             </div>
 
             <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
-              <span className="text-neutral-500 block text-[10px] uppercase">Audio MP3 320kbps</span>
-              <span className="text-neutral-200 font-semibold">{product.mp3_url || isMusic ? 'Incluido' : 'N/A'}</span>
+              <span className="text-neutral-500 block text-[10px] uppercase">Audio MP3 / Preview</span>
+              <span className="text-neutral-200 font-semibold">
+                {product.folder_stats?.mp3SizeFormatted
+                  ? `Incluido (${product.folder_stats.mp3SizeFormatted})`
+                  : product.mp3_url || product.audio_preview_url
+                  ? 'Incluido'
+                  : isMusic
+                  ? 'Incluido'
+                  : 'N/A'}
+              </span>
             </div>
 
             <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
-              <span className="text-neutral-500 block text-[10px] uppercase">PDF de Letras & Arte</span>
-              <span className="text-neutral-200 font-semibold">Incluido</span>
+              <span className="text-neutral-500 block text-[10px] uppercase">Licencia de Reproducción</span>
+              <span className="text-neutral-200 font-semibold">Uso Personal & Colección</span>
             </div>
 
             {product.video_url && (
@@ -327,16 +357,38 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
               </div>
             )}
 
-            <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
-              <span className="text-neutral-500 block text-[10px] uppercase">Licencia</span>
-              <span className="text-neutral-200 font-semibold">Uso Personal & Colección</span>
-            </div>
-
-            <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
-              <span className="text-neutral-500 block text-[10px] uppercase">Tamaño del Proyecto</span>
-              <span className="text-neutral-200 font-semibold">{product.fulfillment === 'digital' ? '~245 MB' : 'Envío Físico'}</span>
+            <div className="bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80 sm:col-span-2">
+              <span className="text-neutral-500 block text-[10px] uppercase">Tamaño del Paquete Digital</span>
+              <span className="text-red-400 font-bold font-mono">
+                {product.folder_stats
+                  ? `${product.folder_stats.totalSizeFormatted} (${product.folder_stats.filesCount} archivos en ${product.folder_stats.folderPath})`
+                  : product.fulfillment === 'digital'
+                  ? 'Paquete Digital'
+                  : 'Envío Físico'}
+              </span>
             </div>
           </div>
+
+          {/* Living file breakdown list */}
+          {product.folder_stats && product.folder_stats.files.length > 0 && (
+            <div className="pt-2 border-t border-neutral-800/80 space-y-1.5">
+              <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider block">
+                Archivos detectados en el máster digital:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {product.folder_stats.files.map((file) => (
+                  <span
+                    key={file.name}
+                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-mono bg-neutral-900 border border-neutral-800 text-neutral-300"
+                  >
+                    <span className="text-red-400 font-bold">{file.extension.toUpperCase().slice(1) || 'FILE'}</span>
+                    <span className="truncate max-w-[160px] text-neutral-200">{file.name}</span>
+                    <span className="text-[10px] text-neutral-500">({file.sizeFormatted})</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Rating & Heart (❤️) / Broken Heart (💔) Voting Section */}

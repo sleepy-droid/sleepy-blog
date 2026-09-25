@@ -22,6 +22,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { CommentList } from '@/components/comments/CommentList'
 import { formatPrice, type Product, type CommentWithAuthor } from '@/lib/types'
 import { SingleProductClient } from './SingleProductClient'
+import { getProductFolderStats } from '@/lib/product-files'
 import { ArrowLeft, Tag, ShieldCheck, Sparkles, Globe, ArrowRight } from 'lucide-react'
 import type { Metadata } from 'next'
 
@@ -74,10 +75,17 @@ export default async function SingleProductPage({ params }: ProductPageProps) {
     query = query.eq('slug', id)
   }
 
-  const { data: product } = await query.maybeSingle()
+  const { data: dbProduct } = await query.maybeSingle()
 
-  if (!product) {
+  if (!dbProduct) {
     notFound()
+  }
+
+  // Calculate live dynamic folder stats from public/songs/ or public/merch/
+  const folderStats = getProductFolderStats(dbProduct)
+  const product: Product = {
+    ...dbProduct,
+    folder_stats: folderStats,
   }
 
   // 2. Fetch User session

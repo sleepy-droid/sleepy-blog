@@ -76,6 +76,28 @@ export type Product = {
   downvotes?: number
   created_at: string
   updated_at: string
+  folder_stats?: ProductFolderStats | null
+}
+
+export type ProductFileInfo = {
+  name: string
+  sizeBytes: number
+  sizeFormatted: string
+  extension: string
+}
+
+export type ProductFolderStats = {
+  folderPath: string
+  totalSizeBytes: number
+  totalSizeFormatted: string
+  filesCount: number
+  files: ProductFileInfo[]
+  hasWav: boolean
+  wavSizeFormatted?: string
+  hasMp3: boolean
+  mp3SizeFormatted?: string
+  hasCover: boolean
+  coverSizeFormatted?: string
 }
 
 export type ProductVariant = {
