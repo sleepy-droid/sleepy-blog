@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/auth'
 import { PlusCircle, Edit3, Trash2, ArrowLeft, FileText, Sparkles, ExternalLink } from 'lucide-react'
 import type { Post } from '@/lib/types'
 import { deletePost, adminTogglePostVisibility } from '../actions'
+import { normalizeMediaUrl } from '@/lib/utils'
 
 export const metadata = {
   title: 'Gestión de Publicaciones | Panel Admin sleepyred999',
@@ -66,8 +67,8 @@ export default async function AdminPostsPage() {
                   <td className="p-4">
                     <div className="flex items-center gap-3">
                       <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800 shrink-0">
-                        {post.image_url ? (
-                          <Image src={post.image_url} alt={post.title} fill className="object-cover" />
+                        {normalizeMediaUrl(post.image_url) ? (
+                          <Image src={normalizeMediaUrl(post.image_url)} alt={post.title} fill className="object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-[10px] text-neutral-600">Post</div>
                         )}

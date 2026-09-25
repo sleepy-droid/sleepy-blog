@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { requireAdmin } from '@/lib/auth'
+import { normalizeMediaUrl } from '@/lib/utils'
 
 export type AdminActionState = {
   error?: string
@@ -29,8 +30,8 @@ export async function createPost(
   const content = String(formData.get('content') ?? '').trim()
   const category = String(formData.get('category') ?? '').trim() || 'General'
   const linked_product_id = String(formData.get('linked_product_id') ?? '').trim() || null
-  const image_url = String(formData.get('image_url') ?? '').trim() || null
-  const media_url = String(formData.get('media_url') ?? '').trim() || null
+  const image_url = normalizeMediaUrl(formData.get('image_url') as string) || null
+  const media_url = normalizeMediaUrl(formData.get('media_url') as string) || null
   const price = parsePrice(formData.get('price'))
 
   if (!title || title.length < 2) {
@@ -101,8 +102,8 @@ export async function updatePost(
   const content = String(formData.get('content') ?? '').trim()
   const category = String(formData.get('category') ?? '').trim() || 'General'
   const linked_product_id = String(formData.get('linked_product_id') ?? '').trim() || null
-  const image_url = String(formData.get('image_url') ?? '').trim() || null
-  const media_url = String(formData.get('media_url') ?? '').trim() || null
+  const image_url = normalizeMediaUrl(formData.get('image_url') as string) || null
+  const media_url = normalizeMediaUrl(formData.get('media_url') as string) || null
   const price = parsePrice(formData.get('price'))
 
   if (!id) return { error: 'ID de publicación inválido.' }
@@ -351,12 +352,12 @@ export async function createProduct(
   const category = String(formData.get('category') ?? 'music').trim()
   const fulfillment = String(formData.get('fulfillment') ?? 'digital').trim()
   const price_cents = Math.round(Number(formData.get('price') || 0) * 100)
-  const thumbnail_url = String(formData.get('thumbnail_url') ?? '').trim() || null
-  const mp3_url = String(formData.get('mp3_url') ?? '').trim() || null
-  const wav_url = String(formData.get('wav_url') ?? '').trim() || null
+  const thumbnail_url = normalizeMediaUrl(formData.get('thumbnail_url') as string) || null
+  const mp3_url = normalizeMediaUrl(formData.get('mp3_url') as string) || null
+  const wav_url = normalizeMediaUrl(formData.get('wav_url') as string) || null
   const video_url = String(formData.get('video_url') ?? '').trim() || null
-  const acapella_url = String(formData.get('acapella_url') ?? '').trim() || null
-  const instrumental_url = String(formData.get('instrumental_url') ?? '').trim() || null
+  const acapella_url = normalizeMediaUrl(formData.get('acapella_url') as string) || null
+  const instrumental_url = normalizeMediaUrl(formData.get('instrumental_url') as string) || null
 
   if (!name || name.length < 2) {
     return { error: 'El nombre del producto es obligatorio.' }
@@ -437,9 +438,9 @@ export async function updateProduct(
   const category = String(formData.get('category') ?? 'music').trim()
   const fulfillment = String(formData.get('fulfillment') ?? 'digital').trim()
   const price_cents = Math.round(Number(formData.get('price') || 0) * 100)
-  const thumbnail_url = String(formData.get('thumbnail_url') ?? '').trim() || null
-  const mp3_url = String(formData.get('mp3_url') ?? '').trim() || null
-  const wav_url = String(formData.get('wav_url') ?? '').trim() || null
+  const thumbnail_url = normalizeMediaUrl(formData.get('thumbnail_url') as string) || null
+  const mp3_url = normalizeMediaUrl(formData.get('mp3_url') as string) || null
+  const wav_url = normalizeMediaUrl(formData.get('wav_url') as string) || null
 
   if (!id || !name) {
     return { error: 'ID y Nombre de producto son obligatorios.' }

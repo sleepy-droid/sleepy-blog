@@ -1,14 +1,22 @@
-'use client'
-
-import { useActionState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Sparkles, PlusCircle } from 'lucide-react'
-import { createPost, type AdminActionState } from '@/app/admin/actions'
+import { ArrowLeft, Sparkles } from 'lucide-react'
+import { createClient } from '@/utils/supabase/server'
+import { requireAdmin } from '@/lib/auth'
+import { NewPostForm } from './NewPostForm'
 
-const initialState: AdminActionState = {}
+export const metadata = {
+  title: 'Nueva Publicación | Panel Admin sleepyred999',
+}
 
-export default function NewPostPage() {
-  const [state, formAction, pending] = useActionState(createPost, initialState)
+export default async function NewPostPage() {
+  await requireAdmin()
+  const supabase = await createClient()
+
+  // Obtener productos ordenados de más reciente a más antiguo (newest to latest/oldest)
+  const { data: products } = await supabase
+    .from('products')
+    .select('id, name, slug, price_cents, category, fulfillment, created_at')
+    .order('created_at', { ascending: false })
 
   return (
     <main className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 font-sans">
@@ -25,98 +33,11 @@ export default function NewPostPage() {
             Nueva Publicación en la Bitácora
           </h1>
           <p className="text-xs text-neutral-400 mt-1">
-            Crea una entrada oficial para el newsfeed principal de la portada.
+            Crea una entrada oficial para el newsfeed principal de la portada. Puedes vincular un producto de la tienda para destacarlo o dejarlo como entrada estándar.
           </p>
         </div>
 
-        <form action={formAction} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-neutral-300">Título de la Publicación *</label>
-            <input
-              type="text"
-              name="title"
-              required
-              placeholder="Ej: Criss Angel — Lanzamiento Oficial & Arte Digital"
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-sans"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-neutral-300">Categoría General</label>
-            <input
-              type="text"
-              name="category"
-              placeholder="Lanzamiento, Merchandising, Noticias..."
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-sans"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-neutral-300">Precio USD Manual (Opcional)</label>
-              <input
-                type="number"
-                step="0.01"
-                name="price"
-                placeholder="12.00"
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-neutral-300">ID de Producto Vinculado (Opcional)</label>
-              <input
-                type="text"
-                name="linked_product_id"
-                placeholder="UUID de la canción o hoodie..."
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-neutral-300">Contenido / Texto Principal *</label>
-            <textarea
-              name="content"
-              required
-              rows={6}
-              placeholder="Escribe el texto de la entrada..."
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-3.5 text-sm text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-sans"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-neutral-300">URL / Ruta de Imagen de Portada</label>
-            <input
-              type="text"
-              name="image_url"
-              placeholder="/songs/criss-angel/crissangel.jpg o https://..."
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-neutral-300">URL / Ruta de Audio o SoundCloud (Opcional)</label>
-            <input
-              type="text"
-              name="media_url"
-              placeholder="/songs/criss-angel/crissangel.mp3 o https://..."
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 outline-none focus:border-red-600 font-mono"
-            />
-          </div>
-
-          {state?.error && <p className="text-xs text-red-400">{state.error}</p>}
-
-          <div className="pt-3 flex justify-end">
-            <button
-              type="submit"
-              disabled={pending}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 transition-all cursor-pointer shadow-md disabled:opacity-60"
-            >
-              <span>{pending ? 'Creando…' : 'Guardar y Publicar'}</span>
-            </button>
-          </div>
-        </form>
+        <NewPostForm products={products ?? []} />
       </div>
     </main>
   )

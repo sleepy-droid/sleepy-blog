@@ -7,6 +7,7 @@ import { Search, Flame, Clock, Play, ArrowRight, Camera, MessageSquare, Share2 }
 import { sanitizeSearch } from '@/lib/search'
 import { PostLikeButton } from './PostLikeButton'
 import type { Post } from '@/lib/types'
+import { normalizeMediaUrl, parseMediaUrls } from '@/lib/utils'
 
 type PostFeedClientProps = {
   posts: Post[]
@@ -117,8 +118,11 @@ export function PostFeedClient({ posts }: PostFeedClientProps) {
       {/* Posts Feed Grid */}
       <section className="space-y-6">
         {filteredPosts.map((post) => {
-          const coverImage = post.image_url || post.cover_url || 
-            (post.title?.toLowerCase().includes('criss angel') ? '/images/releases/criss-angel.jpg' : null)
+          const postImages = parseMediaUrls(post.image_url || post.cover_url)
+          if (postImages.length === 0 && post.title?.toLowerCase().includes('criss angel')) {
+            postImages.push('/images/releases/criss-angel.jpg')
+          }
+          const mediaUrl = normalizeMediaUrl(post.media_url) || null
 
           return (
             <article 
@@ -138,25 +142,108 @@ export function PostFeedClient({ posts }: PostFeedClientProps) {
                 </span>
               </div>
 
-              {coverImage && (
-                <Link
-                  href={`/posts/${post.id}`}
-                  aria-label={`Ver publicación completa: ${post.title}`}
-                  className="block relative w-full aspect-video sm:aspect-[2.2/1] rounded-xl overflow-hidden border border-neutral-800/80 bg-neutral-950 focus:outline-none focus:ring-2 focus:ring-red-600 transition-all cursor-pointer"
-                >
-                  <Image 
-                    src={coverImage} 
-                    alt={post.title}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 800px"
-                    className="object-cover group-hover:scale-105 transition-transform duration-500 transform-gpu"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                    <span className="text-xs font-semibold text-white bg-red-950/90 border border-red-800/60 px-3 py-1.5 rounded-lg backdrop-blur-md shadow-lg flex items-center gap-1">
-                      Ver Publicación Completa <ArrowRight className="w-3.5 h-3.5" />
-                    </span>
-                  </div>
-                </Link>
+              {/* Adaptable Photo Container: Full Image Display + Ambient Backdrop / Controlled Multi-Photo Recaps */}
+              {postImages.length > 0 && (
+                <div className="pt-1">
+                  {postImages.length === 1 ? (
+                    /* Portada / Foto Única: Muestra el 100% de la imagen (cuadrada, vertical o panorámica) sin recortarla */
+                    <Link
+                      href={`/posts/${post.id}`}
+                      aria-label={`Ver publicación completa: ${post.title}`}
+                      className="block relative w-full min-h-[260px] max-h-[460px] rounded-2xl overflow-hidden border border-neutral-800/80 bg-neutral-950/90 focus:outline-none focus:ring-2 focus:ring-red-600 transition-all cursor-pointer group/img shadow-xl"
+                    >
+                      {/* Fondo ambiental suave con los colores auténticos del arte */}
+                      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <Image
+                          src={postImages[0]}
+                          alt=""
+                          fill
+                          sizes="(max-width: 768px) 100vw, 800px"
+                          className="object-cover blur-3xl opacity-30 scale-110 transform-gpu"
+                        />
+                        <div className="absolute inset-0 bg-neutral-950/50" />
+                      </div>
+
+                      {/* Imagen completa en primer plano SIN RECORTES (object-contain) */}
+                      <div className="relative z-10 w-full h-full min-h-[260px] max-h-[460px] p-3 sm:p-4 flex items-center justify-center">
+                        <Image
+                          src={postImages[0]}
+                          alt={post.title}
+                          width={800}
+                          height={800}
+                          sizes="(max-width: 768px) 100vw, 800px"
+                          className="w-auto h-auto max-h-[430px] max-w-full object-contain rounded-xl shadow-2xl group-hover/img:scale-[1.01] transition-transform duration-300"
+                        />
+                      </div>
+
+                      {/* Hover Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/85 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity duration-300 flex items-end p-4 z-20 pointer-events-none">
+                        <span className="text-xs font-semibold text-white bg-red-950/90 border border-red-800/60 px-3 py-1.5 rounded-lg backdrop-blur-md shadow-lg flex items-center gap-1.5">
+                          Ver Publicación Completa <ArrowRight className="w-3.5 h-3.5" />
+                        </span>
+                      </div>
+                    </Link>
+                  ) : postImages.length === 2 ? (
+                    /* Recap de 2 fotos (Díptico proporcionado) */
+                    <Link
+                      href={`/posts/${post.id}`}
+                      className="grid grid-cols-2 gap-2.5 h-60 sm:h-72 rounded-2xl overflow-hidden border border-neutral-800/80 bg-neutral-950 p-2 group/grid cursor-pointer shadow-xl"
+                    >
+                      {postImages.map((src, i) => (
+                        <div key={i} className="relative w-full h-full rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800/50">
+                          <Image
+                            src={src}
+                            alt={`${post.title} - Foto ${i + 1}`}
+                            fill
+                            sizes="(max-width: 768px) 50vw, 400px"
+                            className="object-cover group-hover/grid:scale-105 transition-transform duration-500"
+                          />
+                        </div>
+                      ))}
+                    </Link>
+                  ) : (
+                    /* Recap de 3+ fotos (Collage tipo revista musical controlado sin desbordar el feed) */
+                    <Link
+                      href={`/posts/${post.id}`}
+                      className="grid grid-cols-3 gap-2.5 h-64 sm:h-80 rounded-2xl overflow-hidden border border-neutral-800/80 bg-neutral-950 p-2 group/collage cursor-pointer shadow-xl"
+                    >
+                      <div className="col-span-2 relative h-full rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800/50">
+                        <Image
+                          src={postImages[0]}
+                          alt={`${post.title} - Foto 1`}
+                          fill
+                          sizes="(max-width: 768px) 66vw, 550px"
+                          className="object-cover group-hover/collage:scale-105 transition-transform duration-500"
+                        />
+                      </div>
+                      <div className="grid grid-rows-2 gap-2.5 h-full">
+                        <div className="relative h-full rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800/50">
+                          <Image
+                            src={postImages[1]}
+                            alt={`${post.title} - Foto 2`}
+                            fill
+                            sizes="(max-width: 768px) 33vw, 250px"
+                            className="object-cover group-hover/collage:scale-105 transition-transform duration-500"
+                          />
+                        </div>
+                        <div className="relative h-full rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800/50">
+                          <Image
+                            src={postImages[2]}
+                            alt={`${post.title} - Foto 3`}
+                            fill
+                            sizes="(max-width: 768px) 33vw, 250px"
+                            className="object-cover group-hover/collage:scale-105 transition-transform duration-500"
+                          />
+                          {postImages.length > 3 && (
+                            <div className="absolute inset-0 bg-neutral-950/80 backdrop-blur-xs flex items-center justify-center font-mono font-bold text-sm text-white">
+                              +{postImages.length - 2}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  )}
+                </div>
               )}
 
               <div>
@@ -170,10 +257,10 @@ export function PostFeedClient({ posts }: PostFeedClientProps) {
                 </p>
               </div>
 
-              {post.media_url && (
+              {mediaUrl && (
                 <div className="pt-1">
                   <a 
-                    href={post.media_url} 
+                    href={mediaUrl} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-xs font-medium text-red-400 hover:text-red-300 bg-neutral-950/80 px-3.5 py-2 rounded-lg border border-neutral-800 transition-colors"

@@ -19,6 +19,7 @@ import { CommentList } from '@/components/comments/CommentList'
 import type { CommentWithAuthor } from '@/lib/types'
 import { ArrowLeft, Play, Tag, Share2, Calendar } from 'lucide-react'
 import type { Metadata } from 'next'
+import { normalizeMediaUrl, parseMediaUrls } from '@/lib/utils'
 
 // Definimos el tipo de props siguiendo las convenciones de Next.js 16.
 // En Next.js 16, 'params' es una Promesa: Promise<{ id: string }>.
@@ -88,9 +89,12 @@ export default async function PostPage({ params }: PostPageProps) {
 
   const comments = (commentsData ?? []) as CommentWithAuthor[]
 
-  // Detectamos si hay imagen en Supabase (image_url / cover_url) o fallback local para 'Criss Angel'
-  const coverImage = post.image_url || post.cover_url || 
-    (post.title?.toLowerCase().includes('criss angel') ? '/images/releases/criss-angel.jpg' : null)
+  // Detectamos todas las imágenes de la publicación
+  const postImages = parseMediaUrls(post.image_url || post.cover_url)
+  if (postImages.length === 0 && post.title?.toLowerCase().includes('criss angel')) {
+    postImages.push('/images/releases/criss-angel.jpg')
+  }
+  const mediaUrl = normalizeMediaUrl(post.media_url) || null
 
   return (
     <main className="max-w-3xl mx-auto p-6 space-y-8 font-sans">
@@ -124,17 +128,52 @@ export default async function PostPage({ params }: PostPageProps) {
           </div>
         </div>
 
-        {/* Portada / Artwork en alta resolución si está disponible */}
-        {coverImage && (
-          <div className="relative w-full aspect-square max-h-[420px] mx-auto rounded-xl overflow-hidden border border-neutral-800 bg-neutral-950 shadow-lg">
-            <Image 
-              src={coverImage} 
-              alt={post.title}
-              fill
-              sizes="(max-width: 768px) 100vw, 700px"
-              className="object-cover"
-              priority
-            />
+        {/* Portada / Artwork / Galería en alta resolución sin recortar */}
+        {postImages.length > 0 && (
+          <div className="space-y-4">
+            {/* Foto Principal o Única sin recortes con fondo ambiental */}
+            <div className="relative w-full rounded-2xl overflow-hidden border border-neutral-800/80 bg-neutral-950/90 shadow-2xl shadow-red-950/20 min-h-[280px] max-h-[540px] flex items-center justify-center p-3 sm:p-5">
+              {/* Fondo con desenfoque suave para ambientar los márgenes */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <Image 
+                  src={postImages[0]} 
+                  alt="" 
+                  fill 
+                  className="object-cover blur-3xl opacity-25 scale-110 transform-gpu" 
+                />
+                <div className="absolute inset-0 bg-neutral-950/50" />
+              </div>
+
+              {/* Imagen en primer plano: 100% visible, natural y nítida (object-contain) */}
+              <div className="relative z-10 w-full flex items-center justify-center">
+                <Image 
+                  src={postImages[0]} 
+                  alt={post.title}
+                  width={1200}
+                  height={1200}
+                  sizes="(max-width: 768px) 100vw, 800px"
+                  className="w-auto h-auto max-h-[500px] max-w-full object-contain rounded-xl shadow-2xl border border-neutral-800/70"
+                  priority
+                />
+              </div>
+            </div>
+
+            {/* Si es un recap de varias fotos, mostramos las fotos adicionales en cuadrícula nítida */}
+            {postImages.length > 1 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
+                {postImages.slice(1).map((src, i) => (
+                  <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-neutral-800 bg-neutral-950 shadow-md group/thumb">
+                    <Image
+                      src={src}
+                      alt={`${post.title} - Foto ${i + 2}`}
+                      fill
+                      sizes="(max-width: 768px) 50vw, 250px"
+                      className="object-cover group-hover/thumb:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -149,7 +188,7 @@ export default async function PostPage({ params }: PostPageProps) {
         </div>
 
         {/* Recurso Multimedia (si existe) */}
-        {post.media_url && (
+        {mediaUrl && (
           <div className="pt-4">
             <div className="bg-neutral-950/80 border border-neutral-800 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
@@ -157,7 +196,7 @@ export default async function PostPage({ params }: PostPageProps) {
                 <p className="text-sm font-semibold text-white mt-0.5">Escuchar o visualizar contenido adjunto</p>
               </div>
               <a 
-                href={post.media_url} 
+                href={mediaUrl} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-500 active:scale-95 px-4 py-2.5 rounded-lg transition-all shadow-lg shadow-red-900/30"

@@ -15,11 +15,17 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: post } = await supabase
-    .from('posts')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
+  const [{ data: post }, { data: products }] = await Promise.all([
+    supabase
+      .from('posts')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle(),
+    supabase
+      .from('products')
+      .select('id, name, slug, price_cents, category, fulfillment, created_at')
+      .order('created_at', { ascending: false }),
+  ])
 
   const demoPost: Post = {
     id,
@@ -49,7 +55,7 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
           </h1>
         </div>
 
-        <EditPostForm post={activePost} />
+        <EditPostForm post={activePost} products={products ?? []} />
       </div>
     </main>
   )
