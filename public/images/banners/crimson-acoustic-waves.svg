@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 500" width="1600" height="500">
+  <defs>
+    <linearGradient id="crimsonBg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#09090b" />
+      <stop offset="45%" stop-color="#160508" />
+      <stop offset="100%" stop-color="#09090b" />
+    </linearGradient>
+    <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#dc2626" stop-opacity="0.05" />
+      <stop offset="50%" stop-color="#ef4444" stop-opacity="0.65" />
+      <stop offset="100%" stop-color="#dc2626" stop-opacity="0.05" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="500" fill="url(#crimsonBg)" />
+
+  <!-- Subtle Horizontal Acoustic Harmonic Curves -->
+  <g fill="none" stroke="url(#waveGrad)">
+    <path d="M 0 250 Q 400 90, 800 250 T 1600 250" stroke-width="2" />
+    <path d="M 0 250 Q 400 130, 800 250 T 1600 250" stroke-width="1.2" opacity="0.75" />
+    <path d="M 0 250 Q 400 170, 800 250 T 1600 250" stroke-width="0.9" opacity="0.5" />
+    <path d="M 0 250 Q 400 330, 800 250 T 1600 250" stroke-width="0.9" opacity="0.5" />
+    <path d="M 0 250 Q 400 370, 800 250 T 1600 250" stroke-width="1.2" opacity="0.75" />
+    <path d="M 0 250 Q 400 410, 800 250 T 1600 250" stroke-width="2" />
+  </g>
+
+  <!-- Center Phase Line -->
+  <line x1="0" y1="250" x2="1600" y2="250" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1" />
+
+  <!-- Minimalist Frequency Markers -->
+  <g fill="#737373" font-family="monospace" font-size="10" letter-spacing="4" opacity="0.6">
+    <text x="80" y="455">20 HZ</text>
+    <text x="450" y="455">250 HZ</text>
+    <text x="780" y="455">1.0 KHZ</text>
+    <text x="1150" y="455">8.0 KHZ</text>
+    <text x="1450" y="455">20 KHZ</text>
+  </g>
+</svg>

@@ -71,7 +71,7 @@ export function Footer() {
 
           <div className="flex items-center gap-2 text-neutral-500 font-mono text-[11px]">
             <ShieldCheck className="w-3.5 h-3.5 text-red-500" />
-            <span>© {new Date().getFullYear()} sleepyred999 • v1.0. Todos los derechos reservados.</span>
+            <span>© {new Date().getFullYear()} sleepyred999 • v1.1. Todos los derechos reservados.</span>
           </div>
         </div>
       </div>

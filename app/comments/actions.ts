@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { recordTelemetryEvent } from '@/lib/telemetry'
 
 export type CommentActionState = {
   error?: string
@@ -72,6 +73,14 @@ export async function createComment(
   if (error) {
     return { error: error.message || 'No se pudo publicar el comentario.' }
   }
+
+  await recordTelemetryEvent({
+    eventType: 'comment_created',
+    targetType,
+    targetId,
+    userId: user.id,
+    metadata: { length: body.length },
+  })
 
   if (targetType === 'post') {
     revalidatePath(`/posts/${targetId}`)

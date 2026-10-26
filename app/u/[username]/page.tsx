@@ -83,12 +83,10 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
       : 'Miembro de la comunidad oficial de sleepyred999.',
     avatar_url: isSleepyAdmin
       ? '/images/logos/PNG-04.png'
-      : isRedRecordings
-      ? '/images/avatars/avatar_cyber_red.jpg'
-      : null,
+      : '/images/avatars/emblem-obsidian-crest.svg',
     banner_url: isSleepyAdmin
-      ? '/images/releases/criss-angel.jpg'
-      : '/images/banners/banner_cyber_neon.jpg',
+      ? '/songs/criss-angel/crissangel.jpg'
+      : '/images/banners/studio-obsidian-grid.svg',
     favorite_product_id: isRedRecordings ? 'red-recordings' : 'criss-angel',
     is_public: true,
     role: isSleepyAdmin ? 'admin' : 'user',
@@ -202,7 +200,8 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
               alt="Banner de Perfil"
               fill
               priority
-              className="object-cover filter brightness-75"
+              unoptimized={userProfile.banner_url.endsWith('.svg')}
+              className="object-cover filter brightness-90"
               sizes="(max-width: 768px) 100vw, 896px"
             />
           ) : (
@@ -222,6 +221,7 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
                     src={userProfile.avatar_url}
                     alt={userProfile.display_name || 'Avatar'}
                     fill
+                    unoptimized={userProfile.avatar_url.endsWith('.svg')}
                     className="object-cover"
                     sizes="112px"
                   />

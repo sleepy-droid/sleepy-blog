@@ -84,7 +84,7 @@ export default async function AdminDashboardPage() {
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-extrabold text-white tracking-tight">Panel de Control & Resumen</h1>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-950 text-red-400 border border-red-800">
-              v1.0 Alpha
+              v1.1 Beta-Ready
             </span>
           </div>
           <p className="text-xs text-neutral-400 mt-1">

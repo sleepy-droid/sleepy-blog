@@ -1,7 +1,7 @@
 export type BannerPreset = {
   id: string
   name: string
-  category: 'official' | 'wallpaper' | 'fire'
+  category: 'studio' | 'official' | 'minimal'
   url: string
   description: string
 }
@@ -24,37 +24,61 @@ export type SongPreset = {
 
 export const BANNER_PRESETS: BannerPreset[] = [
   {
+    id: 'studio-obsidian-grid',
+    name: 'Consola Maestra Obsidian (24-Bit Grid)',
+    category: 'studio',
+    url: '/images/banners/studio-obsidian-grid.svg',
+    description: 'Retícula arquitectónica de estudio de masterización con telemetría dBFS',
+  },
+  {
+    id: 'crimson-acoustic-waves',
+    name: 'Armónicos Acústicos Crimson',
+    category: 'minimal',
+    url: '/images/banners/crimson-acoustic-waves.svg',
+    description: 'Curvas de fase y frecuencia minimalistas sobre negro obsidiana',
+  },
+  {
+    id: 'monolith-vinyl-press',
+    name: 'Monolith Direct-To-Master Vinyl',
+    category: 'studio',
+    url: '/images/banners/monolith-vinyl-press.svg',
+    description: 'Surcos concéntricos de vinilo de edición coleccionista',
+  },
+  {
     id: 'criss-angel',
-    name: 'Criss Angel Official',
+    name: 'Criss Angel (Arte Oficial)',
     category: 'official',
     url: '/songs/criss-angel/crissangel.jpg',
     description: 'Portada original del lanzamiento oficial Criss Angel',
   },
   {
-    id: 'cyber-neon',
-    name: 'Cyber Vinyl & Waveforms',
-    category: 'wallpaper',
-    url: '/images/banners/banner_cyber_neon.jpg',
-    description: 'Estudio de vinilo oscuro con ondas rojas de neón',
-  },
-  {
-    id: 'crimson-fire',
-    name: 'Sonic Ascension Fire & Ash',
-    category: 'fire',
-    url: '/images/banners/banner_crimson_fire.jpg',
-    description: 'Visualizador ardiente con fuego, ascuas y humo carmesí',
+    id: 'odm-official',
+    name: 'O.D.M. (Arte Oficial)',
+    category: 'official',
+    url: '/songs/odm/odm.jpg',
+    description: 'Arte visual oficial del lanzamiento O.D.M.',
   },
 ]
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
   {
-    id: 'cyber-red',
-    name: 'Cyberpunk Red Hoodie',
-    url: '/images/avatars/avatar_cyber_red.jpg',
+    id: 'emblem-obsidian-crest',
+    name: 'Emblema Prisma Studio',
+    url: '/images/avatars/emblem-obsidian-crest.svg',
+  },
+  {
+    id: 'emblem-vinyl-disc',
+    name: 'Vinilo Master Press',
+    url: '/images/avatars/emblem-vinyl-disc.svg',
+  },
+  {
+    id: 'emblem-crimson-monogram',
+    name: 'Monograma Frecuencia',
+    url: '/images/avatars/emblem-crimson-monogram.svg',
   },
   {
     id: 'official-logo',
-    name: 'Logo Oficial Sleepy',
+    name: 'Insignia sleepyred999',
     url: '/images/logos/PNG-04.png',
   },
 ]

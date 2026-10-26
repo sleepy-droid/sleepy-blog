@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { recordTelemetryEvent } from '@/lib/telemetry'
 import type { VoteTargetType } from '@/lib/types'
 
 export type ToggleVoteResult = {
@@ -10,7 +11,9 @@ export type ToggleVoteResult = {
   error?: string
   requireAuth?: boolean
   newLikeCount?: number
+  newDownvoteCount?: number
   hasVoted?: boolean
+  userVote?: 1 | -1 | 0
 }
 
 export async function toggleVote(
@@ -35,16 +38,19 @@ export async function toggleVote(
     .maybeSingle()
 
   let hasVoted = false
+  let userVote: 1 | -1 | 0 = 0
 
   if (existingVote) {
     if (existingVote.vote_value === voteValue) {
       // Toggle off (remove vote)
       await supabase.from('votes').delete().eq('id', existingVote.id)
       hasVoted = false
+      userVote = 0
     } else {
       // Change vote value (e.g. from 1 to -1)
       await supabase.from('votes').update({ vote_value: voteValue }).eq('id', existingVote.id)
       hasVoted = true
+      userVote = voteValue
     }
   } else {
     // Insert new vote
@@ -55,44 +61,71 @@ export async function toggleVote(
       vote_value: voteValue,
     })
     hasVoted = true
+    userVote = voteValue
   }
 
   // Calculate new aggregate vote count from votes table
-  const { count: upvoteCount } = await supabase
-    .from('votes')
-    .select('*', { count: 'exact', head: true })
-    .eq('target_type', targetType)
-    .eq('target_id', targetId)
-    .eq('vote_value', 1)
-
-  const { count: downvoteCount } = await supabase
-    .from('votes')
-    .select('*', { count: 'exact', head: true })
-    .eq('target_type', targetType)
-    .eq('target_id', targetId)
-    .eq('vote_value', -1)
+  const [{ count: upvoteCount }, { count: downvoteCount }] = await Promise.all([
+    supabase
+      .from('votes')
+      .select('*', { count: 'exact', head: true })
+      .eq('target_type', targetType)
+      .eq('target_id', targetId)
+      .eq('vote_value', 1),
+    supabase
+      .from('votes')
+      .select('*', { count: 'exact', head: true })
+      .eq('target_type', targetType)
+      .eq('target_id', targetId)
+      .eq('vote_value', -1),
+  ])
 
   const newLikes = upvoteCount || 0
   const newDowns = downvoteCount || 0
 
   // Update target table aggregate counts
   if (targetType === 'post') {
-    await supabase.from('posts').update({ like_count: newLikes, upvotes: newLikes, downvotes: newDowns }).eq('id', targetId)
+    await supabase
+      .from('posts')
+      .update({ like_count: newLikes, upvotes: newLikes, downvotes: newDowns })
+      .eq('id', targetId)
     revalidatePath('/')
     revalidatePath(`/posts/${targetId}`)
   } else if (targetType === 'product') {
-    await supabase.from('products').update({ upvotes: newLikes, downvotes: newDowns }).eq('id', targetId)
+    await supabase
+      .from('products')
+      .update({ upvotes: newLikes, downvotes: newDowns })
+      .eq('id', targetId)
     revalidatePath('/shop')
     revalidatePath(`/shop/${targetId}`)
   } else if (targetType === 'forum_thread') {
-    await supabase.from('forum_threads').update({ upvotes: newLikes, downvotes: newDowns }).eq('id', targetId)
+    await supabase
+      .from('forum_threads')
+      .update({ upvotes: newLikes, downvotes: newDowns })
+      .eq('id', targetId)
     revalidatePath('/community')
     revalidatePath(`/community/${targetId}`)
+  } else if (targetType === 'comment') {
+    await supabase
+      .from('comments')
+      .update({ upvotes: newLikes, downvotes: newDowns })
+      .eq('id', targetId)
   }
+
+  // Record in Telemetry Vault for RED Recordings Plus / PowerBI
+  await recordTelemetryEvent({
+    eventType: 'vote_cast',
+    targetType,
+    targetId,
+    userId: user.id,
+    metadata: { voteValue: userVote, upvotes: newLikes, downvotes: newDowns },
+  })
 
   return {
     success: true,
     newLikeCount: newLikes,
+    newDownvoteCount: newDowns,
     hasVoted,
+    userVote,
   }
 }

@@ -11,7 +11,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { ProfileEditForm } from './ProfileEditForm'
-import { getSongById } from '@/lib/profile-presets'
+import { getSongById, SONG_PRESETS, type SongPreset } from '@/lib/profile-presets'
 import { FavoriteSongSnippetPlayer } from '@/components/profile/FavoriteSongSnippetPlayer'
 import {
   ProfileActivityFeed,
@@ -34,17 +34,50 @@ export default async function ProfilePage() {
     .eq('id', currentUser.id)
     .single()
 
+  // Cargar canciones publicadas en la tienda para el selector de Canción Favorita
+  const { data: dbMusicProducts } = await supabase
+    .from('products')
+    .select('id, slug, name, description, audio_preview_url, mp3_url, wav_url, thumbnail_url')
+    .eq('is_published', true)
+    .or('category.eq.music,fulfillment.eq.digital')
+    .order('created_at', { ascending: false })
+
+  const availableSongs: SongPreset[] = [...SONG_PRESETS]
+  if (dbMusicProducts) {
+    for (const p of dbMusicProducts) {
+      const audioUrl = p.audio_preview_url || p.mp3_url || p.wav_url
+      if (!audioUrl) continue
+      const songKey = p.slug || p.id
+      if (!availableSongs.some((s) => s.id === songKey || s.id === p.id)) {
+        availableSongs.push({
+          id: songKey,
+          title: p.name,
+          artist: 'sleepyred999',
+          subtitle: p.description?.slice(0, 48) || 'Lanzamiento Oficial',
+          audioPreviewUrl: audioUrl,
+          thumbnailUrl: p.thumbnail_url || '/images/logos/PNG-04.png',
+          durationSeconds: 30,
+        })
+      }
+    }
+  }
+
+  const resolveSong = (songId?: string | null): SongPreset => {
+    if (!songId) return availableSongs[0]
+    return availableSongs.find((s) => s.id === songId) || getSongById(songId)
+  }
+
   const name = profile?.display_name || currentUser.email?.split('@')[0] || 'Miembro'
   const username = profile?.username || currentUser.email?.split('@')[0] || 'user'
-  const bannerUrl = profile?.banner_url || '/images/releases/criss-angel.jpg'
-  const avatarUrl = profile?.avatar_url
+  const bannerUrl = profile?.banner_url || '/images/banners/studio-obsidian-grid.svg'
+  const avatarUrl = profile?.avatar_url || '/images/avatars/emblem-obsidian-crest.svg'
   const statusUpdate =
     profile?.status_update ||
     'Disfrutando los lanzamientos oficiales en máster sin compresión.'
   const birthday = profile?.birthday
   const gender = profile?.gender
 
-  const favoriteSong = getSongById(profile?.favorite_product_id)
+  const favoriteSong = resolveSong(profile?.favorite_product_id)
 
   const getGenderLabel = (g?: string | null) => {
     switch (g) {
@@ -73,7 +106,7 @@ export default async function ProfilePage() {
     for (const u of updates) {
       if (u.body.startsWith('[FAVORITE_SONG_CHANGED]:')) {
         const songId = u.body.replace('[FAVORITE_SONG_CHANGED]:', '').trim()
-        const song = getSongById(songId)
+        const song = resolveSong(songId)
         activities.push({
           id: u.id,
           type: 'favorite_song_changed',
@@ -145,10 +178,11 @@ export default async function ProfilePage() {
             alt="Profile Banner"
             fill
             priority
-            className="object-cover opacity-60"
+            unoptimized={bannerUrl.endsWith('.svg')}
+            className="object-cover opacity-85"
             sizes="(max-width: 768px) 100vw, 896px"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/35 to-transparent" />
         </div>
 
         {/* Profile Avatar & Info Bar */}
@@ -156,7 +190,14 @@ export default async function ProfilePage() {
           <div className="flex items-end gap-4">
             <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border-4 border-neutral-950 bg-neutral-900 shadow-2xl shrink-0 ring-2 ring-red-600/50">
               {avatarUrl ? (
-                <Image src={avatarUrl} alt={name} fill className="object-cover" sizes="112px" />
+                <Image
+                  src={avatarUrl}
+                  alt={name}
+                  fill
+                  unoptimized={avatarUrl.endsWith('.svg')}
+                  className="object-cover"
+                  sizes="112px"
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-3xl font-extrabold text-red-400 bg-red-950/80">
                   {name.charAt(0).toUpperCase()}
@@ -241,7 +282,7 @@ export default async function ProfilePage() {
           <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
             <div className="flex items-center gap-2">
               <Edit3 className="w-4 h-4 text-red-400" />
-              <h2 className="text-sm font-bold text-white">Biografía & Personalización</h2>
+              <h2 className="text-sm font-bold text-white">Biografía & Personalización CDN</h2>
             </div>
           </div>
 
@@ -250,7 +291,7 @@ export default async function ProfilePage() {
               'Miembro oficial de la comunidad sleepyred999. Apoyando producciones musicales y drops exclusivos.'}
           </p>
 
-          <ProfileEditForm profile={profile} />
+          <ProfileEditForm profile={profile} availableSongs={availableSongs} />
         </div>
       </section>
 

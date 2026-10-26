@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <linearGradient id="crimsonCore" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#180407" />
+      <stop offset="100%" stop-color="#09090b" />
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#crimsonCore)" />
+  <rect x="45" y="45" width="310" height="310" rx="48" fill="none" stroke="#dc2626" stroke-width="2" stroke-opacity="0.5" />
+  <!-- Minimalist Equalizer Bars Monogram -->
+  <g fill="#ef4444">
+    <rect x="115" y="165" width="18" height="70" rx="9" opacity="0.6" />
+    <rect x="153" y="120" width="18" height="160" rx="9" />
+    <rect x="191" y="95" width="18" height="210" rx="9" />
+    <rect x="229" y="135" width="18" height="130" rx="9" />
+    <rect x="267" y="170" width="18" height="60" rx="9" opacity="0.6" />
+  </g>
+</svg>

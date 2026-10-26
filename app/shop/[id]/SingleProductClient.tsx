@@ -2,26 +2,32 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
-import { Play, Pause, ShoppingBag, ShieldCheck, Sparkles, Music, Package, Check, Maximize2, X, Volume2, VolumeX, Tag, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { Play, Pause, ShoppingBag, ShieldCheck, Sparkles, Music, Package, Maximize2, X, Volume2, VolumeX, Tag } from 'lucide-react'
 import { formatPrice, type Product } from '@/lib/types'
 import { useCart } from '@/lib/cart'
 import { useLanguage } from '@/lib/i18n'
+import { toggleVote } from '@/app/votes/actions'
+import { GuestLoginModal } from '@/components/auth/GuestLoginModal'
 
 type SingleProductClientProps = {
   product: Product
 }
 
 export function SingleProductClient({ product }: SingleProductClientProps) {
+  const pathname = usePathname()
   const { addToCart } = useCart()
   const { t } = useLanguage()
 
   // Size selection for physical merch (S, M, L, XL)
   const [selectedSize, setSelectedSize] = useState<'S' | 'M' | 'L' | 'XL'>('L')
   
-  // Upvote / Downvote local rating state
-  const [upvotes, setUpvotes] = useState(product.upvotes || 12)
-  const [downvotes, setDownvotes] = useState(product.downvotes || 1)
+  // Real persistent Upvote / Downvote rating state
+  const [upvotes, setUpvotes] = useState(product.upvotes ?? 0)
+  const [downvotes, setDownvotes] = useState(product.downvotes ?? 0)
   const [userVote, setUserVote] = useState<1 | -1 | 0>(0)
+  const [isVoting, setIsVoting] = useState(false)
+  const [showGuestModal, setShowGuestModal] = useState(false)
 
   // Audio Player State (SoundCloud style)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -36,17 +42,20 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
   const isMusic = product.category === 'music' || product.fulfillment === 'digital' || !!product.audio_preview_url || !!product.wav_url || !!product.mp3_url
   const previewUrl = product.audio_preview_url || product.wav_url || product.mp3_url || ''
 
-  const handleVote = (val: 1 | -1) => {
-    if (userVote === val) {
-      setUserVote(0)
-      if (val === 1) setUpvotes((v) => v - 1)
-      else setDownvotes((v) => v - 1)
-    } else {
-      if (userVote === 1) setUpvotes((v) => v - 1)
-      if (userVote === -1) setDownvotes((v) => v - 1)
-      setUserVote(val)
-      if (val === 1) setUpvotes((v) => v + 1)
-      else setDownvotes((v) => v + 1)
+  const handleVote = async (val: 1 | -1) => {
+    if (isVoting) return
+    setIsVoting(true)
+    try {
+      const res = await toggleVote('product', product.id, val)
+      if (res.requireAuth) {
+        setShowGuestModal(true)
+      } else if (res.success) {
+        if (typeof res.newLikeCount === 'number') setUpvotes(res.newLikeCount)
+        if (typeof res.newDownvoteCount === 'number') setDownvotes(res.newDownvoteCount)
+        setUserVote(res.userVote ?? 0)
+      }
+    } finally {
+      setIsVoting(false)
     }
   }
 
@@ -87,6 +96,16 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
     } else {
       audioRef.current.play()
       setIsPlaying(true)
+      fetch('/api/telemetry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: 'song_play',
+          targetType: 'product',
+          targetId: product.id,
+          metadata: { slug: product.slug, name: product.name, source: 'shop_preview' },
+        }),
+      }).catch(() => {})
     }
   }
 
@@ -469,6 +488,13 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
           </div>
         </div>
       )}
+      <GuestLoginModal
+        isOpen={showGuestModal}
+        onClose={() => setShowGuestModal(false)}
+        redirectPath={pathname}
+        title="¿Quieres calificar este lanzamiento?"
+        message="Inicia sesión con tu cuenta de miembro para registrar tu voto real en el catálogo de sleepyred999."
+      />
     </div>
   )
 }

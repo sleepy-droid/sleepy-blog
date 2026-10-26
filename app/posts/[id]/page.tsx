@@ -16,6 +16,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { CommentList } from '@/components/comments/CommentList'
+import { PostLikeButton } from '@/components/home/PostLikeButton'
 import type { CommentWithAuthor } from '@/lib/types'
 import { ArrowLeft, Play, Tag, Share2, Calendar } from 'lucide-react'
 import type { Metadata } from 'next'
@@ -236,9 +237,12 @@ export default async function PostPage({ params }: PostPageProps) {
           </div>
         )}
 
-        {/* Pie de página del Post: Acciones secundarias */}
+        {/* Pie de página del Post: Likes en vivo & Acciones secundarias */}
         <div className="pt-4 border-t border-neutral-800/60 flex items-center justify-between text-xs text-neutral-500">
-          <span>ID de bitácora: #{post.id}</span>
+          <div className="flex items-center gap-3">
+            <PostLikeButton postId={post.id} initialLikes={post.like_count || post.upvotes || 0} />
+            <span className="font-mono text-[11px]">ID: #{post.id.slice(0, 8)}</span>
+          </div>
           <a 
             href={`mailto:?subject=${encodeURIComponent(post.title)}&body=${encodeURIComponent(`Mira esta publicación de sleepyred999: ${post.title}`)}`}
             className="inline-flex items-center gap-1.5 hover:text-neutral-300 transition-colors"
