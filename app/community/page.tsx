@@ -1,20 +1,18 @@
 /**
  * Community Forum Page: /community
  * File Path: app/community/page.tsx
- * 
- * Features:
+ *
+ * Features (v1.0):
  * 1. Multi-user thread creation (title, body, optional image).
  * 2. Original song/product metadata tagging (remixes, vocal covers, etc.).
  * 3. YouTube video embed support (`iframe` player).
- * 4. List of active community threads with replies & badges.
+ * 4. Real database community threads & products (placeholder demo threads removed).
  */
 
-import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { CommunityClient } from './CommunityClient'
-import { Users, MessageSquare, Flame, Bell, Tag, Video, PlusCircle } from 'lucide-react'
+import { Users, Bell } from 'lucide-react'
 
 export type ThreadWithAuthor = {
   id: string
@@ -41,72 +39,33 @@ export type ThreadWithAuthor = {
   } | null
 }
 
-const DEMO_THREADS: ThreadWithAuthor[] = [
-  {
-    id: 'demo-thread-1',
-    title: 'Remix Oficial de Vocales Acapella (Criss Angel Remix)',
-    body: 'Adquirí los derechos de la voz acapella en la tienda oficial y preparé este remix estilo Synthwave neón. ¡Espero sus opiniones!',
-    image_url: '/images/releases/criss-angel.jpg',
-    youtube_url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-    linked_product_id: 'criss-angel',
-    created_at: new Date().toISOString(),
-    author_id: 'demo-user-1',
-    profiles: {
-      display_name: 'cyber_producer',
-      email: 'cyber@example.com',
-      username: 'cyber_producer',
-      avatar_url: null
-    },
-    products: {
-      name: 'Criss Angel (Edición Digital)',
-      slug: 'criss-angel'
-    }
-  },
-  {
-    id: 'demo-thread-2',
-    title: '¿Cuándo llega el próximo restock de los Hoodies Neón?',
-    body: 'Conseguí el póster A2 y la calidad del papel es increíble. Quisiera saber si habrá más tallas L en el buzón negro reflectivo.',
-    image_url: null,
-    youtube_url: null,
-    linked_product_id: 'sleepyred-hoodie-neon',
-    created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
-    author_id: 'demo-user-2',
-    profiles: {
-      display_name: 'sleepy_fan99',
-      email: 'fan99@example.com',
-      username: 'sleepy_fan99',
-      avatar_url: null
-    },
-    products: {
-      name: 'Sleepyred Neon Hoodie',
-      slug: 'sleepyred-hoodie-neon'
-    }
-  }
-]
-
 export default async function CommunityPage() {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  // Fetch threads from Supabase
+  // Fetch real visible threads from Supabase
   const { data: threadsData } = await supabase
     .from('forum_threads')
-    .select('*, profiles:author_id (display_name, email, username, avatar_url), products:linked_product_id (name, slug)')
+    .select('*, profiles:author_id (display_name, email, username, avatar_url), products:linked_product_id (name, slug, thumbnail_url)')
     .eq('status', 'visible')
     .order('created_at', { ascending: false })
 
-  const threads: ThreadWithAuthor[] = (threadsData && threadsData.length > 0) ? (threadsData as ThreadWithAuthor[]) : DEMO_THREADS
+  const threads: ThreadWithAuthor[] = (threadsData as ThreadWithAuthor[]) || []
 
-  // Fetch available products for tagging selector
+  // Fetch real published products for tagging selector
   const { data: productsData } = await supabase
     .from('products')
-    .select('id, name')
+    .select('id, name, slug, price_cents, thumbnail_url')
     .eq('is_published', true)
+    .order('created_at', { ascending: false })
 
-  const productsList = productsData || [
-    { id: '11111111-1111-1111-1111-111111111111', name: 'Criss Angel (Edición Digital)' },
-    { id: '22222222-2222-2222-2222-222222222222', name: 'Sleepyred Neon Hoodie' }
-  ]
+  const productsList = (productsData || []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    price_cents: p.price_cents,
+    thumbnail_url: p.thumbnail_url ?? undefined,
+  }))
 
   return (
     <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-10 font-sans">
@@ -124,10 +83,10 @@ export default async function CommunityPage() {
       </header>
 
       {/* Interactive Forum Thread Creator and Thread Feed */}
-      <CommunityClient 
-        threads={threads} 
-        products={productsList} 
-        currentUser={currentUser} 
+      <CommunityClient
+        threads={threads}
+        products={productsList}
+        currentUser={currentUser}
       />
 
       {/* Discord Banner */}

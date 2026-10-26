@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { normalizeMediaUrl } from '@/lib/utils'
+import { provisionProductDirectoryAndUpload } from '@/lib/product-files'
 
 export type AdminActionState = {
   error?: string
@@ -340,6 +341,8 @@ export async function adminDeleteThread(formData: FormData): Promise<void> {
 
 /**
  * Crear producto en el catálogo (solo admin).
+ * Provisiona automáticamente la carpeta del producto (`public/songs/<slug>` o `public/merch/<slug>`)
+ * y sincroniza los archivos subidos con el sistema de archivos / Supabase Storage CDN.
  */
 export async function createProduct(
   _prev: AdminActionState,
@@ -352,21 +355,50 @@ export async function createProduct(
   const category = String(formData.get('category') ?? 'music').trim()
   const fulfillment = String(formData.get('fulfillment') ?? 'digital').trim()
   const price_cents = Math.round(Number(formData.get('price') || 0) * 100)
-  const thumbnail_url = normalizeMediaUrl(formData.get('thumbnail_url') as string) || null
-  const mp3_url = normalizeMediaUrl(formData.get('mp3_url') as string) || null
-  const wav_url = normalizeMediaUrl(formData.get('wav_url') as string) || null
-  const video_url = String(formData.get('video_url') ?? '').trim() || null
-  const acapella_url = normalizeMediaUrl(formData.get('acapella_url') as string) || null
-  const instrumental_url = normalizeMediaUrl(formData.get('instrumental_url') as string) || null
 
   if (!name || name.length < 2) {
     return { error: 'El nombre del producto es obligatorio.' }
   }
 
-  const slug = name
+  const customSlug = String(formData.get('slug') ?? '').trim()
+  const slug = (customSlug || name)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '') || `product-${Date.now()}`
+
+  const supabase = await createClient()
+
+  // Provisionar carpeta automática del producto y guardar archivos subidos
+  const uploaded = await provisionProductDirectoryAndUpload({
+    slug,
+    name,
+    category,
+    fulfillment,
+    formData,
+    supabase,
+  })
+
+  const thumbnail_url =
+    uploaded.thumbnail_url ||
+    normalizeMediaUrl(formData.get('thumbnail_url') as string) ||
+    null
+  const mp3_url =
+    uploaded.mp3_url ||
+    normalizeMediaUrl(formData.get('mp3_url') as string) ||
+    null
+  const wav_url =
+    uploaded.wav_url ||
+    normalizeMediaUrl(formData.get('wav_url') as string) ||
+    null
+  const video_url = String(formData.get('video_url') ?? '').trim() || null
+  const acapella_url =
+    uploaded.acapella_url ||
+    normalizeMediaUrl(formData.get('acapella_url') as string) ||
+    null
+  const instrumental_url =
+    uploaded.instrumental_url ||
+    normalizeMediaUrl(formData.get('instrumental_url') as string) ||
+    null
 
   const productPayload: Record<string, unknown> = {
     slug,
@@ -382,13 +414,20 @@ export async function createProduct(
     video_url,
     acapella_url,
     instrumental_url,
+    storage_folder_path: uploaded.folderRelativePath,
     audio_preview_url: mp3_url || wav_url,
     is_published: true,
     is_featured: true,
   }
 
-  const supabase = await createClient()
   let { error } = await supabase.from('products').insert(productPayload)
+
+  // Si aún no se ha corrido schema_v6 (storage_folder_path), reintentar sin storage_folder_path
+  if (error && error.message.includes('storage_folder_path')) {
+    delete productPayload.storage_folder_path
+    const retryV5 = await supabase.from('products').insert(productPayload)
+    error = retryV5.error
+  }
 
   if (error && (error.message.includes('column') || error.code === '42703')) {
     const safePayload = {
@@ -404,9 +443,12 @@ export async function createProduct(
       is_published: true,
       is_featured: true,
       specs: {
+        folder: `/${uploaded.folderRelativePath}`,
         mp3_url: mp3_url || undefined,
         wav_url: wav_url || undefined,
         video_url: video_url || undefined,
+        acapella_url: acapella_url || undefined,
+        instrumental_url: instrumental_url || undefined,
       },
     }
     const retry = await supabase.from('products').insert(safePayload)
@@ -424,7 +466,7 @@ export async function createProduct(
 }
 
 /**
- * Actualizar producto existente (ej. cambiar precio a $0.99).
+ * Actualizar producto existente y sincronizar archivos nuevos en la carpeta del producto.
  */
 export async function updateProduct(
   _prev: AdminActionState,
@@ -438,18 +480,80 @@ export async function updateProduct(
   const category = String(formData.get('category') ?? 'music').trim()
   const fulfillment = String(formData.get('fulfillment') ?? 'digital').trim()
   const price_cents = Math.round(Number(formData.get('price') || 0) * 100)
-  const thumbnail_url = normalizeMediaUrl(formData.get('thumbnail_url') as string) || null
-  const mp3_url = normalizeMediaUrl(formData.get('mp3_url') as string) || null
-  const wav_url = normalizeMediaUrl(formData.get('wav_url') as string) || null
 
   if (!id || !name) {
     return { error: 'ID y Nombre de producto son obligatorios.' }
   }
 
   const supabase = await createClient()
-  const { error } = await supabase
+
+  const { data: existing } = await supabase
     .from('products')
-    .update({
+    .select('slug')
+    .eq('id', id)
+    .maybeSingle()
+
+  const slug =
+    existing?.slug ||
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+
+  const uploaded = await provisionProductDirectoryAndUpload({
+    slug,
+    name,
+    category,
+    fulfillment,
+    formData,
+    supabase,
+  })
+
+  const thumbnail_url =
+    uploaded.thumbnail_url ||
+    normalizeMediaUrl(formData.get('thumbnail_url') as string) ||
+    null
+  const mp3_url =
+    uploaded.mp3_url ||
+    normalizeMediaUrl(formData.get('mp3_url') as string) ||
+    null
+  const wav_url =
+    uploaded.wav_url ||
+    normalizeMediaUrl(formData.get('wav_url') as string) ||
+    null
+  const video_url = String(formData.get('video_url') ?? '').trim() || null
+  const acapella_url =
+    uploaded.acapella_url ||
+    normalizeMediaUrl(formData.get('acapella_url') as string) ||
+    null
+  const instrumental_url =
+    uploaded.instrumental_url ||
+    normalizeMediaUrl(formData.get('instrumental_url') as string) ||
+    null
+
+  const updatePayload: Record<string, unknown> = {
+    name,
+    description,
+    category,
+    fulfillment,
+    price_cents,
+    thumbnail_url,
+    mp3_url,
+    wav_url,
+    video_url,
+    acapella_url,
+    instrumental_url,
+    audio_preview_url: mp3_url || wav_url,
+    updated_at: new Date().toISOString(),
+  }
+
+  let { error } = await supabase
+    .from('products')
+    .update(updatePayload)
+    .eq('id', id)
+
+  if (error && (error.message.includes('column') || error.code === '42703')) {
+    const basicPayload = {
       name,
       description,
       category,
@@ -458,9 +562,12 @@ export async function updateProduct(
       thumbnail_url,
       mp3_url,
       wav_url,
+      audio_preview_url: mp3_url || wav_url,
       updated_at: new Date().toISOString(),
-    })
-    .eq('id', id)
+    }
+    const retry = await supabase.from('products').update(basicPayload).eq('id', id)
+    error = retry.error
+  }
 
   if (error) {
     return { error: error.message || 'No se pudo actualizar el producto.' }
@@ -468,9 +575,12 @@ export async function updateProduct(
 
   revalidatePath('/shop')
   revalidatePath(`/shop/${id}`)
+  revalidatePath(`/shop/${slug}`)
   revalidatePath('/admin')
   revalidatePath('/admin/products')
-  return { success: 'Producto actualizado exitosamente.' }
+  return {
+    success: `Producto actualizado y sincronizado en /${uploaded.folderRelativePath}.`,
+  }
 }
 
 /**

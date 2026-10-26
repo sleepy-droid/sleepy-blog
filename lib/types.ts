@@ -69,6 +69,7 @@ export type Product = {
   instrumental_url?: string | null
   wav_url?: string | null
   mp3_url?: string | null
+  storage_folder_path?: string | null
   duration_seconds: number | null
   specs: Record<string, string> | null
   popularity_score: number
@@ -98,6 +99,10 @@ export type ProductFolderStats = {
   mp3SizeFormatted?: string
   hasCover: boolean
   coverSizeFormatted?: string
+  hasAcapella?: boolean
+  acapellaSizeFormatted?: string
+  hasInstrumental?: boolean
+  instrumentalSizeFormatted?: string
 }
 
 export type ProductVariant = {

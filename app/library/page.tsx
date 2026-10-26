@@ -1,20 +1,18 @@
 /**
  * User Library Page: /library
  * File Path: app/library/page.tsx
- * 
- * Features:
+ *
+ * Features (v1.0):
  * 1. Web Player on top for playing owned songs directly in browser.
- * 2. High quality WAV / MP3 offline download links.
- * 3. Categorized list of user's purchased digital releases & merch orders.
+ * 2. Entitlement-verified downloads (/api/media/download) for WAV, MP3, Acapella & Instrumental.
+ * 3. Real database queries for user's library_items and physical orders (no fake placeholders).
  */
 
-import Link from 'next/link'
-import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { LibraryClient } from './LibraryClient'
-import { Library, Music, Download, ShieldCheck, Sparkles, ShoppingBag } from 'lucide-react'
+import { LibraryClient, type PhysicalOrderType } from './LibraryClient'
+import { Library, ShieldCheck } from 'lucide-react'
 import type { Product } from '@/lib/types'
 
 export default async function LibraryPage() {
@@ -26,80 +24,81 @@ export default async function LibraryPage() {
 
   const supabase = await createClient()
 
-  // Fetch library items for the authenticated user
+  // 1. Fetch real library items for the authenticated user
   const { data: libraryData } = await supabase
     .from('library_items')
-    .select('*, products (*)')
+    .select('id, user_id, product_id, source, created_at, products (*)')
     .eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false })
 
-  let ownedProducts: Product[] = libraryData?.map((item) => item.products) as Product[] || []
-
-  // Fallback demo owned items for instant testing if library table is fresh
-  if (ownedProducts.length === 0) {
-    ownedProducts = [
-      {
-        id: 'criss-angel',
-        slug: 'criss-angel',
-        name: 'Criss Angel (Edición Digital Exclusiva)',
-        description: 'Lanzamiento digital exclusivo en máster original WAV + MP3 320kbps.',
-        fulfillment: 'digital',
-        category: 'music',
-        thumbnail_url: '/images/releases/criss-angel.jpg',
-        gallery: [],
-        price_cents: 1200,
-        currency: 'USD',
-        stock: null,
-        is_published: true,
-        is_featured: true,
-        audio_preview_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-        duration_seconds: 215,
-        specs: { 'Formato': 'WAV 24-bit + MP3' },
-        popularity_score: 100,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+  let digitalItems = (libraryData || [])
+    .filter((item) => Boolean(item.products))
+    .map((item) => {
+      const prod = Array.isArray(item.products) ? item.products[0] : item.products
+      return {
+        id: item.id,
+        user_id: item.user_id,
+        product_id: item.product_id,
+        source: (item.source || 'purchase') as 'purchase' | 'admin_grant' | 'membership' | 'gift',
+        created_at: item.created_at,
+        product: prod as Product,
       }
-    ]
+    })
+
+  // Si es el Administrador y aún no se ha auto-comprado ítems, permitir previsualizar su propio catálogo real publicado
+  if (digitalItems.length === 0 && currentUser.isAdmin) {
+    const { data: adminCatalog } = await supabase
+      .from('products')
+      .select('*')
+      .eq('fulfillment', 'digital')
+      .order('created_at', { ascending: false })
+
+    if (adminCatalog && adminCatalog.length > 0) {
+      digitalItems = adminCatalog.map((p) => ({
+        id: `admin-cat-${p.id}`,
+        user_id: currentUser.id,
+        product_id: p.id,
+        source: 'admin_grant' as const,
+        created_at: p.created_at,
+        product: p as Product,
+      }))
+    }
   }
 
-  const digitalItems = ownedProducts.map((p, idx) => ({
-    id: `lib-${idx}`,
-    user_id: currentUser.id,
-    product_id: p.id,
-    source: 'purchase' as const,
-    created_at: p.created_at,
-    product: p,
-  }))
+  // 2. Fetch real physical orders from `orders` and `order_items`
+  const { data: ordersData } = await supabase
+    .from('orders')
+    .select('id, status, created_at, order_items (id, variant_label, quantity, products (*))')
+    .eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false })
 
-  const physicalOrders = [
-    {
-      id: 'ord-883921',
-      product: {
-        id: 'sleepyred-hoodie-neon',
-        slug: 'sleepyred-hoodie-neon',
-        name: 'Sleepyred Neon Hoodie (Reflectivo Negro)',
-        description: 'Hoodie oversize tejido pesado 400g.',
-        fulfillment: 'physical' as const,
-        category: 'merch' as const,
-        thumbnail_url: '/images/logos/SLEEPYRED JPG NEON-02.jpg',
-        gallery: [],
-        price_cents: 5500,
-        currency: 'USD',
-        stock: 20,
-        is_published: true,
-        is_featured: true,
-        audio_preview_url: null,
-        duration_seconds: null,
-        specs: { Talla: 'XL' },
-        popularity_score: 80,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      variantLabel: 'Talla XL',
-      quantity: 1,
-      status: 'processing' as const,
-      created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-    },
-  ]
+  const physicalOrders: PhysicalOrderType[] = []
+
+  if (ordersData) {
+    for (const ord of ordersData) {
+      const items = Array.isArray(ord.order_items) ? ord.order_items : []
+      for (const oi of items) {
+        const prod = (Array.isArray(oi.products) ? oi.products[0] : oi.products) as Product | null
+        if (prod && prod.fulfillment === 'physical') {
+          const normalizedStatus: PhysicalOrderType['status'] =
+            ord.status === 'shipped'
+              ? 'shipped'
+              : ord.status === 'delivered' || ord.status === 'completed'
+              ? 'delivered'
+              : 'processing'
+
+          physicalOrders.push({
+            id: `${ord.id}-${oi.id}`,
+            product: prod,
+            variantLabel: oi.variant_label || 'Estándar',
+            quantity: oi.quantity || 1,
+            status: normalizedStatus,
+            created_at: ord.created_at,
+          })
+        }
+      }
+    }
+  }
 
   return (
     <main className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 space-y-10 font-sans">
@@ -112,7 +111,7 @@ export default async function LibraryPage() {
           Mis Adquisiciones & Música
         </h1>
         <p className="text-sm text-neutral-400 max-w-2xl leading-relaxed">
-          Accede a todos tus archivos de audio máster WAV/MP3, libros digitales de arte y registros de compras oficiales.
+          Accede a todos tus archivos de audio máster WAV/MP3, pistas vocales acapella, instrumentales y registros de compras oficiales.
         </p>
       </header>
 
@@ -122,7 +121,7 @@ export default async function LibraryPage() {
       {/* Assurance Footer */}
       <footer className="p-4 rounded-2xl border border-neutral-800/60 bg-neutral-900/20 text-center text-xs text-neutral-400 flex items-center justify-center gap-2">
         <ShieldCheck className="w-4 h-4 text-red-500" />
-        <span>Descargas ilimitadas sin restricción de dispositivo. Archivos limpios de alta calidad.</span>
+        <span>Descargas autenticadas de alta calidad servidas desde la bóveda oficial de sleepyred999.</span>
       </footer>
     </main>
   )

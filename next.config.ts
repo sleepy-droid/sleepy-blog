@@ -11,6 +11,11 @@ import type { NextConfig } from "next";
  */
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '250mb',
+    },
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 2592000, // 30 días en segundos

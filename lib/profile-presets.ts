@@ -79,12 +79,12 @@ export const SONG_PRESETS: SongPreset[] = [
     durationSeconds: 30,
   },
   {
-    id: 'nocturnal-fire',
-    title: 'Fire & Ash (Club Mix)',
+    id: 'odm',
+    title: 'O.D.M. (Master Edit)',
     artist: 'sleepyred999',
-    subtitle: 'Edición especial de alto impacto',
-    audioPreviewUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-    thumbnailUrl: '/images/banners/banner_crimson_fire.jpg',
+    subtitle: 'Edición especial de estudio sin compresión',
+    audioPreviewUrl: '/songs/odm/ODM.wav',
+    thumbnailUrl: '/songs/odm/odm.jpg',
     durationSeconds: 30,
   },
 ]

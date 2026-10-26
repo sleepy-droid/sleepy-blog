@@ -81,9 +81,14 @@ export default async function AdminDashboardPage() {
     <div className="space-y-8 font-sans">
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
         <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">Panel de Control & Resumen</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">Panel de Control & Resumen</h1>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-950 text-red-400 border border-red-800">
+              v1.0 Alpha
+            </span>
+          </div>
           <p className="text-xs text-neutral-400 mt-1">
-            Métricas en vivo, moderación nocturna y catálogo de sleepyred999.
+            Métricas en vivo, moderación nocturna, bóveda CDN y catálogo de sleepyred999.
           </p>
         </div>
 

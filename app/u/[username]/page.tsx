@@ -185,50 +185,7 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
     }
   }
 
-  // Si no hay actividades en BD aún, seed demo dopamínico para tester
-  if (activities.length === 0) {
-    if (isRedRecordings) {
-      activities.push(
-        {
-          id: 'demo-song-1',
-          type: 'favorite_song_changed',
-          targetTitle: 'Red Recordings (VIP Dub)',
-          audioPreviewUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-          createdAt: '2026-09-23T16:30:00.000Z',
-        },
-        {
-          id: 'demo-purchase-1',
-          type: 'purchase',
-          targetTitle: 'Criss Angel (Edición Digital Exclusiva)',
-          createdAt: '2026-09-23T15:00:00.000Z',
-        },
-        {
-          id: 'demo-note-1',
-          type: 'note',
-          body: 'Probando la calidad de audio sin pérdida en la biblioteca. El sonido en estéreo está impecable.',
-          createdAt: '2026-09-23T11:00:00.000Z',
-        }
-      )
-    } else if (isSleepyAdmin) {
-      activities.push(
-        {
-          id: 'demo-song-sleepy',
-          type: 'favorite_song_changed',
-          targetTitle: 'Criss Angel (Master Edit)',
-          audioPreviewUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-          createdAt: '2026-09-23T16:15:00.000Z',
-        },
-        {
-          id: 'demo-note-sleepy',
-          type: 'note',
-          body: 'Nuevo drop masterizado en camino para los miembros de la comunidad.',
-          createdAt: '2026-09-23T13:00:00.000Z',
-        }
-      )
-    }
-  }
-
-  // Ordenar cronológicamente
+  // Ordenar cronológicamente las actividades reales de la base de datos
   activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
   const initial = (userProfile.display_name || userProfile.username || 'U').charAt(0).toUpperCase()
