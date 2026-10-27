@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
+import { fetchAllModerationItems } from '@/lib/comments-server'
 import {
   FileText,
   MessageSquare,
@@ -18,15 +19,13 @@ export default async function AdminDashboardPage() {
 
   const [
     { count: postsCount },
-    { count: commentsCount },
     { count: usersCount },
     { count: forumThreadsCount },
     { data: latestPosts },
-    { data: latestComments },
     { data: latestThreads },
+    allModerationItems,
   ] = await Promise.all([
     supabase.from('posts').select('*', { count: 'exact', head: true }),
-    supabase.from('comments').select('*', { count: 'exact', head: true }),
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     supabase.from('forum_threads').select('*', { count: 'exact', head: true }),
     supabase
@@ -35,16 +34,14 @@ export default async function AdminDashboardPage() {
       .order('created_at', { ascending: false })
       .limit(5),
     supabase
-      .from('comments')
-      .select('id, body, post_id, created_at, profiles:user_id (display_name, username)')
-      .order('created_at', { ascending: false })
-      .limit(5),
-    supabase
       .from('forum_threads')
-      .select('id, title, body, status, created_at, profiles:author_id (display_name, username)')
+      .select('id, title, body, status, author_id, created_at')
       .order('created_at', { ascending: false })
       .limit(5),
+    fetchAllModerationItems(supabase),
   ])
+
+  const latestComments = allModerationItems.slice(0, 6)
 
   const metrics = [
     {
@@ -55,8 +52,8 @@ export default async function AdminDashboardPage() {
       color: 'text-red-400',
     },
     {
-      label: 'Comentarios',
-      value: commentsCount ?? 0,
+      label: 'Comentarios & Feeds',
+      value: allModerationItems.length,
       icon: MessageSquare,
       href: '/admin/comments',
       color: 'text-orange-400',
@@ -88,7 +85,7 @@ export default async function AdminDashboardPage() {
             </span>
           </div>
           <p className="text-xs text-neutral-400 mt-1">
-            Métricas en vivo, moderación nocturna, bóveda CDN y catálogo de sleepyred999.
+            Métricas en vivo, moderación matutina (recientes a antiguos), bóveda CDN y catálogo de sleepyred999.
           </p>
         </div>
 
@@ -133,7 +130,7 @@ export default async function AdminDashboardPage() {
         })}
       </section>
 
-      {/* Recent Forum Threads Moderation Block (Sleeping Moderation) */}
+      {/* Recent Forum Threads Moderation Block */}
       <section className="rounded-2xl border border-neutral-800/80 bg-neutral-900/40 p-5 space-y-4 backdrop-blur-md">
         <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
           <div className="flex items-center gap-2">
@@ -148,51 +145,45 @@ export default async function AdminDashboardPage() {
         </div>
 
         <div className="space-y-3">
-          {(latestThreads ?? []).map((t) => {
-            const profile = Array.isArray(t.profiles) ? t.profiles[0] : t.profiles
-            const author = (profile as { display_name?: string; username?: string })?.display_name || 'Miembro'
-
-            return (
-              <div
-                key={t.id}
-                className="border border-neutral-800/60 bg-neutral-950 p-3.5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
-              >
-                <div className="space-y-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-white truncate">{t.title}</span>
-                    <span className="text-[10px] font-mono text-neutral-400">by @{author}</span>
-                  </div>
-                  <p className="text-xs text-neutral-400 line-clamp-1">{t.body}</p>
+          {(latestThreads ?? []).map((t) => (
+            <div
+              key={t.id}
+              className="border border-neutral-800/60 bg-neutral-950 p-3.5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+            >
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-white truncate">{t.title}</span>
                 </div>
-
-                <div className="flex items-center gap-2 text-xs shrink-0">
-                  <form action={adminHideThread}>
-                    <input type="hidden" name="id" value={t.id} />
-                    <button
-                      type="submit"
-                      className="px-2.5 py-1 rounded-lg bg-amber-950 text-amber-400 hover:bg-amber-900 border border-amber-800 text-xs font-semibold cursor-pointer"
-                    >
-                      <EyeOff className="w-3.5 h-3.5 inline mr-1" />
-                      Ocultar
-                    </button>
-                  </form>
-                  <form action={adminDeleteThread}>
-                    <input type="hidden" name="id" value={t.id} />
-                    <button
-                      type="submit"
-                      className="px-2.5 py-1 rounded-lg bg-neutral-900 text-neutral-400 hover:text-red-400 border border-neutral-800 text-xs cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 inline" />
-                    </button>
-                  </form>
-                </div>
+                <p className="text-xs text-neutral-400 line-clamp-1">{t.body}</p>
               </div>
-            )
-          })}
+
+              <div className="flex items-center gap-2 text-xs shrink-0">
+                <form action={adminHideThread}>
+                  <input type="hidden" name="id" value={t.id} />
+                  <button
+                    type="submit"
+                    className="px-2.5 py-1 rounded-lg bg-amber-950 text-amber-400 hover:bg-amber-900 border border-amber-800 text-xs font-semibold cursor-pointer"
+                  >
+                    <EyeOff className="w-3.5 h-3.5 inline mr-1" />
+                    Ocultar
+                  </button>
+                </form>
+                <form action={adminDeleteThread}>
+                  <input type="hidden" name="id" value={t.id} />
+                  <button
+                    type="submit"
+                    className="px-2.5 py-1 rounded-lg bg-neutral-900 text-neutral-400 hover:text-red-400 border border-neutral-800 text-xs cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 inline" />
+                  </button>
+                </form>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Latest Posts & Latest Comments */}
+      {/* Latest Posts & Latest Comments + Profile Feed Updates */}
       <div className="grid md:grid-cols-2 gap-5">
         <section className="rounded-2xl border border-neutral-800/80 bg-neutral-900/40 p-5 space-y-3 backdrop-blur-md">
           <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
@@ -220,25 +211,40 @@ export default async function AdminDashboardPage() {
 
         <section className="rounded-2xl border border-neutral-800/80 bg-neutral-900/40 p-5 space-y-3 backdrop-blur-md">
           <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Últimos Comentarios</h2>
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+              Últimos Comentarios & Muros (Recientes → Antiguos)
+            </h2>
             <Link href="/admin/comments" className="text-xs font-semibold text-red-400 hover:text-red-300">
-              Moderar →
+              Moderar Todos ({allModerationItems.length}) →
             </Link>
           </div>
           <ul className="space-y-2">
-            {(latestComments ?? []).map((c) => {
-              const profile = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles
-              const name = (profile as { display_name?: string } | null)?.display_name || 'Usuario'
+            {latestComments.map((c) => {
+              const name =
+                c.profiles?.display_name ||
+                c.profiles?.username ||
+                c.profiles?.email?.split('@')[0] ||
+                'Usuario'
               return (
                 <li
-                  key={c.id}
+                  key={`${c.item_source}-${c.id}`}
                   className="rounded-xl p-2.5 bg-neutral-950 border border-neutral-800/60 space-y-1"
                 >
-                  <p className="text-[11px] font-bold text-red-400">@{name}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-bold text-red-400">@{name}</p>
+                    <span className="text-[10px] font-mono text-neutral-500 truncate max-w-[160px]">
+                      {c.target_label}
+                    </span>
+                  </div>
                   <p className="text-xs text-neutral-200 line-clamp-2">{c.body}</p>
                 </li>
               )
             })}
+            {latestComments.length === 0 && (
+              <li className="text-xs text-neutral-500 py-3 text-center">
+                No hay comentarios ni notas de perfil registradas aún.
+              </li>
+            )}
           </ul>
         </section>
       </div>

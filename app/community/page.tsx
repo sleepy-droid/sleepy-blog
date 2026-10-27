@@ -1,12 +1,6 @@
 /**
  * Community Forum Page: /community
  * File Path: app/community/page.tsx
- *
- * Features (v1.0):
- * 1. Multi-user thread creation (title, body, optional image).
- * 2. Original song/product metadata tagging (remixes, vocal covers, etc.).
- * 3. YouTube video embed support (`iframe` player).
- * 4. Real database community threads & products (placeholder demo threads removed).
  */
 
 import { createClient } from '@/utils/supabase/server'
@@ -43,21 +37,67 @@ export default async function CommunityPage() {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  // Fetch real visible threads from Supabase
-  const { data: threadsData } = await supabase
-    .from('forum_threads')
-    .select('*, profiles:author_id (display_name, email, username, avatar_url), products:linked_product_id (name, slug, thumbnail_url)')
-    .eq('status', 'visible')
-    .order('created_at', { ascending: false })
+  // Fetch real visible threads from Supabase without failing if FK to profiles is missing
+  const [{ data: rawThreads }, { data: productsData }] = await Promise.all([
+    supabase
+      .from('forum_threads')
+      .select('*')
+      .eq('status', 'visible')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('products')
+      .select('id, name, slug, price_cents, thumbnail_url')
+      .eq('is_published', true)
+      .order('created_at', { ascending: false }),
+  ])
 
-  const threads: ThreadWithAuthor[] = (threadsData as ThreadWithAuthor[]) || []
+  const authorIds = Array.from(
+    new Set((rawThreads || []).map((t) => t.author_id).filter(Boolean))
+  )
 
-  // Fetch real published products for tagging selector
-  const { data: productsData } = await supabase
-    .from('products')
-    .select('id, name, slug, price_cents, thumbnail_url')
-    .eq('is_published', true)
-    .order('created_at', { ascending: false })
+  const profileMap = new Map<
+    string,
+    {
+      display_name: string | null
+      email: string | null
+      username: string | null
+      avatar_url: string | null
+    }
+  >()
+
+  if (authorIds.length > 0) {
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, display_name, email, username, avatar_url')
+      .in('id', authorIds)
+
+    for (const p of profilesData || []) {
+      profileMap.set(p.id, {
+        display_name: p.display_name,
+        email: p.email,
+        username: p.username,
+        avatar_url: p.avatar_url,
+      })
+    }
+  }
+
+  const productMap = new Map<
+    string,
+    { name: string; slug: string; thumbnail_url?: string | null }
+  >()
+  for (const pr of productsData || []) {
+    productMap.set(pr.id, {
+      name: pr.name,
+      slug: pr.slug,
+      thumbnail_url: pr.thumbnail_url,
+    })
+  }
+
+  const threads: ThreadWithAuthor[] = (rawThreads || []).map((t) => ({
+    ...t,
+    profiles: profileMap.get(t.author_id) || null,
+    products: t.linked_product_id ? productMap.get(t.linked_product_id) || null : null,
+  }))
 
   const productsList = (productsData || []).map((p) => ({
     id: p.id,

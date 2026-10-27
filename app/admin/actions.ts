@@ -199,7 +199,7 @@ export async function deletePost(formData: FormData): Promise<void> {
 }
 
 /**
- * Actualizar comentario desde el panel admin.
+ * Actualizar comentario o nota de perfil desde el panel admin.
  */
 export async function adminUpdateComment(formData: FormData): Promise<void> {
   await requireAdmin()
@@ -207,21 +207,31 @@ export async function adminUpdateComment(formData: FormData): Promise<void> {
   const id = String(formData.get('id') ?? '').trim()
   const body = String(formData.get('body') ?? '').trim()
   const postId = String(formData.get('post_id') ?? '').trim()
+  const itemSource = String(formData.get('item_source') ?? 'comment').trim()
 
   if (!id || body.length < 1) return
 
   const supabase = await createClient()
-  await supabase
-    .from('comments')
-    .update({ body, updated_at: new Date().toISOString() })
-    .eq('id', id)
+  if (itemSource === 'profile_feed') {
+    await supabase
+      .from('profile_updates')
+      .update({ body })
+      .eq('id', id)
+  } else {
+    await supabase
+      .from('comments')
+      .update({ body, updated_at: new Date().toISOString() })
+      .eq('id', id)
+  }
 
   if (postId) revalidatePath(`/posts/${postId}`)
+  revalidatePath('/profile')
+  revalidatePath('/admin')
   revalidatePath('/admin/comments')
 }
 
 /**
- * Ocultar comentario (moderación suave para spam).
+ * Ocultar comentario o nota de perfil (moderación suave para spam).
  */
 export async function adminHideComment(formData: FormData): Promise<void> {
   const admin = await requireAdmin()
@@ -229,26 +239,35 @@ export async function adminHideComment(formData: FormData): Promise<void> {
   const id = String(formData.get('id') ?? '').trim()
   const postId = String(formData.get('post_id') ?? '').trim()
   const targetId = String(formData.get('target_id') ?? postId).trim()
+  const itemSource = String(formData.get('item_source') ?? 'comment').trim()
   if (!id) return
 
   const supabase = await createClient()
-  await supabase
-    .from('comments')
-    .update({
-      status: 'hidden',
-      hidden_at: new Date().toISOString(),
-      hidden_by: admin.id,
-    })
-    .eq('id', id)
+  if (itemSource === 'profile_feed') {
+    await supabase
+      .from('profile_updates')
+      .update({ status: 'hidden' })
+      .eq('id', id)
+  } else {
+    await supabase
+      .from('comments')
+      .update({
+        status: 'hidden',
+        hidden_at: new Date().toISOString(),
+        hidden_by: admin.id,
+      })
+      .eq('id', id)
+  }
 
   if (targetId) revalidatePath(`/posts/${targetId}`)
   if (targetId) revalidatePath(`/shop/${targetId}`)
+  revalidatePath('/profile')
   revalidatePath('/admin')
   revalidatePath('/admin/comments')
 }
 
 /**
- * Restablecer comentario a visible.
+ * Restablecer comentario o nota de perfil a visible.
  */
 export async function adminRestoreComment(formData: FormData): Promise<void> {
   await requireAdmin()
@@ -256,26 +275,35 @@ export async function adminRestoreComment(formData: FormData): Promise<void> {
   const id = String(formData.get('id') ?? '').trim()
   const postId = String(formData.get('post_id') ?? '').trim()
   const targetId = String(formData.get('target_id') ?? postId).trim()
+  const itemSource = String(formData.get('item_source') ?? 'comment').trim()
   if (!id) return
 
   const supabase = await createClient()
-  await supabase
-    .from('comments')
-    .update({
-      status: 'visible',
-      hidden_at: null,
-      hidden_by: null,
-    })
-    .eq('id', id)
+  if (itemSource === 'profile_feed') {
+    await supabase
+      .from('profile_updates')
+      .update({ status: 'visible' })
+      .eq('id', id)
+  } else {
+    await supabase
+      .from('comments')
+      .update({
+        status: 'visible',
+        hidden_at: null,
+        hidden_by: null,
+      })
+      .eq('id', id)
+  }
 
   if (targetId) revalidatePath(`/posts/${targetId}`)
   if (targetId) revalidatePath(`/shop/${targetId}`)
+  revalidatePath('/profile')
   revalidatePath('/admin')
   revalidatePath('/admin/comments')
 }
 
 /**
- * Eliminar comentario permanentemente desde admin.
+ * Eliminar comentario o nota de perfil permanentemente desde admin.
  */
 export async function adminDeleteComment(formData: FormData): Promise<void> {
   await requireAdmin()
@@ -283,13 +311,19 @@ export async function adminDeleteComment(formData: FormData): Promise<void> {
   const id = String(formData.get('id') ?? '').trim()
   const postId = String(formData.get('post_id') ?? '').trim()
   const targetId = String(formData.get('target_id') ?? postId).trim()
+  const itemSource = String(formData.get('item_source') ?? 'comment').trim()
   if (!id) return
 
   const supabase = await createClient()
-  await supabase.from('comments').delete().eq('id', id)
+  if (itemSource === 'profile_feed') {
+    await supabase.from('profile_updates').delete().eq('id', id)
+  } else {
+    await supabase.from('comments').delete().eq('id', id)
+  }
 
   if (targetId) revalidatePath(`/posts/${targetId}`)
   if (targetId) revalidatePath(`/shop/${targetId}`)
+  revalidatePath('/profile')
   revalidatePath('/admin')
   revalidatePath('/admin/comments')
 }

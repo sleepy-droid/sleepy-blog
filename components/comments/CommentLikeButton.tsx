@@ -1,22 +1,48 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { Heart } from 'lucide-react'
-import { toggleVote } from '@/app/votes/actions'
+import { toggleVote, getMyVoteState } from '@/app/votes/actions'
 import { GuestLoginModal } from '@/components/auth/GuestLoginModal'
 
 type CommentLikeButtonProps = {
   commentId: string
   initialLikes?: number
+  userHasVoted?: boolean
 }
 
-export function CommentLikeButton({ commentId, initialLikes = 0 }: CommentLikeButtonProps) {
+export function CommentLikeButton({
+  commentId,
+  initialLikes = 0,
+  userHasVoted = false,
+}: CommentLikeButtonProps) {
   const pathname = usePathname()
   const [likes, setLikes] = useState(initialLikes)
-  const [isLiked, setIsLiked] = useState(false)
+  const [isLiked, setIsLiked] = useState(userHasVoted)
   const [isPending, setIsPending] = useState(false)
   const [showGuestModal, setShowGuestModal] = useState(false)
+
+  useEffect(() => {
+    setLikes(initialLikes)
+    setIsLiked(userHasVoted)
+  }, [initialLikes, userHasVoted])
+
+  useEffect(() => {
+    let active = true
+    getMyVoteState('comment', commentId)
+      .then((res) => {
+        if (!active) return
+        setIsLiked(res.userVote === 1)
+        if (typeof res.upvotes === 'number') {
+          setLikes(res.upvotes)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [commentId])
 
   const handleToggle = async () => {
     if (isPending) return
@@ -44,10 +70,10 @@ export function CommentLikeButton({ commentId, initialLikes = 0 }: CommentLikeBu
         onClick={handleToggle}
         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold transition-all cursor-pointer ${
           isLiked
-            ? 'bg-red-950/90 text-red-400 border border-red-800'
+            ? 'bg-red-950/90 text-red-400 border border-red-700 shadow-[0_0_8px_rgba(220,38,38,0.35)]'
             : 'bg-neutral-950/80 text-neutral-400 hover:text-white border border-neutral-800'
         }`}
-        title="Me gusta este comentario"
+        title={isLiked ? 'Ya te gusta este comentario' : 'Me gusta este comentario'}
       >
         <Heart className={`w-3 h-3 ${isLiked ? 'fill-current text-red-500' : ''}`} />
         <span>{likes}</span>

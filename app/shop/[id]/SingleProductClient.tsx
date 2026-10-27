@@ -2,20 +2,22 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
-import { Play, Pause, ShoppingBag, ShieldCheck, Sparkles, Music, Package, Maximize2, X, Volume2, VolumeX, Tag } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Play, Pause, ShoppingBag, ShieldCheck, Sparkles, Music, Package, Maximize2, X, Volume2, VolumeX, Tag, Zap } from 'lucide-react'
 import { formatPrice, type Product } from '@/lib/types'
 import { useCart } from '@/lib/cart'
 import { useLanguage } from '@/lib/i18n'
-import { toggleVote } from '@/app/votes/actions'
+import { toggleVote, getMyVoteState } from '@/app/votes/actions'
 import { GuestLoginModal } from '@/components/auth/GuestLoginModal'
 
 type SingleProductClientProps = {
   product: Product
+  initialUserVote?: 1 | -1 | 0
 }
 
-export function SingleProductClient({ product }: SingleProductClientProps) {
+export function SingleProductClient({ product, initialUserVote = 0 }: SingleProductClientProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { addToCart } = useCart()
   const { t } = useLanguage()
 
@@ -25,9 +27,30 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
   // Real persistent Upvote / Downvote rating state
   const [upvotes, setUpvotes] = useState(product.upvotes ?? 0)
   const [downvotes, setDownvotes] = useState(product.downvotes ?? 0)
-  const [userVote, setUserVote] = useState<1 | -1 | 0>(0)
+  const [userVote, setUserVote] = useState<1 | -1 | 0>(initialUserVote)
   const [isVoting, setIsVoting] = useState(false)
   const [showGuestModal, setShowGuestModal] = useState(false)
+
+  useEffect(() => {
+    setUpvotes(product.upvotes ?? 0)
+    setDownvotes(product.downvotes ?? 0)
+    setUserVote(initialUserVote)
+  }, [product.upvotes, product.downvotes, initialUserVote])
+
+  useEffect(() => {
+    let active = true
+    getMyVoteState('product', product.id)
+      .then((res) => {
+        if (!active) return
+        setUserVote(res.userVote)
+        if (typeof res.upvotes === 'number') setUpvotes(res.upvotes)
+        if (typeof res.downvotes === 'number') setDownvotes(res.downvotes)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [product.id])
 
   // Audio Player State (SoundCloud style)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -62,6 +85,12 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
   const handleAddToCart = () => {
     const variant = product.fulfillment === 'physical' ? selectedSize : 'Digital Master'
     addToCart(product, variant, 1)
+  }
+
+  const handleBuyNow = () => {
+    const variant = product.fulfillment === 'physical' ? selectedSize : 'Digital Master'
+    addToCart(product, variant, 1)
+    router.push('/checkout')
   }
 
   // Audio Time Update Handlers
@@ -129,7 +158,6 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
     return `${m}:${s < 10 ? '0' : ''}${s}`
   }
 
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       {/* Hidden HTML5 Audio Element */}
@@ -137,7 +165,7 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
         <audio ref={audioRef} src={previewUrl} preload="metadata" />
       )}
 
-      {/* LEFT COLUMN: Amazon-style Thumbnail Viewer with Smooth Zoom (7 Cols on LG) */}
+      {/* LEFT COLUMN: Amazon-style Thumbnail Viewer with Smooth Zoom */}
       <div className="lg:col-span-6 space-y-4">
         <div 
           onClick={() => setIsLightboxOpen(true)}
@@ -167,7 +195,7 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
           {/* Fulfillment & Category Badge */}
           <div className="absolute bottom-4 left-4 flex gap-2">
             <span className="text-xs uppercase font-bold text-red-300 bg-red-950/90 border border-red-800/60 px-3 py-1 rounded-lg backdrop-blur-md shadow-md">
-              {product.fulfillment === 'digital' ? 'Lanzamiento Digital' : 'Edición Física'}
+              {product.fulfillment === 'digital' ? t('product_digital_release') : t('product_physical_edition')}
             </span>
           </div>
         </div>
@@ -177,7 +205,7 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
         </p>
       </div>
 
-      {/* RIGHT COLUMN: Title, Pricing, SoundCloud Audio Player, Specs, Purchase (6 Cols on LG) */}
+      {/* RIGHT COLUMN: Title, Pricing, SoundCloud Audio Player, Specs, Purchase */}
       <div className="lg:col-span-6 space-y-6">
         <div>
           <div className="flex items-center gap-2">
@@ -200,7 +228,7 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
               {formatPrice(product.price_cents, product.currency)}
             </span>
             <span className="text-xs text-neutral-400 font-mono">
-              {product.fulfillment === 'digital' ? 'Entrega digital inmediata' : 'Envío rápido disponible'}
+              {product.fulfillment === 'digital' ? t('product_instant_delivery') : t('product_fast_shipping')}
             </span>
           </div>
         </div>
@@ -225,7 +253,7 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
                 <div>
                   <div className="flex items-center gap-1.5 text-xs text-red-400 font-semibold uppercase tracking-wider">
                     <Music className="w-3.5 h-3.5" />
-                    <span>Reproductor SoundCloud Preview</span>
+                    <span>Reproductor Preview</span>
                   </div>
                   <p className="text-sm font-semibold text-white truncate max-w-[200px] sm:max-w-[280px]">
                     {product.name}
@@ -258,7 +286,6 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
               <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400">
                 <span>{formatTime(currentTime)}</span>
                 <div className="flex items-center gap-0.5 h-3">
-                  {/* Visualizer animation equalizer bars */}
                   {[40, 80, 60, 100, 30, 90, 50, 70, 95, 45].map((h, i) => (
                     <span
                       key={i}
@@ -277,7 +304,7 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
         {product.fulfillment === 'physical' && (
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-neutral-300 uppercase tracking-wider">
-              Seleccionar Talla:
+              {t('product_select_size')}
             </label>
             <div className="flex gap-2">
               {(['S', 'M', 'L', 'XL'] as const).map((size) => (
@@ -303,7 +330,7 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
               <Tag className="w-3.5 h-3.5 text-red-400" />
-              Especificaciones Técnicas del Proyecto
+              {t('product_specs_title')}
             </h3>
             {product.folder_stats && (
               <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-red-950/80 border border-red-900/50 text-red-400">
@@ -412,50 +439,65 @@ export function SingleProductClient({ product }: SingleProductClientProps) {
 
         {/* Rating & Heart (❤️) / Broken Heart (💔) Voting Section */}
         <div className="flex items-center justify-between bg-neutral-950/80 border border-neutral-800 p-3.5 rounded-2xl">
-          <span className="text-xs font-semibold text-neutral-400">Votación del producto:</span>
+          <span className="text-xs font-semibold text-neutral-400">{t('product_vote_label')}</span>
           <div className="flex items-center gap-2">
             <button
+              type="button"
+              disabled={isVoting}
               onClick={() => handleVote(1)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
                 userVote === 1
-                  ? 'bg-red-950 text-red-400 border border-red-800 shadow-[0_0_10px_rgba(220,38,38,0.3)]'
+                  ? 'bg-red-950 text-red-400 border border-red-700 shadow-[0_0_12px_rgba(220,38,38,0.4)]'
                   : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
               }`}
-              title="Me gusta este producto"
+              title={userVote === 1 ? 'Ya te gusta este producto (clic para quitar)' : 'Me gusta este producto'}
             >
               <span>❤️</span>
               <span>{upvotes}</span>
             </button>
 
             <button
+              type="button"
+              disabled={isVoting}
               onClick={() => handleVote(-1)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
                 userVote === -1
-                  ? 'bg-neutral-800 text-neutral-200 border border-neutral-700'
+                  ? 'bg-neutral-800 text-neutral-200 border border-neutral-600'
                   : 'bg-neutral-900 text-neutral-500 hover:text-neutral-300 border border-neutral-800'
               }`}
               title="No me convence este producto"
             >
               <span>💔</span>
+              {downvotes > 0 && <span>{downvotes}</span>}
             </button>
           </div>
         </div>
 
-        {/* Purchase & Add to Cart Button */}
+        {/* Purchase & Add to Cart Buttons */}
         <div className="space-y-3 pt-2">
-          <button
-            type="button"
-            onClick={handleAddToCart}
-            className="w-full py-3.5 px-6 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-red-700 via-red-600 to-red-700 hover:from-red-600 hover:to-red-600 active:scale-[0.99] border border-red-500/40 shadow-[0_0_20px_rgba(220,38,38,0.4)] transition-all cursor-pointer flex items-center justify-center gap-2"
-          >
-            <ShoppingBag className="w-4 h-4" />
-            <span>{t('add_to_cart')} • {formatPrice(product.price_cents, product.currency)}</span>
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              className="w-full py-3.5 px-5 rounded-xl font-bold text-xs sm:text-sm text-white bg-neutral-900 hover:bg-neutral-800 active:scale-[0.99] border border-neutral-700 transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <ShoppingBag className="w-4 h-4 text-red-400" />
+              <span>{t('add_to_cart')}</span>
+            </button>
 
+            <button
+              type="button"
+              onClick={handleBuyNow}
+              className="w-full py-3.5 px-5 rounded-xl font-bold text-xs sm:text-sm text-white bg-gradient-to-r from-red-700 via-red-600 to-red-700 hover:from-red-600 hover:to-red-600 active:scale-[0.99] border border-red-500/40 shadow-[0_0_20px_rgba(220,38,38,0.4)] transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Zap className="w-4 h-4" />
+              <span>{t('buy_now')} • {formatPrice(product.price_cents, product.currency)}</span>
+            </button>
+          </div>
 
           <div className="flex items-center justify-center gap-2 text-xs text-neutral-400">
             <ShieldCheck className="w-4 h-4 text-red-500" />
-            <span>Pagos seguros. Acceso inmediato en tu Biblioteca de usuario.</span>
+            <span>Pagos seguros. Acceso inmediato en tu Biblioteca y seguimiento en Mis Pedidos.</span>
           </div>
         </div>
       </div>

@@ -1,27 +1,35 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Search, Music, Package, Sparkles, SlidersHorizontal, ArrowUpRight } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { Search, Music, Package, Sparkles, SlidersHorizontal, ArrowUpRight, Heart } from 'lucide-react'
 import { sanitizeSearch } from '@/lib/search'
 import { formatPrice, type Product } from '@/lib/types'
+import { useLanguage } from '@/lib/i18n'
+import { toggleVote, getMyVoteState } from '@/app/votes/actions'
+import { GuestLoginModal } from '@/components/auth/GuestLoginModal'
 
 type ShopClientProps = {
   initialProducts: Product[]
   initialQuery?: string
+  userVotes?: Record<string, 1 | -1>
 }
 
-export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientProps) {
+export function ShopClient({
+  initialProducts,
+  initialQuery = '',
+  userVotes = {},
+}: ShopClientProps) {
   const [searchRaw, setSearchRaw] = useState(initialQuery)
   const [searchExpanded, setSearchExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState<'all' | 'music' | 'physical'>('all')
   const [sortBy, setSortBy] = useState<'recent' | 'popular' | 'price_low' | 'price_high'>('recent')
+  const { t } = useLanguage()
 
-  // SQL Injection proof sanitized search term
   const sanitizedQuery = useMemo(() => sanitizeSearch(searchRaw), [searchRaw])
 
-  // Filtered & Sorted Products
   const filteredProducts = useMemo(() => {
     return initialProducts
       .filter((product) => {
@@ -43,7 +51,7 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
       })
       .sort((a, b) => {
         if (sortBy === 'popular') {
-          return (b.popularity_score || 0) - (a.popularity_score || 0)
+          return (b.upvotes || b.popularity_score || 0) - (a.upvotes || a.popularity_score || 0)
         }
         if (sortBy === 'price_low') {
           return a.price_cents - b.price_cents
@@ -68,7 +76,6 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
     <div className="space-y-6">
       {/* Controls Bar: Discrete Search Button + Classification Tabs + Sort Dropdown */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-neutral-900/40 backdrop-blur-md p-3.5 rounded-2xl border border-neutral-800/80">
-        
         {/* Classification Filter Tabs */}
         <div className="flex items-center gap-1.5 bg-neutral-950/90 p-1.5 rounded-xl border border-neutral-800 text-xs font-medium overflow-x-auto">
           <button
@@ -80,7 +87,7 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
             }`}
           >
-            Todos ({filteredProducts.length})
+            {t('shop_all')} ({filteredProducts.length})
           </button>
           <button
             type="button"
@@ -92,7 +99,7 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
             }`}
           >
             <Music className="w-3.5 h-3.5 text-red-400" />
-            Música ({musicProducts.length})
+            {t('shop_music')} ({musicProducts.length})
           </button>
           <button
             type="button"
@@ -104,7 +111,7 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
             }`}
           >
             <Package className="w-3.5 h-3.5 text-red-400" />
-            Merch ({physicalProducts.length})
+            {t('shop_merch')} ({physicalProducts.length})
           </button>
         </div>
 
@@ -118,11 +125,14 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
                 autoFocus
                 value={searchRaw}
                 onChange={(e) => setSearchRaw(e.target.value)}
-                placeholder="Buscar canción, hoodie…"
+                placeholder={t('search_placeholder')}
                 className="w-full pl-9 pr-7 py-1.5 bg-neutral-950 border border-red-900/60 rounded-xl text-xs text-white placeholder:text-neutral-500 outline-none focus:ring-1 focus:ring-red-600 font-sans"
               />
               <button
-                onClick={() => { setSearchRaw(''); setSearchExpanded(false); }}
+                onClick={() => {
+                  setSearchRaw('')
+                  setSearchExpanded(false)
+                }}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white text-xs"
               >
                 ✕
@@ -135,7 +145,7 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
               className="p-2 rounded-xl bg-neutral-950 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-all flex items-center gap-1.5 text-xs font-medium cursor-pointer"
             >
               <Search className="w-3.5 h-3.5 text-red-400" />
-              <span className="hidden sm:inline">Buscar</span>
+              <span className="hidden sm:inline">{t('search_placeholder')}</span>
             </button>
           )}
 
@@ -146,16 +156,16 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="bg-neutral-950 border border-neutral-800 text-xs font-medium text-neutral-300 rounded-xl px-2.5 py-1.5 outline-none focus:border-red-600 cursor-pointer"
             >
-              <option value="recent">Recientes</option>
-              <option value="popular">Populares</option>
-              <option value="price_low">Precio ↑</option>
-              <option value="price_high">Precio ↓</option>
+              <option value="recent">{t('shop_recent')}</option>
+              <option value="popular">{t('shop_popular')}</option>
+              <option value="price_low">{t('shop_price_asc')}</option>
+              <option value="price_high">{t('shop_price_desc')}</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* UNIFIED CATALOG GRID (Allows sorting $55 Hoodie above $12 Music) */}
+      {/* UNIFIED CATALOG GRID */}
       <section className="space-y-4">
         <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2">
           <div className="flex items-center gap-2">
@@ -167,15 +177,25 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
               <Sparkles className="w-4 h-4 text-red-400" />
             )}
             <h2 className="text-lg font-bold text-white tracking-tight">
-              {activeTab === 'music' ? 'Lanzamientos Musicales Directos' : activeTab === 'physical' ? 'Merchandising & Ediciones Físicas' : 'Todos los Productos & Lanzamientos'}
+              {activeTab === 'music'
+                ? 'Lanzamientos Musicales Directos'
+                : activeTab === 'physical'
+                ? 'Merchandising & Ediciones Físicas'
+                : 'Todos los Productos & Lanzamientos'}
             </h2>
           </div>
-          <span className="text-xs font-mono text-neutral-400">({filteredProducts.length} productos)</span>
+          <span className="text-xs font-mono text-neutral-400">
+            ({filteredProducts.length} productos)
+          </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              userHasVoted={userVotes[product.id] === 1}
+            />
           ))}
         </div>
       </section>
@@ -206,7 +226,10 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
             </Link>
           ) : (
             <button
-              onClick={() => { setSearchRaw(''); setActiveTab('all'); }}
+              onClick={() => {
+                setSearchRaw('')
+                setActiveTab('all')
+              }}
               className="text-xs font-semibold text-red-400 hover:text-red-300 underline cursor-pointer"
             >
               Restablecer todos los filtros
@@ -218,9 +241,63 @@ export function ShopClient({ initialProducts, initialQuery = '' }: ShopClientPro
   )
 }
 
-/** Product Card with 4:3 Vertical Aspect Ratio Container & Heart Likes beside price */
-function ProductCard({ product }: { product: Product }) {
+/** Product Card with 4:3 Vertical Aspect Ratio Container & Interactive Persistent Heart Likes */
+function ProductCard({
+  product,
+  userHasVoted = false,
+}: {
+  product: Product
+  userHasVoted?: boolean
+}) {
+  const pathname = usePathname()
+  const { t } = useLanguage()
   const targetHref = `/shop/${product.slug || product.id}`
+
+  const [likes, setLikes] = useState(product.upvotes || 0)
+  const [isLiked, setIsLiked] = useState(userHasVoted)
+  const [isPending, setIsPending] = useState(false)
+  const [showGuestModal, setShowGuestModal] = useState(false)
+
+  useEffect(() => {
+    setLikes(product.upvotes || 0)
+    setIsLiked(userHasVoted)
+  }, [product.upvotes, userHasVoted])
+
+  useEffect(() => {
+    let active = true
+    getMyVoteState('product', product.id)
+      .then((res) => {
+        if (!active) return
+        setIsLiked(res.userVote === 1)
+        if (typeof res.upvotes === 'number') {
+          setLikes(res.upvotes)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [product.id])
+
+  const handleLike = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (isPending) return
+    setIsPending(true)
+    try {
+      const res = await toggleVote('product', product.id, 1)
+      if (res.requireAuth) {
+        setShowGuestModal(true)
+      } else if (res.success) {
+        setIsLiked(res.userVote === 1)
+        if (typeof res.newLikeCount === 'number') {
+          setLikes(res.newLikeCount)
+        }
+      }
+    } finally {
+      setIsPending(false)
+    }
+  }
 
   return (
     <article className="group border border-neutral-800/90 rounded-2xl p-4 bg-neutral-900/40 backdrop-blur-md hover:border-red-900/60 hover:shadow-xl hover:shadow-red-950/20 transition-all duration-300 flex flex-col justify-between overflow-hidden">
@@ -248,21 +325,21 @@ function ProductCard({ product }: { product: Product }) {
           {/* Top Badge: Category / Fulfillment */}
           <div className="absolute top-3 left-3">
             <span className="text-[10px] uppercase font-mono font-bold text-red-300 bg-red-950/90 border border-red-900/60 px-2.5 py-1 rounded-md backdrop-blur-md">
-              {product.category === 'music' ? 'Música' : product.category}
+              {product.category === 'music' ? t('shop_music') : product.category}
             </span>
           </div>
 
           {/* Hover CTA Overlay */}
           <div className="absolute inset-0 bg-neutral-950/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-3 backdrop-blur-[2px]">
             <span className="text-xs font-bold text-white bg-red-950/90 border border-red-800/60 px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-1">
-              Ver detalle del producto <ArrowUpRight className="w-3.5 h-3.5" />
+              {t('shop_explore')} <ArrowUpRight className="w-3.5 h-3.5" />
             </span>
           </div>
         </Link>
 
         <div>
           <span className="text-[11px] font-mono text-neutral-500 uppercase tracking-wide">
-            {product.fulfillment === 'digital' ? 'Digital master' : 'Edición física'}
+            {product.fulfillment === 'digital' ? t('product_digital_release') : t('product_physical_edition')}
           </span>
           <h3 className="text-base font-bold text-white tracking-tight group-hover:text-red-400 transition-colors mt-0.5 line-clamp-1">
             <Link href={targetHref}>
@@ -276,25 +353,43 @@ function ProductCard({ product }: { product: Product }) {
       </div>
 
       <div className="pt-3 border-t border-neutral-800/60 flex items-center justify-between mt-4">
-        {/* Price & Heart Likes Count side by side */}
+        {/* Price & Interactive Heart Likes Count side by side */}
         <div className="flex items-center gap-2">
           <span className="text-base font-mono font-bold text-red-400">
             {formatPrice(product.price_cents, product.currency)}
           </span>
-          <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-neutral-400 bg-neutral-950 px-2 py-0.5 rounded-full border border-neutral-800">
-            <span className="text-red-500">❤️</span>
-            <span>{product.upvotes || 0}</span>
-          </span>
+          <button
+            type="button"
+            onClick={handleLike}
+            disabled={isPending}
+            title={isLiked ? 'Ya te gusta este producto (clic para quitar)' : 'Me gusta este producto'}
+            className={`inline-flex items-center gap-1 text-xs font-mono font-bold px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+              isLiked
+                ? 'bg-red-950 text-red-400 border-red-700 shadow-[0_0_10px_rgba(220,38,38,0.35)]'
+                : 'bg-neutral-950 text-neutral-400 hover:text-white border-neutral-800'
+            }`}
+          >
+            <Heart className={`w-3 h-3 ${isLiked ? 'fill-current text-red-500' : 'text-red-500'}`} />
+            <span>{likes}</span>
+          </button>
         </div>
 
         <Link
           href={targetHref}
           className="px-3 py-1.5 text-xs font-semibold text-white bg-neutral-800 group-hover:bg-red-700 rounded-lg transition-all cursor-pointer flex items-center gap-1"
         >
-          <span>Explorar</span>
+          <span>{t('shop_explore')}</span>
           <ArrowUpRight className="w-3 h-3" />
         </Link>
       </div>
+
+      <GuestLoginModal
+        isOpen={showGuestModal}
+        onClose={() => setShowGuestModal(false)}
+        redirectPath={pathname}
+        title="¿Te gusta este lanzamiento?"
+        message="Inicia sesión con tu cuenta de miembro para guardar tus votos en el catálogo oficial."
+      />
     </article>
   )
 }

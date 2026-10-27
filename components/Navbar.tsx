@@ -4,7 +4,7 @@ import { useState, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { ShoppingBag, Users, Menu, X, Sparkles } from 'lucide-react'
+import { ShoppingBag, Users, Menu, X, Sparkles, Headphones } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCart } from '@/lib/cart'
 import { useLanguage } from '@/lib/i18n'
@@ -40,7 +40,8 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
   }, [])
 
   const navItems = [
-    { label: t('nav_shop'), href: '/shop', icon: ShoppingBag, badge: 'NUEVO' },
+    { label: t('nav_shop'), href: '/shop', icon: ShoppingBag, badge: t('nav_new_badge') },
+    { label: t('nav_player'), href: '/player', icon: Headphones },
     { label: t('nav_community'), href: '/community', icon: Users },
   ]
 
@@ -88,7 +89,7 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
 
             {navItems.map((item) => {
               const Icon = item.icon
-              const isActive = pathname === item.href
+              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
 
               return (
                 <Link
@@ -120,7 +121,7 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
               type="button"
               onClick={() => setCartOpen(true)}
               className="relative p-2 rounded-xl bg-neutral-900/80 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-all cursor-pointer"
-              title="Abrir Carrito de Compras"
+              title={t('cart_title')}
             >
               <ShoppingBag className="w-4 h-4 text-red-400" />
               {totalItemsCount > 0 && (
@@ -130,7 +131,7 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
               )}
             </button>
 
-            {/* Auth desktop (User Profile Menu on Hover or Guest Actions) */}
+            {/* Auth desktop (User Profile Menu on Hover or Guest Login Button) */}
             {authDesktop}
 
             <div className="md:hidden flex items-center">
@@ -159,12 +160,12 @@ export function Navbar({ authDesktop, authMobile }: NavbarProps) {
               )}
             >
               <Sparkles className="w-4 h-4 text-red-500" />
-              Inicio
+              {t('nav_home')}
             </Link>
 
             {navItems.map((item) => {
               const Icon = item.icon
-              const isActive = pathname === item.href
+              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
               return (
                 <Link
                   key={item.href}

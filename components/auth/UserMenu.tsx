@@ -5,7 +5,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {
   User,
-  Library,
+  Trophy,
+  Package,
+  Headphones,
   Shield,
   LogOut,
   Globe,
@@ -30,10 +32,9 @@ export function UserMenu({ user }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const { lang, setLang } = useLanguage()
+  const { lang, setLang, t } = useLanguage()
 
   const initial = user.name.charAt(0).toUpperCase() || 'U'
-  const profileHref = user.username ? `/u/${user.username}` : '/profile'
 
   // Hover handlers con pequeño delay para que la transición sea fluida
   const handleMouseEnter = () => {
@@ -101,6 +102,7 @@ export function UserMenu({ user }: UserMenuProps) {
               src={user.avatarUrl}
               alt={user.name}
               fill
+              unoptimized={user.avatarUrl.endsWith('.svg')}
               className="object-cover"
               sizes="28px"
             />
@@ -143,6 +145,7 @@ export function UserMenu({ user }: UserMenuProps) {
                     src={user.avatarUrl}
                     alt={user.name}
                     fill
+                    unoptimized={user.avatarUrl.endsWith('.svg')}
                     className="object-cover"
                     sizes="40px"
                   />
@@ -172,7 +175,7 @@ export function UserMenu({ user }: UserMenuProps) {
           {/* Enlaces Únicos del Usuario */}
           <div className="space-y-0.5 py-1">
             <Link
-              href={profileHref}
+              href="/profile"
               onClick={() => setIsOpen(false)}
               className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-neutral-200 hover:text-white hover:bg-neutral-900 border border-transparent hover:border-neutral-800/80 transition-all group"
             >
@@ -180,9 +183,9 @@ export function UserMenu({ user }: UserMenuProps) {
                 <User className="w-3.5 h-3.5 text-red-400" />
               </div>
               <div className="flex flex-col">
-                <span>Mi Perfil</span>
+                <span>{t('nav_profile')}</span>
                 <span className="text-[10px] text-neutral-500 font-normal">
-                  Configuración y cuenta
+                  Personalización, bio y feed
                 </span>
               </div>
             </Link>
@@ -192,13 +195,45 @@ export function UserMenu({ user }: UserMenuProps) {
               onClick={() => setIsOpen(false)}
               className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-neutral-200 hover:text-white hover:bg-neutral-900 border border-transparent hover:border-neutral-800/80 transition-all group"
             >
-              <div className="w-7 h-7 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center group-hover:border-red-900/60 group-hover:bg-red-950/30 transition-colors">
-                <Library className="w-3.5 h-3.5 text-red-400" />
+              <div className="w-7 h-7 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center group-hover:border-amber-900/60 group-hover:bg-amber-950/30 transition-colors">
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
               </div>
               <div className="flex flex-col">
-                <span>Mi Biblioteca</span>
+                <span>{t('nav_library')} (Trofeos)</span>
                 <span className="text-[10px] text-neutral-500 font-normal">
-                  Música, descargas y compras
+                  Vitrina de adquisiciones y descargas
+                </span>
+              </div>
+            </Link>
+
+            <Link
+              href="/player"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-neutral-200 hover:text-white hover:bg-neutral-900 border border-transparent hover:border-neutral-800/80 transition-all group"
+            >
+              <div className="w-7 h-7 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center group-hover:border-red-900/60 group-hover:bg-red-950/30 transition-colors">
+                <Headphones className="w-3.5 h-3.5 text-red-400" />
+              </div>
+              <div className="flex flex-col">
+                <span>{t('nav_player')}</span>
+                <span className="text-[10px] text-neutral-500 font-normal">
+                  Reproductor máster WAV, MP3 y Stems
+                </span>
+              </div>
+            </Link>
+
+            <Link
+              href="/orders"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-neutral-200 hover:text-white hover:bg-neutral-900 border border-transparent hover:border-neutral-800/80 transition-all group"
+            >
+              <div className="w-7 h-7 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center group-hover:border-red-900/60 group-hover:bg-red-950/30 transition-colors">
+                <Package className="w-3.5 h-3.5 text-red-400" />
+              </div>
+              <div className="flex flex-col">
+                <span>{t('nav_orders')}</span>
+                <span className="text-[10px] text-neutral-500 font-normal">
+                  Recibos multi-ítem y seguimiento de envíos
                 </span>
               </div>
             </Link>
@@ -213,9 +248,9 @@ export function UserMenu({ user }: UserMenuProps) {
                   <Shield className="w-3.5 h-3.5 text-red-300" />
                 </div>
                 <div className="flex flex-col">
-                  <span>Panel de Administración</span>
+                  <span>{t('nav_admin')}</span>
                   <span className="text-[10px] text-red-400/80 font-normal">
-                    Gestión de blog, tienda y órdenes
+                    Gestión de blog, tienda y moderación
                   </span>
                 </div>
               </Link>
@@ -228,7 +263,7 @@ export function UserMenu({ user }: UserMenuProps) {
           <div className="px-3 py-2 rounded-xl bg-neutral-900/50 border border-neutral-800/70 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Globe className="w-3.5 h-3.5 text-red-400" />
-              <span className="text-xs font-medium text-neutral-300">Idioma</span>
+              <span className="text-xs font-medium text-neutral-300">Idioma / Lang</span>
             </div>
 
             <div className="inline-flex items-center p-0.5 rounded-lg bg-neutral-950 border border-neutral-800 text-[11px] font-mono">
@@ -268,7 +303,7 @@ export function UserMenu({ user }: UserMenuProps) {
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-neutral-400 hover:text-red-300 hover:bg-red-950/30 border border-transparent hover:border-red-900/40 transition-all cursor-pointer group"
             >
               <LogOut className="w-3.5 h-3.5 text-neutral-500 group-hover:text-red-400 transition-colors" />
-              <span>Cerrar sesión</span>
+              <span>{t('logout')}</span>
             </button>
           </form>
         </div>

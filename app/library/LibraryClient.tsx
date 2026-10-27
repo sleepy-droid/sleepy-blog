@@ -1,13 +1,10 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
-  Play,
-  Pause,
   Download,
-  Video,
   Music,
   Package,
   Check,
@@ -15,11 +12,15 @@ import {
   ShoppingBag,
   Mic,
   Sliders,
+  Award,
+  Headphones,
+  Receipt,
 } from 'lucide-react'
 import type { LibraryItem, Product } from '@/lib/types'
 
 export type PhysicalOrderType = {
   id: string
+  orderId?: string
   product: Product
   variantLabel: string
   quantity: number
@@ -33,66 +34,7 @@ type LibraryClientProps = {
 }
 
 export function LibraryClient({ digitalItems, physicalOrders }: LibraryClientProps) {
-  // Audio Player State
-  const [activeItem, setActiveItem] = useState<(LibraryItem & { product: Product }) | null>(
-    digitalItems[0] || null
-  )
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [showVideoModal, setShowVideoModal] = useState(false)
-
-  // Download Dropdown Toggle
   const [openDownloadId, setOpenDownloadId] = useState<string | null>(null)
-
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-
-  const currentAudioUrl =
-    activeItem?.product?.wav_url ||
-    activeItem?.product?.mp3_url ||
-    activeItem?.product?.audio_preview_url ||
-    ''
-
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    const updateTime = () => setCurrentTime(audio.currentTime)
-    const updateDuration = () => setDuration(audio.duration || 0)
-    const onEnded = () => setIsPlaying(false)
-
-    audio.addEventListener('timeupdate', updateTime)
-    audio.addEventListener('loadedmetadata', updateDuration)
-    audio.addEventListener('ended', onEnded)
-
-    return () => {
-      audio.removeEventListener('timeupdate', updateTime)
-      audio.removeEventListener('loadedmetadata', updateDuration)
-      audio.removeEventListener('ended', onEnded)
-    }
-  }, [activeItem])
-
-  const togglePlay = (item: LibraryItem & { product: Product }) => {
-    if (activeItem?.id === item.id) {
-      if (isPlaying) {
-        audioRef.current?.pause()
-        setIsPlaying(false)
-      } else {
-        audioRef.current?.play()
-        setIsPlaying(true)
-      }
-    } else {
-      setActiveItem(item)
-      setIsPlaying(true)
-      setTimeout(() => audioRef.current?.play(), 100)
-    }
-  }
-
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60)
-    const s = Math.floor(secs % 60)
-    return `${m}:${s < 10 ? '0' : ''}${s}`
-  }
 
   const getStatusBadge = (status: PhysicalOrderType['status']) => {
     switch (status) {
@@ -122,83 +64,34 @@ export function LibraryClient({ digitalItems, physicalOrders }: LibraryClientPro
 
   return (
     <div className="space-y-12">
-      {/* Hidden Audio Tag */}
-      {activeItem && currentAudioUrl && (
-        <audio ref={audioRef} src={currentAudioUrl} preload="metadata" />
-      )}
-
-      {/* Discrete Sticky Audio/Video Player Bar */}
-      {activeItem && currentAudioUrl && (
-        <div className="bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-950 border border-red-900/60 p-4 rounded-2xl shadow-2xl space-y-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => togglePlay(activeItem)}
-                className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg shadow-red-950 transition-transform active:scale-95 cursor-pointer shrink-0"
-              >
-                {isPlaying ? (
-                  <Pause className="w-5 h-5 fill-current" />
-                ) : (
-                  <Play className="w-5 h-5 fill-current ml-0.5" />
-                )}
-              </button>
-
-              <div className="space-y-0.5 min-w-0">
-                <span className="text-[10px] font-mono uppercase text-red-400 font-bold block">
-                  Reproduciendo de tu biblioteca
-                </span>
-                <h3 className="text-sm font-bold text-white truncate">{activeItem.product.name}</h3>
-              </div>
-            </div>
-
-            {activeItem.product.video_url && (
-              <button
-                onClick={() => setShowVideoModal(true)}
-                className="px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs font-semibold text-neutral-300 hover:text-white flex items-center gap-1.5 cursor-pointer"
-              >
-                <Video className="w-3.5 h-3.5 text-red-400" />
-                <span>Ver Vídeo</span>
-              </button>
-            )}
+      {/* SECTION 1: Vitrina de Trofeos Musicales Digitales */}
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-amber-400" />
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              Trofeos Musicales & Másters Digitales ({digitalItems.length})
+            </h2>
           </div>
 
-          {isPlaying && (
-            <div className="space-y-1 pt-1 animate-in fade-in duration-300">
-              <input
-                type="range"
-                min={0}
-                max={duration || 100}
-                value={currentTime}
-                onChange={(e) => {
-                  if (audioRef.current) audioRef.current.currentTime = Number(e.target.value)
-                }}
-                className="w-full h-1.5 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-red-600"
-              />
-              <div className="flex justify-between text-[10px] font-mono text-neutral-500">
-                <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* SECTION 1: Music Releases & Digital Downloads */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 border-b border-neutral-800 pb-3">
-          <Music className="w-5 h-5 text-red-500" />
-          <h2 className="text-xl font-bold text-white tracking-tight">
-            Lanzamientos Musicales Digitales ({digitalItems.length})
-          </h2>
+          <Link
+            href="/player"
+            className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-red-400 hover:text-red-300"
+          >
+            <Headphones className="w-3.5 h-3.5" />
+            <span>Ir a la Consola del Reproductor Web →</span>
+          </Link>
         </div>
 
         {digitalItems.length === 0 ? (
           <div className="p-8 rounded-2xl border border-neutral-800/80 bg-neutral-950/60 text-center space-y-3">
             <Music className="w-10 h-10 text-neutral-600 mx-auto" />
             <div className="space-y-1">
-              <p className="text-sm font-bold text-white">Aún no tienes lanzamientos digitales en tu biblioteca</p>
+              <p className="text-sm font-bold text-white">
+                Aún no tienes trofeos digitales en tu vitrina
+              </p>
               <p className="text-xs text-neutral-400 max-w-md mx-auto">
-                Cuando adquieras canciones, másters WAV o paquetes de acapellas en la tienda oficial, aparecerán aquí para reproducción y descarga ilimitada.
+                Cuando adquieras canciones, másters WAV o paquetes de acapellas en la tienda oficial, aparecerán aquí como trofeos desbloqueados con descarga ilimitada.
               </p>
             </div>
             <Link
@@ -211,91 +104,118 @@ export function LibraryClient({ digitalItems, physicalOrders }: LibraryClientPro
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {digitalItems.map((item) => {
-              const isCurrent = activeItem?.id === item.id
+            {digitalItems.map((item, idx) => {
               const isMenuOpen = openDownloadId === item.id
               const pid = encodeURIComponent(item.product.id)
 
               return (
                 <div
                   key={item.id}
-                  className={`border rounded-2xl p-4 flex items-center justify-between gap-4 transition-all ${
-                    isCurrent
-                      ? 'bg-neutral-900/80 border-red-900/80 shadow-lg'
-                      : 'bg-neutral-950/60 border-neutral-800/80 hover:border-neutral-700'
-                  }`}
+                  className="border border-amber-500/30 bg-gradient-to-br from-neutral-950 via-neutral-900/80 to-amber-950/15 hover:border-amber-500/60 rounded-2xl p-4 flex flex-col justify-between gap-4 transition-all shadow-lg"
                 >
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <button
-                      onClick={() => togglePlay(item)}
-                      className="w-10 h-10 rounded-full bg-neutral-900 hover:bg-red-950 border border-neutral-800 hover:border-red-800 text-neutral-300 hover:text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors"
-                    >
-                      {isCurrent && isPlaying ? (
-                        <Pause className="w-4 h-4 text-red-400 fill-current" />
-                      ) : (
-                        <Play className="w-4 h-4 text-red-400 fill-current ml-0.5" />
-                      )}
-                    </button>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-neutral-900 border border-amber-500/40 shrink-0 shadow-md">
+                        {item.product.thumbnail_url ? (
+                          <Image
+                            src={item.product.thumbnail_url}
+                            alt={item.product.name}
+                            fill
+                            unoptimized={item.product.thumbnail_url.endsWith('.svg')}
+                            className="object-cover"
+                            sizes="56px"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-amber-400">
+                            <Award className="w-6 h-6" />
+                          </div>
+                        )}
+                      </div>
 
-                    <div className="space-y-0.5 min-w-0">
-                      <h3 className="text-sm font-bold text-white truncate">{item.product.name}</h3>
-                      <p className="text-[11px] font-mono text-neutral-500">
-                        {item.source === 'admin_grant'
-                          ? 'Catálogo Oficial (Acceso Creador)'
-                          : `Adquirido el ${new Date(item.created_at).toLocaleDateString('es-ES')}`}
-                      </p>
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-950/80 text-amber-300 border border-amber-700/50">
+                            Trofeo #{idx + 1}
+                          </span>
+                          <span className="text-[10px] font-mono text-neutral-400">
+                            {item.source === 'admin_grant'
+                              ? 'Catálogo Creador'
+                              : new Date(item.created_at).toLocaleDateString('es-ES')}
+                          </span>
+                        </div>
+                        <h3 className="text-sm font-extrabold text-white truncate">
+                          {item.product.name}
+                        </h3>
+                        <p className="text-[11px] text-neutral-400 line-clamp-1">
+                          {item.product.description || 'Máster Oficial Desbloqueado'}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Authenticated Download Menu Dropdown via /api/media/download */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setOpenDownloadId(isMenuOpen ? null : item.id)}
-                      className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white flex items-center gap-1 text-xs cursor-pointer"
-                      title="Opciones de descarga verificada"
+                  <div className="flex items-center justify-between gap-2 pt-3 border-t border-neutral-800/80">
+                    <Link
+                      href={`/player?track=${pid}`}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 transition-all shadow-md"
                     >
-                      <Download className="w-4 h-4 text-red-400" />
-                      <ChevronDown className="w-3 h-3 text-neutral-500" />
-                    </button>
+                      <Headphones className="w-3.5 h-3.5" />
+                      <span>Escuchar en Reproductor Web</span>
+                    </Link>
 
-                    {isMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-52 bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl p-1.5 z-20 space-y-1 text-xs font-mono">
-                        {(item.product.mp3_url || item.product.audio_preview_url) && (
-                          <a
-                            href={`/api/media/download?productId=${pid}&asset=mp3`}
-                            className="block w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-neutral-300 hover:text-white transition-colors"
-                          >
-                            🎵 Descargar MP3 320k
-                          </a>
-                        )}
-                        {(item.product.wav_url || item.product.mp3_url || item.product.audio_preview_url) && (
-                          <a
-                            href={`/api/media/download?productId=${pid}&asset=wav`}
-                            className="block w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-red-400 hover:text-red-300 font-bold transition-colors"
-                          >
-                            💿 Descargar WAV Máster
-                          </a>
-                        )}
-                        {item.product.acapella_url && (
-                          <a
-                            href={`/api/media/download?productId=${pid}&asset=acapella`}
-                            className="flex items-center gap-1.5 w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-amber-400 hover:text-amber-300 font-semibold transition-colors"
-                          >
-                            <Mic className="w-3.5 h-3.5" />
-                            <span>Descargar Acapella</span>
-                          </a>
-                        )}
-                        {item.product.instrumental_url && (
-                          <a
-                            href={`/api/media/download?productId=${pid}&asset=instrumental`}
-                            className="flex items-center gap-1.5 w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-sky-400 hover:text-sky-300 font-semibold transition-colors"
-                          >
-                            <Sliders className="w-3.5 h-3.5" />
-                            <span>Descargar Instrumental</span>
-                          </a>
-                        )}
-                      </div>
-                    )}
+                    {/* Authenticated Download Menu Dropdown via /api/media/download */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setOpenDownloadId(isMenuOpen ? null : item.id)}
+                        className="px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                        title="Opciones de descarga verificada"
+                      >
+                        <Download className="w-3.5 h-3.5 text-red-400" />
+                        <span>Descargar</span>
+                        <ChevronDown className="w-3 h-3 text-neutral-500" />
+                      </button>
+
+                      {isMenuOpen && (
+                        <div className="absolute right-0 mt-2 w-52 bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl p-1.5 z-20 space-y-1 text-xs font-mono">
+                          {(item.product.mp3_url || item.product.audio_preview_url) && (
+                            <a
+                              href={`/api/media/download?productId=${pid}&asset=mp3`}
+                              className="block w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-neutral-300 hover:text-white transition-colors"
+                            >
+                              🎵 Descargar MP3 320k
+                            </a>
+                          )}
+                          {(item.product.wav_url ||
+                            item.product.mp3_url ||
+                            item.product.audio_preview_url) && (
+                            <a
+                              href={`/api/media/download?productId=${pid}&asset=wav`}
+                              className="block w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-red-400 hover:text-red-300 font-bold transition-colors"
+                            >
+                              💿 Descargar WAV Máster
+                            </a>
+                          )}
+                          {item.product.acapella_url && (
+                            <a
+                              href={`/api/media/download?productId=${pid}&asset=acapella`}
+                              className="flex items-center gap-1.5 w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-amber-400 hover:text-amber-300 font-semibold transition-colors"
+                            >
+                              <Mic className="w-3.5 h-3.5" />
+                              <span>Descargar Acapella</span>
+                            </a>
+                          )}
+                          {item.product.instrumental_url && (
+                            <a
+                              href={`/api/media/download?productId=${pid}&asset=instrumental`}
+                              className="flex items-center gap-1.5 w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-sky-400 hover:text-sky-300 font-semibold transition-colors"
+                            >
+                              <Sliders className="w-3.5 h-3.5" />
+                              <span>Descargar Instrumental</span>
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
@@ -304,18 +224,37 @@ export function LibraryClient({ digitalItems, physicalOrders }: LibraryClientPro
         )}
       </section>
 
-      {/* SECTION 2: Physical Merch Orders Tracking */}
+      {/* SECTION 2: Colección de Prendas & Enlace a Recibos Consolidados */}
       <section className="space-y-4 pt-4 border-t border-neutral-900">
-        <div className="flex items-center gap-2 border-b border-neutral-800 pb-3">
-          <Package className="w-5 h-5 text-red-500" />
-          <h2 className="text-xl font-bold text-white tracking-tight">
-            Pedidos Físicos y Prendas ({physicalOrders.length})
-          </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Package className="w-5 h-5 text-red-500" />
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              Coleccionables Físicos & Prendas ({physicalOrders.length})
+            </h2>
+          </div>
+
+          <Link
+            href="/orders"
+            className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-amber-400 hover:text-amber-300"
+          >
+            <Receipt className="w-3.5 h-3.5" />
+            <span>Ver Recibos Consolidados y Seguimiento →</span>
+          </Link>
         </div>
 
         {physicalOrders.length === 0 ? (
-          <div className="p-6 rounded-2xl border border-neutral-800/80 bg-neutral-950/40 text-center text-xs text-neutral-400">
-            No tienes pedidos físicos en curso en este momento.
+          <div className="p-6 rounded-2xl border border-neutral-800/80 bg-neutral-950/40 text-center space-y-3">
+            <p className="text-xs text-neutral-400">
+              No tienes coleccionables físicos registrados aún.
+            </p>
+            <Link
+              href="/orders"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-neutral-200 bg-neutral-900 border border-neutral-800 hover:text-white"
+            >
+              <Receipt className="w-3.5 h-3.5 text-red-400" />
+              <span>Revisar Historial de Recibos en Mis Pedidos</span>
+            </Link>
           </div>
         ) : (
           <div className="space-y-3">
@@ -342,52 +281,36 @@ export function LibraryClient({ digitalItems, physicalOrders }: LibraryClientPro
 
                   <div className="space-y-1">
                     <h3 className="text-sm font-bold text-white">{order.product.name}</h3>
-                    <div className="flex items-center gap-3 text-xs font-mono text-neutral-400">
+                    <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-neutral-400">
                       <span>
-                        Talla: <strong className="text-white">{order.variantLabel}</strong>
+                        Talla/Variante: <strong className="text-white">{order.variantLabel}</strong>
                       </span>
                       <span>
                         Cantidad: <strong className="text-white">{order.quantity}</strong>
                       </span>
-                      <span>
-                        ID: <strong className="text-neutral-500">#{order.id.slice(0, 8)}</strong>
-                      </span>
+                      {order.orderId && (
+                        <span>
+                          Recibo: <strong className="text-neutral-300">#{order.orderId.slice(0, 8).toUpperCase()}</strong>
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-neutral-800">
+                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-neutral-800">
                   {getStatusBadge(order.status)}
+                  <Link
+                    href="/orders"
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold text-neutral-200 bg-neutral-900 border border-neutral-800 hover:border-red-700 hover:text-white transition-colors"
+                  >
+                    Rastrear Recibo
+                  </Link>
                 </div>
               </div>
             ))}
           </div>
         )}
       </section>
-
-      {/* Video Modal */}
-      {showVideoModal && activeItem?.product?.video_url && (
-        <div className="fixed inset-0 z-50 bg-neutral-950/90 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="w-full max-w-3xl space-y-4 bg-neutral-900 border border-neutral-800 p-4 rounded-3xl">
-            <div className="flex justify-between items-center">
-              <h3 className="text-sm font-bold text-white">{activeItem.product.name} — Vídeo Oficial</h3>
-              <button
-                onClick={() => setShowVideoModal(false)}
-                className="text-neutral-400 hover:text-white text-xs cursor-pointer"
-              >
-                Cerrar ✕
-              </button>
-            </div>
-            <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black">
-              <iframe
-                src={activeItem.product.video_url}
-                className="w-full h-full border-0"
-                allowFullScreen
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

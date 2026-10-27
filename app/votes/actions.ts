@@ -16,6 +16,45 @@ export type ToggleVoteResult = {
   userVote?: 1 | -1 | 0
 }
 
+export async function getMyVoteState(
+  targetType: VoteTargetType,
+  targetId: string
+): Promise<{ userVote: 1 | -1 | 0; upvotes?: number; downvotes?: number }> {
+  const user = await getCurrentUser()
+  const supabase = await createClient()
+
+  const [{ count: upvoteCount }, { count: downvoteCount }, userVoteRow] = await Promise.all([
+    supabase
+      .from('votes')
+      .select('*', { count: 'exact', head: true })
+      .eq('target_type', targetType)
+      .eq('target_id', targetId)
+      .eq('vote_value', 1),
+    supabase
+      .from('votes')
+      .select('*', { count: 'exact', head: true })
+      .eq('target_type', targetType)
+      .eq('target_id', targetId)
+      .eq('vote_value', -1),
+    user
+      ? supabase
+          .from('votes')
+          .select('vote_value')
+          .eq('user_id', user.id)
+          .eq('target_type', targetType)
+          .eq('target_id', targetId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
+  const v = userVoteRow?.data?.vote_value
+  return {
+    userVote: v === 1 || v === -1 ? v : 0,
+    upvotes: typeof upvoteCount === 'number' ? upvoteCount : undefined,
+    downvotes: typeof downvoteCount === 'number' ? downvoteCount : undefined,
+  }
+}
+
 export async function toggleVote(
   targetType: VoteTargetType,
   targetId: string,
@@ -96,8 +135,16 @@ export async function toggleVote(
       .from('products')
       .update({ upvotes: newLikes, downvotes: newDowns })
       .eq('id', targetId)
+    const { data: prod } = await supabase
+      .from('products')
+      .select('slug')
+      .eq('id', targetId)
+      .maybeSingle()
     revalidatePath('/shop')
     revalidatePath(`/shop/${targetId}`)
+    if (prod?.slug) {
+      revalidatePath(`/shop/${prod.slug}`)
+    }
   } else if (targetType === 'forum_thread') {
     await supabase
       .from('forum_threads')

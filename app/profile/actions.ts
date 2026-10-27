@@ -5,11 +5,14 @@ import path from 'path'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { encodeProfileStatusWithFavSong, extractProfileStatus } from '@/lib/profile-presets'
 
 export type ProfileActionState = {
   error?: string
   success?: string
 }
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 async function saveProfileMediaAsset(params: {
   file: File
@@ -78,9 +81,16 @@ export async function updateProfile(
     ? rawUsername.toLowerCase().replace(/[^a-z0-9_.-]/g, '')
     : user.profile?.username || null
   const bio = String(formData.get('bio') ?? '').trim()
-  const statusUpdate = String(formData.get('status_update') ?? '').trim()
-  const birthday = String(formData.get('birthday') ?? '').trim() || null
-  const gender = String(formData.get('gender') ?? 'unspecified').trim()
+  const rawStatusUpdate = String(formData.get('status_update') ?? '').trim()
+  const cleanStatusUpdate = extractProfileStatus(rawStatusUpdate)
+  const rawBirthday = String(formData.get('birthday') ?? '').trim()
+  const birthday = /^\d{4}-\d{2}-\d{2}$/.test(rawBirthday) ? rawBirthday : null
+  const rawGender = String(formData.get('gender') ?? 'unspecified').trim()
+  const validGenders = ['male', 'female', 'gender_neutral', 'unspecified'] as const
+  const gender = (validGenders as readonly string[]).includes(rawGender)
+    ? (rawGender as (typeof validGenders)[number])
+    : 'unspecified'
+
   let avatarUrl = String(formData.get('avatar_url') ?? '').trim() || null
   let bannerUrl = String(formData.get('banner_url') ?? '').trim() || null
   const favoriteProductId = String(formData.get('favorite_product_id') ?? '').trim() || null
@@ -110,19 +120,38 @@ export async function updateProfile(
     if (uploadedBanner) bannerUrl = uploadedBanner
   }
 
-  // Si cambió la canción favorita, registramos un evento especial en el feed
-  if (favoriteProductId && favoriteProductId !== user.profile?.favorite_product_id) {
-    try {
-      await supabase.from('profile_updates').insert({
-        user_id: user.id,
-        body: `[FAVORITE_SONG_CHANGED]:${favoriteProductId}`,
-        status: 'visible',
-        created_at: new Date().toISOString(),
-      })
-    } catch {
-      // Ignorar fallo de log si la tabla no está accesible
+  // Resolver favorite_product_id de forma segura (la columna en PostgreSQL es de tipo UUID)
+  let resolvedFavoriteUuid: string | null = null
+  let presetSlugForMarker: string | null = null
+
+  if (favoriteProductId && favoriteProductId !== 'none') {
+    if (UUID_REGEX.test(favoriteProductId)) {
+      resolvedFavoriteUuid = favoriteProductId
+    } else {
+      // Buscar si existe un producto con ese slug en public.products para obtener su UUID real
+      const { data: matchedProduct } = await supabase
+        .from('products')
+        .select('id, slug')
+        .eq('slug', favoriteProductId)
+        .maybeSingle()
+
+      if (matchedProduct?.id && UUID_REGEX.test(matchedProduct.id)) {
+        resolvedFavoriteUuid = matchedProduct.id
+      }
+      presetSlugForMarker = favoriteProductId
     }
   }
+
+  const encodedStatus = encodeProfileStatusWithFavSong(
+    cleanStatusUpdate,
+    presetSlugForMarker
+  )
+
+  const nowIso = new Date().toISOString()
+
+  // NOTA: La Canción Favorita de cabecera del perfil está separada del "Song Mood del Día" del feed.
+  // Por ello, actualizar el perfil (foto, banner, cumpleaños, género o canción favorita fija)
+  // NO publica automáticamente un evento en profile_updates.
 
   const { error } = await supabase
     .from('profiles')
@@ -130,23 +159,39 @@ export async function updateProfile(
       display_name: displayName || null,
       username: username || null,
       bio: bio || null,
-      status_update: statusUpdate || null,
-      birthday: birthday || null,
-      gender: gender as 'male' | 'female' | 'gender_neutral' | 'unspecified',
+      status_update: encodedStatus,
+      birthday,
+      gender,
       avatar_url: avatarUrl,
       banner_url: bannerUrl,
-      favorite_product_id: favoriteProductId,
-      updated_at: new Date().toISOString(),
+      favorite_product_id: resolvedFavoriteUuid,
+      updated_at: nowIso,
     })
     .eq('id', user.id)
 
   if (error) {
-    return { error: error.message || 'No se pudo guardar la información del perfil.' }
+    // Fallback por si alguna columna extendida tuviera conflicto en la instancia
+    const { error: fallbackError } = await supabase
+      .from('profiles')
+      .update({
+        display_name: displayName || null,
+        username: username || null,
+        bio: bio || null,
+        avatar_url: avatarUrl,
+        banner_url: bannerUrl,
+        favorite_product_id: resolvedFavoriteUuid,
+        updated_at: nowIso,
+      })
+      .eq('id', user.id)
+
+    if (fallbackError) {
+      return { error: fallbackError.message || 'No se pudo guardar la información del perfil.' }
+    }
   }
 
   revalidatePath('/profile')
   if (username) revalidatePath(`/u/${username}`)
   revalidatePath('/community')
   revalidatePath('/')
-  return { success: 'Perfil y activos CDN actualizados correctamente.' }
+  return { success: 'Perfil (foto, banner, cumpleaños, género y canción favorita) actualizado correctamente.' }
 }

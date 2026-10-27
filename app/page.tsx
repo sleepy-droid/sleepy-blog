@@ -1,32 +1,60 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { getUserVotesMap } from '@/lib/votes-server'
 import { PostCarousel } from '@/components/home/PostCarousel'
 import { PostFeedClient } from '@/components/home/PostFeedClient'
-import { Sparkles, PlusCircle, ShoppingBag, MessageSquare, ArrowRight, Disc, Radio, Clock } from 'lucide-react'
-import type { Post } from '@/lib/types'
+import { Sparkles, PlusCircle, MessageSquare, ArrowRight, Disc, Clock } from 'lucide-react'
+import type { Post, Product } from '@/lib/types'
 
 export default async function Home() {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  let { data: dbPosts, error } = await supabase
-    .from('posts')
-    .select('*, linked_product:linked_product_id (*)')
-    .eq('is_published', true)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    const retry = await supabase
+  const [{ data: dbPosts }, { data: dbProducts }] = await Promise.all([
+    supabase
       .from('posts')
       .select('*')
       .eq('is_published', true)
-      .order('created_at', { ascending: false })
-    dbPosts = retry.data
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('products')
+      .select('*')
+      .eq('is_published', true),
+  ])
+
+  const productList = (dbProducts ?? []) as Product[]
+  const productById = new Map<string, Product>()
+  for (const p of productList) {
+    productById.set(p.id, p)
   }
 
-  const posts: Post[] = dbPosts ?? []
+  const posts: Post[] = (dbPosts ?? []).map((rawPost) => {
+    const post = rawPost as Post
+    let linked: Product | null = null
+    if (post.linked_product_id && productById.has(post.linked_product_id)) {
+      linked = productById.get(post.linked_product_id) || null
+    } else if (post.title) {
+      const lowerTitle = post.title.toLowerCase()
+      linked =
+        productList.find(
+          (p) =>
+            lowerTitle.includes(p.name.toLowerCase()) ||
+            lowerTitle.includes(p.slug.replace(/-/g, ' '))
+        ) || null
+    }
+    return {
+      ...post,
+      linked_product: linked,
+    }
+  })
+
+  const userVotes = await getUserVotesMap({
+    supabase,
+    userId: currentUser?.id,
+    targetType: 'post',
+    targetIds: posts.map((p) => p.id),
+  })
 
   return (
     <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-10 font-sans">
@@ -60,7 +88,7 @@ export default async function Home() {
       {posts.length > 0 ? (
         <>
           <PostCarousel posts={posts} />
-          <PostFeedClient posts={posts} />
+          <PostFeedClient posts={posts} userVotes={userVotes} />
         </>
       ) : (
         /* Friendly and Atmospheric "Coming Soon" Homepage View */

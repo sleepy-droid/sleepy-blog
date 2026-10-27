@@ -7,11 +7,12 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { fetchCommentsWithProfiles } from '@/lib/comments-server'
+import { getUserSingleVote, getUserVotesMap } from '@/lib/votes-server'
 import { CommentList } from '@/components/comments/CommentList'
 import { SingleThreadClient } from './SingleThreadClient'
 import { ArrowLeft, ThumbsUp, Flame } from 'lucide-react'
 import type { Metadata } from 'next'
-import type { CommentWithAuthor } from '@/lib/types'
 import type { ThreadWithAuthor } from '../page'
 
 interface ThreadPageProps {
@@ -44,7 +45,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
   // 1. Fetch main thread details from Supabase
   const { data: dbThread } = await supabase
     .from('forum_threads')
-    .select('*, profiles:author_id (display_name, email, username, avatar_url), products:linked_product_id (name, slug)')
+    .select('*')
     .eq('id', id)
     .maybeSingle()
 
@@ -52,16 +53,46 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
     notFound()
   }
 
-  const thread = dbThread as ThreadWithAuthor
+  const [{ data: authorProfile }, { data: linkedProduct }] = await Promise.all([
+    dbThread.author_id
+      ? supabase
+          .from('profiles')
+          .select('display_name, email, username, avatar_url')
+          .eq('id', dbThread.author_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    dbThread.linked_product_id
+      ? supabase
+          .from('products')
+          .select('name, slug, thumbnail_url')
+          .eq('id', dbThread.linked_product_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
 
-  // 2. Fetch comments for this forum thread (`target_type = 'forum_thread'`)
-  const { data: commentsData } = await supabase
-    .from('comments')
-    .select('*, profiles:user_id (display_name, email, avatar_url, username)')
-    .or(`target_id.eq.${thread.id},post_id.eq.${thread.id}`)
-    .order('created_at', { ascending: false })
+  const thread: ThreadWithAuthor = {
+    ...dbThread,
+    profiles: authorProfile || null,
+    products: linkedProduct || null,
+  }
 
-  const comments = (commentsData ?? []) as CommentWithAuthor[]
+  // 2. Fetch comments & user vote state for this forum thread
+  const [comments, userThreadVote] = await Promise.all([
+    fetchCommentsWithProfiles({ supabase, targetId: thread.id }),
+    getUserSingleVote({
+      supabase,
+      userId: currentUser?.id,
+      targetType: 'forum_thread',
+      targetId: thread.id,
+    }),
+  ])
+
+  const commentVoteMap = await getUserVotesMap({
+    supabase,
+    userId: currentUser?.id,
+    targetType: 'comment',
+    targetIds: comments.map((c) => c.id),
+  })
 
   // 3. Fetch Sidebar threads (latest & highest rated, excluding current thread)
   const { data: sidebarData } = await supabase
@@ -90,7 +121,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
         {/* Main Thread Content Column (8 Cols) */}
         <div className="lg:col-span-8 space-y-8">
           <article className="border border-neutral-800/90 rounded-3xl p-6 sm:p-8 bg-neutral-900/40 backdrop-blur-xl shadow-2xl space-y-6">
-            <SingleThreadClient thread={thread} />
+            <SingleThreadClient thread={thread} initialUserVote={userThreadVote} />
           </article>
 
           {/* Forum Thread Comments Section */}
@@ -99,6 +130,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
             targetId={thread.id}
             comments={comments}
             currentUser={currentUser}
+            commentVotes={commentVoteMap}
           />
         </div>
 

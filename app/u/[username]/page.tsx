@@ -14,10 +14,16 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { Calendar, ShieldCheck, Edit3 } from 'lucide-react'
+import { Calendar, ShieldCheck, Edit3, Cake, UserCheck, Sparkles } from 'lucide-react'
 import type { Metadata } from 'next'
 import type { Profile } from '@/lib/types'
-import { getSongById } from '@/lib/profile-presets'
+import {
+  getSongById,
+  SONG_PRESETS,
+  extractProfileFavSongId,
+  extractProfileStatus,
+  type SongPreset,
+} from '@/lib/profile-presets'
 import { FavoriteSongSnippetPlayer } from '@/components/profile/FavoriteSongSnippetPlayer'
 import {
   ProfileActivityFeed,
@@ -105,8 +111,65 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
     (currentUser?.profile?.username &&
       currentUser.profile.username.toLowerCase() === userProfile.username?.toLowerCase())
 
+  // Cargar canciones publicadas en la tienda para resolver UUIDs y presets
+  const { data: dbMusicProducts } = await supabase
+    .from('products')
+    .select('id, slug, name, description, audio_preview_url, mp3_url, wav_url, thumbnail_url')
+    .eq('is_published', true)
+    .or('category.eq.music,fulfillment.eq.digital')
+    .order('created_at', { ascending: false })
+
+  const availableSongs: SongPreset[] = [...SONG_PRESETS]
+  const productUuidToSlugMap = new Map<string, string>()
+
+  if (dbMusicProducts) {
+    for (const p of dbMusicProducts) {
+      const songKey = p.slug || p.id
+      if (p.id && songKey) {
+        productUuidToSlugMap.set(p.id, songKey)
+      }
+      const audioUrl = p.audio_preview_url || p.mp3_url || p.wav_url
+      if (!audioUrl) continue
+      if (!availableSongs.some((s) => s.id === songKey || s.id === p.id)) {
+        availableSongs.push({
+          id: songKey,
+          title: p.name,
+          artist: 'sleepyred999',
+          subtitle: p.description?.slice(0, 48) || 'Lanzamiento Oficial',
+          audioPreviewUrl: audioUrl,
+          thumbnailUrl: p.thumbnail_url || '/images/logos/PNG-04.png',
+          durationSeconds: 30,
+        })
+      }
+    }
+  }
+
+  const resolveSong = (songId?: string | null): SongPreset => {
+    if (!songId) return availableSongs[0]
+    const mappedKey = productUuidToSlugMap.get(songId) || songId
+    return (
+      availableSongs.find((s) => s.id === mappedKey || s.id === songId) ||
+      getSongById(mappedKey, availableSongs)
+    )
+  }
+
   // Canción favorita con preview de 30 segundos
-  const favoriteSong = getSongById(userProfile.favorite_product_id)
+  const favoriteSongId = extractProfileFavSongId(userProfile)
+  const favoriteSong = resolveSong(favoriteSongId)
+  const cleanStatus = extractProfileStatus(userProfile.status_update)
+
+  const getGenderLabel = (g?: string | null) => {
+    switch (g) {
+      case 'male':
+        return 'Hombre ♂'
+      case 'female':
+        return 'Mujer ♀'
+      case 'gender_neutral':
+        return 'Género Neutro ⚥'
+      default:
+        return null
+    }
+  }
 
   // Obtener actividades del usuario desde Supabase
   const activities: ActivityItem[] = []
@@ -121,12 +184,18 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
 
   if (updates && updates.length > 0) {
     for (const u of updates) {
+      if (u.status === 'deleted') continue
       if (u.body.startsWith('[FAVORITE_SONG_CHANGED]:')) {
-        const songId = u.body.replace('[FAVORITE_SONG_CHANGED]:', '').trim()
-        const song = getSongById(songId)
+        const rawPayload = u.body.replace('[FAVORITE_SONG_CHANGED]:', '').trim()
+        const [songIdPart, captionPart] = rawPayload.split('||')
+        const song = resolveSong(songIdPart)
         activities.push({
           id: u.id,
           type: 'favorite_song_changed',
+          itemSource: 'profile_update',
+          authorId: u.user_id,
+          moodSongId: song.id,
+          body: captionPart || undefined,
           targetTitle: song.title,
           audioPreviewUrl: song.audioPreviewUrl,
           createdAt: u.created_at,
@@ -135,6 +204,8 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
         activities.push({
           id: u.id,
           type: 'note',
+          itemSource: 'profile_update',
+          authorId: u.user_id,
           body: u.body,
           createdAt: u.created_at,
         })
@@ -142,25 +213,78 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
     }
   }
 
-  // 2. Comentarios del usuario
-  const { data: comments } = await supabase
-    .from('comments')
-    .select('id, body, created_at, post_id, posts (title)')
-    .eq('user_id', userProfile.id)
-    .order('created_at', { ascending: false })
-    .limit(10)
+  // 2. Comentarios del usuario + Comentarios dejados en su muro (profile_update)
+  const isUuidUser = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    userProfile.id
+  )
+  const { data: comments } = isUuidUser
+    ? await supabase
+        .from('comments')
+        .select('id, user_id, body, created_at, post_id, target_type, target_id, status')
+        .or(`user_id.eq.${userProfile.id},and(target_type.eq.profile_update,target_id.eq.${userProfile.id})`)
+        .order('created_at', { ascending: false })
+        .limit(20)
+    : await supabase
+        .from('comments')
+        .select('id, user_id, body, created_at, post_id, target_type, target_id, status')
+        .eq('user_id', userProfile.id)
+        .order('created_at', { ascending: false })
+        .limit(15)
 
   if (comments && comments.length > 0) {
+    const wallAuthorIds = Array.from(
+      new Set(
+        comments
+          .filter((c) => c.user_id && c.user_id !== userProfile.id)
+          .map((c) => c.user_id)
+      )
+    )
+    const wallAuthorsMap = new Map<string, { display_name?: string | null; username?: string | null }>()
+    if (wallAuthorIds.length > 0) {
+      const { data: wallProfs } = await supabase
+        .from('profiles')
+        .select('id, display_name, username')
+        .in('id', wallAuthorIds)
+      for (const wp of wallProfs || []) {
+        wallAuthorsMap.set(wp.id, wp)
+      }
+    }
+
     for (const c of comments) {
-      const postTitle = (c.posts as { title?: string } | null)?.title || 'Publicación'
-      activities.push({
-        id: c.id,
-        type: 'comment',
-        targetTitle: postTitle,
-        targetHref: c.post_id ? `/posts/${c.post_id}` : undefined,
-        body: c.body,
-        createdAt: c.created_at,
-      })
+      if (c.status === 'deleted') continue
+      if (c.target_type === 'profile_update' && c.target_id === userProfile.id && c.user_id !== userProfile.id) {
+        const wp = wallAuthorsMap.get(c.user_id)
+        activities.push({
+          id: c.id,
+          type: 'wall_comment',
+          itemSource: 'comment',
+          authorId: c.user_id,
+          authorName: wp?.display_name || wp?.username || 'Miembro',
+          authorUsername: wp?.username || 'user',
+          body: c.body,
+          createdAt: c.created_at,
+        })
+      } else {
+        let targetTitle = 'Publicación'
+        let targetHref: string | undefined = c.post_id ? `/posts/${c.post_id}` : undefined
+        if (c.target_type === 'product' && c.target_id) {
+          targetTitle = 'Producto de Tienda'
+          targetHref = `/shop/${c.target_id}`
+        } else if (c.target_type === 'forum_thread' && c.target_id) {
+          targetTitle = 'Hilo de Comunidad'
+          targetHref = `/community/${c.target_id}`
+        }
+        activities.push({
+          id: c.id,
+          type: 'comment',
+          itemSource: 'comment',
+          authorId: c.user_id,
+          targetTitle,
+          targetHref,
+          body: c.body,
+          createdAt: c.created_at,
+        })
+      }
     }
   }
 
@@ -261,6 +385,15 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
             )}
           </div>
 
+          {cleanStatus && (
+            <div className="bg-neutral-900/60 border border-neutral-800 p-3.5 rounded-2xl flex items-center gap-2.5">
+              <Sparkles className="w-4 h-4 text-red-400 shrink-0" />
+              <p className="text-xs font-medium text-neutral-200 italic">
+                &ldquo;{cleanStatus}&rdquo;
+              </p>
+            </div>
+          )}
+
           {/* Canción Favorita con Reproductor Interactivo de Snippet de 30s */}
           <div className="pt-2">
             <FavoriteSongSnippetPlayer song={favoriteSong} />
@@ -276,14 +409,26 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
             </p>
           </div>
 
-          <div className="pt-1 flex items-center gap-4 text-xs font-mono text-neutral-500">
+          <div className="pt-1 flex flex-wrap items-center gap-4 text-xs font-mono text-neutral-400">
             <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-neutral-400" /> Miembro desde{' '}
+              <Calendar className="w-3.5 h-3.5 text-neutral-500" /> Miembro desde{' '}
               {new Date(userProfile.created_at).toLocaleDateString('es-ES', {
                 year: 'numeric',
                 month: 'long',
               })}
             </span>
+
+            {userProfile.birthday && (
+              <span className="flex items-center gap-1">
+                <Cake className="w-3.5 h-3.5 text-pink-400" /> Cumpleaños: {userProfile.birthday}
+              </span>
+            )}
+
+            {getGenderLabel(userProfile.gender) && (
+              <span className="flex items-center gap-1">
+                <UserCheck className="w-3.5 h-3.5 text-sky-400" /> {getGenderLabel(userProfile.gender)}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -295,6 +440,16 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
         displayName={userProfile.display_name || userProfile.username || 'Usuario'}
         avatarUrl={userProfile.avatar_url}
         isOwner={Boolean(isOwner)}
+        isAdmin={Boolean(currentUser?.isAdmin)}
+        currentUserId={currentUser?.id || null}
+        currentUserName={
+          currentUser?.profile?.display_name ||
+          currentUser?.profile?.username ||
+          currentUser?.email?.split('@')[0] ||
+          null
+        }
+        currentUserAvatar={currentUser?.profile?.avatar_url || null}
+        availableSongs={availableSongs}
         activities={activities}
       />
     </main>

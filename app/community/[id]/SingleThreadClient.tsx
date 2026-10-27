@@ -1,25 +1,47 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { ThumbsUp, ThumbsDown, Tag, Video, Calendar } from 'lucide-react'
-import { toggleVote } from '@/app/votes/actions'
+import { toggleVote, getMyVoteState } from '@/app/votes/actions'
 import { GuestLoginModal } from '@/components/auth/GuestLoginModal'
 import type { ThreadWithAuthor } from '../page'
 
 type SingleThreadClientProps = {
   thread: ThreadWithAuthor
+  initialUserVote?: 1 | -1 | 0
 }
 
-export function SingleThreadClient({ thread }: SingleThreadClientProps) {
+export function SingleThreadClient({ thread, initialUserVote = 0 }: SingleThreadClientProps) {
   const pathname = usePathname()
   const [upvotes, setUpvotes] = useState(thread.upvotes ?? 0)
   const [downvotes, setDownvotes] = useState(thread.downvotes ?? 0)
-  const [userVote, setUserVote] = useState<1 | -1 | 0>(0)
+  const [userVote, setUserVote] = useState<1 | -1 | 0>(initialUserVote)
   const [isVoting, setIsVoting] = useState(false)
   const [showGuestModal, setShowGuestModal] = useState(false)
+
+  useEffect(() => {
+    setUpvotes(thread.upvotes ?? 0)
+    setDownvotes(thread.downvotes ?? 0)
+    setUserVote(initialUserVote)
+  }, [thread.upvotes, thread.downvotes, initialUserVote])
+
+  useEffect(() => {
+    let active = true
+    getMyVoteState('forum_thread', thread.id)
+      .then((res) => {
+        if (!active) return
+        setUserVote(res.userVote)
+        if (typeof res.upvotes === 'number') setUpvotes(res.upvotes)
+        if (typeof res.downvotes === 'number') setDownvotes(res.downvotes)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [thread.id])
 
   const authorName =
     thread.profiles?.display_name ||

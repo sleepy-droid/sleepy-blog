@@ -113,8 +113,59 @@ export const SONG_PRESETS: SongPreset[] = [
   },
 ]
 
-export function getSongById(id?: string | null): SongPreset {
-  if (!id) return SONG_PRESETS[0]
-  const found = SONG_PRESETS.find((s) => s.id === id)
-  return found || SONG_PRESETS[0]
+export function getSongById(id?: string | null, customList?: SongPreset[]): SongPreset {
+  const list = customList && customList.length > 0 ? customList : SONG_PRESETS
+  if (!id) return list[0]
+  const cleanId = id.trim()
+  const found =
+    list.find((s) => s.id === cleanId) ||
+    SONG_PRESETS.find((s) => s.id === cleanId)
+  return found || list[0]
 }
+
+const FAV_SONG_MARKER = ' ||fav:'
+
+/**
+ * Extrae el texto limpio de status_update sin el marcador interno de canción favorita preset.
+ */
+export function extractProfileStatus(rawStatus?: string | null): string {
+  if (!rawStatus) return ''
+  const idx = rawStatus.indexOf(FAV_SONG_MARKER)
+  if (idx === -1) return rawStatus.trim()
+  return rawStatus.slice(0, idx).trim()
+}
+
+/**
+ * Extrae el ID o slug de la canción favorita de cabecera del perfil,
+ * priorizando el marcador de preset si existe o `favorite_product_id`.
+ */
+export function extractProfileFavSongId(profile?: {
+  favorite_product_id?: string | null
+  status_update?: string | null
+} | null): string | null {
+  if (!profile) return null
+  if (profile.status_update) {
+    const idx = profile.status_update.indexOf(FAV_SONG_MARKER)
+    if (idx !== -1) {
+      const markerVal = profile.status_update.slice(idx + FAV_SONG_MARKER.length).trim()
+      if (markerVal) return markerVal
+    }
+  }
+  return profile.favorite_product_id || null
+}
+
+/**
+ * Combina el status_update visible con un identificador de canción preset cuando
+ * la canción elegida no es un UUID en `public.products`.
+ */
+export function encodeProfileStatusWithFavSong(
+  cleanStatus: string,
+  favSongPresetSlug?: string | null
+): string | null {
+  const trimmed = cleanStatus.trim()
+  if (!favSongPresetSlug) {
+    return trimmed || null
+  }
+  return `${trimmed}${FAV_SONG_MARKER}${favSongPresetSlug}`
+}
+

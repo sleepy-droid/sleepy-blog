@@ -2,12 +2,6 @@
  * Dynamic Post Page for sleepyred999 storefront & newsfeed.
  * URL Route: /posts/[id]
  * File Path: app/posts/[id]/page.tsx
- * 
- * Dependencies & Purpose:
- * 1. 'next/link': Client-side soft navigation to return to home ('/').
- * 2. 'next/navigation': 'notFound()' helper to trigger Next.js 404 boundary if post is missing in database.
- * 3. '@/utils/supabase/server': Initializes Supabase SSR client to fetch data securely on the server.
- * 4. 'lucide-react': UI icons for back button, media player, share button, and purchase badges.
  */
 
 import Link from 'next/link'
@@ -15,24 +9,19 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { fetchCommentsWithProfiles } from '@/lib/comments-server'
+import { getUserSingleVote, getUserVotesMap } from '@/lib/votes-server'
 import { CommentList } from '@/components/comments/CommentList'
 import { PostLikeButton } from '@/components/home/PostLikeButton'
-import type { CommentWithAuthor } from '@/lib/types'
-import { ArrowLeft, Play, Tag, Share2, Calendar } from 'lucide-react'
+import type { Product } from '@/lib/types'
+import { ArrowLeft, Play, Tag, Share2, Calendar, ShoppingBag } from 'lucide-react'
 import type { Metadata } from 'next'
 import { normalizeMediaUrl, parseMediaUrls } from '@/lib/utils'
 
-// Definimos el tipo de props siguiendo las convenciones de Next.js 16.
-// En Next.js 16, 'params' es una Promesa: Promise<{ id: string }>.
 interface PostPageProps {
   params: Promise<{ id: string }>
 }
 
-/**
- * Generación dinámica de metadatos (SEO / OpenGraph) para el post individual.
- * Permite que al compartir la URL de un post en redes o ver la pestaña del navegador,
- * el título y descripción correspondan al post específico.
- */
 export async function generateMetadata({ params }: PostPageProps): Promise<Metadata> {
   const { id } = await params
   const supabase = await createClient()
@@ -55,40 +44,69 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
   }
 }
 
-/**
- * Server Component principal para renderizar la página especializada del post.
- */
 export default async function PostPage({ params }: PostPageProps) {
-  // Paso 1: Desenredar (await) el objeto 'params' según los requerimientos de Next.js 16.
   const { id } = await params
-
-  // Paso 2: Crear el cliente de Supabase optimizado para Server Components.
-  // Llama a 'utils/supabase/server.ts' que lee '.env.local' y las cookies HTTP.
   const supabase = await createClient()
 
-  // Paso 3: Consultar la tabla 'posts' en Supabase filtrando por la ID recibida en la URL.
   const { data: post, error } = await supabase
     .from('posts')
     .select('*')
     .eq('id', id)
     .single()
 
-  // Paso 4: Manejo de errores o registros no encontrados.
-  // Si la consulta devuelve error o no existe el post, enviamos al usuario al estado 404 (not-found.tsx).
   if (error || !post) {
     notFound()
   }
 
-  // Paso 5: Comentarios + usuario actual (en paralelo conceptual; await secuencial simple).
   const currentUser = await getCurrentUser()
 
-  const { data: commentsData } = await supabase
-    .from('comments')
-    .select('*, profiles:user_id (display_name, email, avatar_url, username)')
-    .or(`post_id.eq.${id},target_id.eq.${id}`)
-    .order('created_at', { ascending: false })
+  // Resolver el producto vinculado a la publicación (para que "Comprar Ahora" lleve a la página del producto)
+  let linkedProduct: Product | null = null
+  if (post.linked_product_id) {
+    const { data: prod } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', post.linked_product_id)
+      .maybeSingle()
+    if (prod) linkedProduct = prod as Product
+  }
 
-  const comments = (commentsData ?? []) as CommentWithAuthor[]
+  if (!linkedProduct && (post.price > 0 || post.title)) {
+    const { data: publishedProducts } = await supabase
+      .from('products')
+      .select('*')
+      .eq('is_published', true)
+      .order('created_at', { ascending: false })
+
+    if (publishedProducts && publishedProducts.length > 0) {
+      const lowerTitle = (post.title || '').toLowerCase()
+      linkedProduct =
+        (publishedProducts as Product[]).find(
+          (p) =>
+            lowerTitle.includes(p.name.toLowerCase()) ||
+            lowerTitle.includes(p.slug.replace(/-/g, ' '))
+        ) ||
+        (post.price > 0 ? (publishedProducts[0] as Product) : null)
+    }
+  }
+
+  // Cargar comentarios reales (hidratando perfiles sin depender de FK en PostgREST) y estado de like del usuario
+  const [comments, userPostVote] = await Promise.all([
+    fetchCommentsWithProfiles({ supabase, targetId: id }),
+    getUserSingleVote({
+      supabase,
+      userId: currentUser?.id,
+      targetType: 'post',
+      targetId: id,
+    }),
+  ])
+
+  const commentVoteMap = await getUserVotesMap({
+    supabase,
+    userId: currentUser?.id,
+    targetType: 'comment',
+    targetIds: comments.map((c) => c.id),
+  })
 
   // Detectamos todas las imágenes de la publicación
   const postImages = parseMediaUrls(post.image_url || post.cover_url)
@@ -96,6 +114,18 @@ export default async function PostPage({ params }: PostPageProps) {
     postImages.push('/images/releases/criss-angel.jpg')
   }
   const mediaUrl = normalizeMediaUrl(post.media_url) || null
+
+  const showProductModule = Boolean(linkedProduct || (post.price && post.price > 0))
+  const productTargetHref = linkedProduct
+    ? `/shop/${linkedProduct.slug || linkedProduct.id}`
+    : post.linked_product_id
+    ? `/shop/${post.linked_product_id}`
+    : '/shop'
+  const displayPriceUsd = linkedProduct
+    ? (linkedProduct.price_cents / 100).toFixed(2)
+    : post.price
+    ? Number(post.price).toFixed(2)
+    : null
 
   return (
     <main className="max-w-3xl mx-auto p-6 space-y-8 font-sans">
@@ -115,7 +145,7 @@ export default async function PostPage({ params }: PostPageProps) {
         {/* Cabecera del Post: Categoría y Fecha */}
         <div className="flex items-center justify-between border-b border-neutral-800/80 pb-4">
           <span className="text-xs uppercase tracking-wider font-semibold text-red-500 bg-red-950/60 px-3 py-1 rounded-md border border-red-900/40 shadow-sm">
-            {post.category || 'Lanzamiento'}
+            {post.highlight_tag || post.category || 'Lanzamiento'}
           </span>
           <div className="flex items-center gap-1.5 text-xs text-neutral-400">
             <Calendar className="w-3.5 h-3.5 text-neutral-500" />
@@ -132,9 +162,7 @@ export default async function PostPage({ params }: PostPageProps) {
         {/* Portada / Artwork / Galería en alta resolución sin recortar */}
         {postImages.length > 0 && (
           <div className="space-y-4">
-            {/* Foto Principal o Única sin recortes con fondo ambiental */}
             <div className="relative w-full rounded-2xl overflow-hidden border border-neutral-800/80 bg-neutral-950/90 shadow-2xl shadow-red-950/20 min-h-[280px] max-h-[540px] flex items-center justify-center p-3 sm:p-5">
-              {/* Fondo con desenfoque suave para ambientar los márgenes */}
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <Image 
                   src={postImages[0]} 
@@ -145,7 +173,6 @@ export default async function PostPage({ params }: PostPageProps) {
                 <div className="absolute inset-0 bg-neutral-950/50" />
               </div>
 
-              {/* Imagen en primer plano: 100% visible, natural y nítida (object-contain) */}
               <div className="relative z-10 w-full flex items-center justify-center">
                 <Image 
                   src={postImages[0]} 
@@ -159,7 +186,6 @@ export default async function PostPage({ params }: PostPageProps) {
               </div>
             </div>
 
-            {/* Si es un recap de varias fotos, mostramos las fotos adicionales en cuadrícula nítida */}
             {postImages.length > 1 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
                 {postImages.slice(1).map((src, i) => (
@@ -209,29 +235,38 @@ export default async function PostPage({ params }: PostPageProps) {
           </div>
         )}
 
-        {/* Módulo de Venta / Edición Digital Directa (si price > 0) */}
-        {post.price > 0 && (
+        {/* Módulo de Venta / Producto Vinculado (con botón funcional "Comprar Ahora" hacia la página del producto) */}
+        {showProductModule && (
           <div className="pt-4 border-t border-neutral-800/80">
             <div className="bg-gradient-to-r from-red-950/40 via-neutral-900/60 to-neutral-950/80 border border-red-900/40 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
+              <div className="space-y-1">
                 <div className="flex items-center gap-2 text-red-400 text-xs font-semibold uppercase tracking-wider">
                   <Tag className="w-3.5 h-3.5" />
-                  <span>Edición Digital Directa</span>
+                  <span>
+                    {linkedProduct
+                      ? `Producto Oficial: ${linkedProduct.name}`
+                      : 'Edición Digital Directa'}
+                  </span>
                 </div>
-                <p className="text-xs text-neutral-400 mt-1">
-                  Adquiere directamente este contenido exclusivo y apoya al artista.
+                <p className="text-xs text-neutral-400">
+                  {linkedProduct?.description
+                    ? linkedProduct.description.slice(0, 120)
+                    : 'Adquiere directamente este lanzamiento exclusivo en la tienda oficial y apoya al artista.'}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-xl font-bold text-red-300 bg-red-950/80 px-3 py-1.5 rounded-lg border border-red-800/60 shadow-inner">
-                  ${post.price} USD
-                </span>
-                <button 
-                  type="button" 
-                  className="text-xs font-bold text-white bg-red-700 hover:bg-red-600 px-4 py-2.5 rounded-lg transition-colors shadow-md shadow-red-950"
+              <div className="flex items-center gap-3 shrink-0">
+                {displayPriceUsd && (
+                  <span className="font-mono text-lg sm:text-xl font-bold text-red-300 bg-red-950/80 px-3 py-1.5 rounded-lg border border-red-800/60 shadow-inner">
+                    ${displayPriceUsd} USD
+                  </span>
+                )}
+                <Link
+                  href={productTargetHref}
+                  className="inline-flex items-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 active:scale-95 px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-red-950 border border-red-500/40"
                 >
-                  Comprar Ahora
-                </button>
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>Comprar Ahora</span>
+                </Link>
               </div>
             </div>
           </div>
@@ -240,7 +275,11 @@ export default async function PostPage({ params }: PostPageProps) {
         {/* Pie de página del Post: Likes en vivo & Acciones secundarias */}
         <div className="pt-4 border-t border-neutral-800/60 flex items-center justify-between text-xs text-neutral-500">
           <div className="flex items-center gap-3">
-            <PostLikeButton postId={post.id} initialLikes={post.like_count || post.upvotes || 0} />
+            <PostLikeButton
+              postId={post.id}
+              initialLikes={post.like_count || post.upvotes || 0}
+              userHasVoted={userPostVote === 1}
+            />
             <span className="font-mono text-[11px]">ID: #{post.id.slice(0, 8)}</span>
           </div>
           <a 
@@ -253,11 +292,12 @@ export default async function PostPage({ params }: PostPageProps) {
         </div>
       </article>
 
-      {/* Comentarios: listado + formulario (si hay sesión) */}
+      {/* Comentarios: listado + formulario (con edición y eliminación del autor) */}
       <CommentList
         postId={post.id}
         comments={comments}
         currentUser={currentUser}
+        commentVotes={commentVoteMap}
       />
     </main>
   )

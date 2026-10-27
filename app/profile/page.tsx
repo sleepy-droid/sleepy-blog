@@ -11,7 +11,13 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { ProfileEditForm } from './ProfileEditForm'
-import { getSongById, SONG_PRESETS, type SongPreset } from '@/lib/profile-presets'
+import {
+  getSongById,
+  SONG_PRESETS,
+  extractProfileFavSongId,
+  extractProfileStatus,
+  type SongPreset,
+} from '@/lib/profile-presets'
 import { FavoriteSongSnippetPlayer } from '@/components/profile/FavoriteSongSnippetPlayer'
 import {
   ProfileActivityFeed,
@@ -43,11 +49,16 @@ export default async function ProfilePage() {
     .order('created_at', { ascending: false })
 
   const availableSongs: SongPreset[] = [...SONG_PRESETS]
+  const productUuidToSlugMap = new Map<string, string>()
+
   if (dbMusicProducts) {
     for (const p of dbMusicProducts) {
+      const songKey = p.slug || p.id
+      if (p.id && songKey) {
+        productUuidToSlugMap.set(p.id, songKey)
+      }
       const audioUrl = p.audio_preview_url || p.mp3_url || p.wav_url
       if (!audioUrl) continue
-      const songKey = p.slug || p.id
       if (!availableSongs.some((s) => s.id === songKey || s.id === p.id)) {
         availableSongs.push({
           id: songKey,
@@ -64,20 +75,26 @@ export default async function ProfilePage() {
 
   const resolveSong = (songId?: string | null): SongPreset => {
     if (!songId) return availableSongs[0]
-    return availableSongs.find((s) => s.id === songId) || getSongById(songId)
+    const mappedKey = productUuidToSlugMap.get(songId) || songId
+    return (
+      availableSongs.find((s) => s.id === mappedKey || s.id === songId) ||
+      getSongById(mappedKey, availableSongs)
+    )
   }
 
   const name = profile?.display_name || currentUser.email?.split('@')[0] || 'Miembro'
   const username = profile?.username || currentUser.email?.split('@')[0] || 'user'
   const bannerUrl = profile?.banner_url || '/images/banners/studio-obsidian-grid.svg'
   const avatarUrl = profile?.avatar_url || '/images/avatars/emblem-obsidian-crest.svg'
+  const cleanStatus = extractProfileStatus(profile?.status_update)
   const statusUpdate =
-    profile?.status_update ||
+    cleanStatus ||
     'Disfrutando los lanzamientos oficiales en máster sin compresión.'
   const birthday = profile?.birthday
   const gender = profile?.gender
 
-  const favoriteSong = resolveSong(profile?.favorite_product_id)
+  const favoriteSongId = extractProfileFavSongId(profile)
+  const favoriteSong = resolveSong(favoriteSongId)
 
   const getGenderLabel = (g?: string | null) => {
     switch (g) {
@@ -104,12 +121,18 @@ export default async function ProfilePage() {
 
   if (updates && updates.length > 0) {
     for (const u of updates) {
+      if (u.status === 'deleted') continue
       if (u.body.startsWith('[FAVORITE_SONG_CHANGED]:')) {
-        const songId = u.body.replace('[FAVORITE_SONG_CHANGED]:', '').trim()
-        const song = resolveSong(songId)
+        const rawPayload = u.body.replace('[FAVORITE_SONG_CHANGED]:', '').trim()
+        const [songIdPart, captionPart] = rawPayload.split('||')
+        const song = resolveSong(songIdPart)
         activities.push({
           id: u.id,
           type: 'favorite_song_changed',
+          itemSource: 'profile_update',
+          authorId: u.user_id,
+          moodSongId: song.id,
+          body: captionPart || undefined,
           targetTitle: song.title,
           audioPreviewUrl: song.audioPreviewUrl,
           createdAt: u.created_at,
@@ -118,6 +141,8 @@ export default async function ProfilePage() {
         activities.push({
           id: u.id,
           type: 'note',
+          itemSource: 'profile_update',
+          authorId: u.user_id,
           body: u.body,
           createdAt: u.created_at,
         })
@@ -127,22 +152,65 @@ export default async function ProfilePage() {
 
   const { data: comments } = await supabase
     .from('comments')
-    .select('id, body, created_at, post_id, posts (title)')
-    .eq('user_id', currentUser.id)
+    .select('id, user_id, body, created_at, post_id, target_type, target_id, status')
+    .or(`user_id.eq.${currentUser.id},and(target_type.eq.profile_update,target_id.eq.${currentUser.id})`)
     .order('created_at', { ascending: false })
-    .limit(10)
+    .limit(20)
 
   if (comments && comments.length > 0) {
+    const wallAuthorIds = Array.from(
+      new Set(
+        comments
+          .filter((c) => c.user_id && c.user_id !== currentUser.id)
+          .map((c) => c.user_id)
+      )
+    )
+    const wallAuthorsMap = new Map<string, { display_name?: string | null; username?: string | null }>()
+    if (wallAuthorIds.length > 0) {
+      const { data: wallProfs } = await supabase
+        .from('profiles')
+        .select('id, display_name, username')
+        .in('id', wallAuthorIds)
+      for (const wp of wallProfs || []) {
+        wallAuthorsMap.set(wp.id, wp)
+      }
+    }
+
     for (const c of comments) {
-      const postTitle = (c.posts as { title?: string } | null)?.title || 'Publicación'
-      activities.push({
-        id: c.id,
-        type: 'comment',
-        targetTitle: postTitle,
-        targetHref: c.post_id ? `/posts/${c.post_id}` : undefined,
-        body: c.body,
-        createdAt: c.created_at,
-      })
+      if (c.status === 'deleted') continue
+      if (c.target_type === 'profile_update' && c.target_id === currentUser.id && c.user_id !== currentUser.id) {
+        const wp = wallAuthorsMap.get(c.user_id)
+        activities.push({
+          id: c.id,
+          type: 'wall_comment',
+          itemSource: 'comment',
+          authorId: c.user_id,
+          authorName: wp?.display_name || wp?.username || 'Miembro',
+          authorUsername: wp?.username || 'user',
+          body: c.body,
+          createdAt: c.created_at,
+        })
+      } else {
+        let targetTitle = 'Publicación'
+        let targetHref: string | undefined = c.post_id ? `/posts/${c.post_id}` : undefined
+        if (c.target_type === 'product' && c.target_id) {
+          targetTitle = 'Producto de Tienda'
+          targetHref = `/shop/${c.target_id}`
+        } else if (c.target_type === 'forum_thread' && c.target_id) {
+          targetTitle = 'Hilo de Comunidad'
+          targetHref = `/community/${c.target_id}`
+        }
+        activities.push({
+          id: c.id,
+          type: 'comment',
+          itemSource: 'comment',
+          authorId: c.user_id,
+          targetTitle,
+          targetHref,
+          body: c.body,
+          createdAt: c.created_at,
+        })
+      }
     }
   }
 
@@ -218,7 +286,7 @@ export default async function ProfilePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/u/${username}`}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-neutral-300 hover:text-white bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition-colors shadow-sm"
@@ -228,10 +296,17 @@ export default async function ProfilePage() {
             </Link>
 
             <Link
+              href="/orders"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-neutral-200 hover:text-white bg-neutral-900 border border-neutral-800 hover:border-red-900/60 transition-colors shadow-sm"
+            >
+              <span>Mis Pedidos</span>
+            </Link>
+
+            <Link
               href="/library"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-800 hover:bg-red-700 transition-colors shadow-md"
             >
-              <span>Mi Biblioteca</span>
+              <span>Vitrina Trofeos</span>
             </Link>
           </div>
         </div>
@@ -302,6 +377,11 @@ export default async function ProfilePage() {
         displayName={name}
         avatarUrl={avatarUrl}
         isOwner={true}
+        isAdmin={Boolean(currentUser.isAdmin)}
+        currentUserId={currentUser.id}
+        currentUserName={name}
+        currentUserAvatar={avatarUrl}
+        availableSongs={availableSongs}
         activities={activities}
       />
     </main>

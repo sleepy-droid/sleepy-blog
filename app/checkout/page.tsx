@@ -4,15 +4,18 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { ShieldCheck, CreditCard, CheckCircle2, ArrowLeft, Lock, Sparkles, Loader2, User, AlertTriangle, MapPin } from 'lucide-react'
+import { ShieldCheck, CreditCard, CheckCircle2, ArrowLeft, Lock, Sparkles, Loader2, AlertTriangle, MapPin, Package, Award, Headphones } from 'lucide-react'
 import { useCart } from '@/lib/cart'
 import { formatPrice } from '@/lib/types'
+import { placeOrderAction } from './actions'
 
 export default function CheckoutPage() {
   const router = useRouter()
   const { items, totalCents, clearCart } = useCart()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [completedOrderId, setCompletedOrderId] = useState<string | null>(null)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
 
   // Guest vs Logged-in state (Simulated check or prompt)
   const [isGuest, setIsGuest] = useState(false)
@@ -22,26 +25,56 @@ export default function CheckoutPage() {
     name: 'Sleepy Member',
     email: 'member@sleepyred999.com',
     address: 'Calle 123 # 45 - 67, Apt 402',
-    city: 'Bogotá',
-    country: 'Colombia',
+    city: 'Ciudad de Panamá',
+    country: 'Panamá',
   })
 
   const hasPhysical = items.some((item) => item.product.fulfillment === 'physical')
 
-  const handlePay = (e: React.FormEvent) => {
+  const handlePay = async (e: React.FormEvent) => {
     e.preventDefault()
+    setCheckoutError(null)
 
     if (isGuest) {
-      alert('Debes iniciar sesión para que tus compras se guarden en tu biblioteca personal.')
+      setCheckoutError('Debes iniciar sesión para que tus compras y recibos se guarden en tu cuenta.')
       return
     }
 
     setIsSubmitting(true)
-    setTimeout(() => {
+    try {
+      const res = await placeOrderAction({
+        customerName: formData.name,
+        customerEmail: formData.email,
+        shippingAddress: formData.address,
+        city: formData.city,
+        country: formData.country,
+        totalCents,
+        items: items.map((item) => ({
+          productId: item.product.id,
+          variantLabel: item.variantLabel || 'Estándar',
+          quantity: item.quantity,
+          unitPriceCents: item.product.price_cents,
+          fulfillment: item.product.fulfillment,
+        })),
+      })
+
+      if (res.error) {
+        setCheckoutError(res.error)
+        setIsSubmitting(false)
+        return
+      }
+
+      if (res.orderId) {
+        setCompletedOrderId(res.orderId)
+      }
       setIsSubmitting(false)
       setIsCompleted(true)
       clearCart()
-    }, 1500)
+      router.refresh()
+    } catch {
+      setCheckoutError('Ocurrió un error al registrar tu pedido.')
+      setIsSubmitting(false)
+    }
   }
 
   if (isCompleted) {
@@ -52,24 +85,36 @@ export default function CheckoutPage() {
         </div>
 
         <div className="space-y-2">
-          <h1 className="text-3xl font-extrabold text-white">¡Orden Confirmada y Procesando!</h1>
+          <span className="inline-block px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-neutral-900 border border-neutral-800 text-emerald-400">
+            Recibo #{completedOrderId ? completedOrderId.slice(0, 8).toUpperCase() : 'CONFIRMADO'}
+          </span>
+          <h1 className="text-3xl font-extrabold text-white">¡Orden Confirmada y Recibo Generado!</h1>
           <p className="text-sm text-neutral-300 max-w-md mx-auto">
-            Tu pedido ha sido procesado. Tus canciones ya están desbloqueadas en tu biblioteca y tus prendas físicas han entrado en estado <strong className="text-amber-400">Procesando</strong>.
+            Todos los artículos de esta compra quedaron agrupados en un único recibo en <strong className="text-white">Mis Pedidos</strong>, tus trofeos ya están en tu <strong className="text-amber-400">Biblioteca</strong> y tus pistas digitales listas en el <strong className="text-red-400">Reproductor Web</strong>.
           </p>
         </div>
 
-        <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <div className="pt-4 flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3">
           <Link
-            href="/library"
-            className="w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 transition-all shadow-lg"
+            href="/orders"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 transition-all shadow-lg"
           >
-            Ver en mi Biblioteca
+            <Package className="w-4 h-4" />
+            <span>Rastrear Recibo en Mis Pedidos</span>
           </Link>
           <Link
-            href="/shop"
-            className="w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-semibold text-neutral-300 bg-neutral-900 border border-neutral-800 hover:text-white transition-colors"
+            href="/library"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-bold text-amber-300 bg-amber-950/60 border border-amber-700/60 hover:bg-amber-900/60 transition-all"
           >
-            Volver a la Tienda
+            <Award className="w-4 h-4" />
+            <span>Ver Vitrina de Trofeos</span>
+          </Link>
+          <Link
+            href="/player"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-semibold text-neutral-200 bg-neutral-900 border border-neutral-800 hover:text-white transition-colors"
+          >
+            <Headphones className="w-4 h-4 text-red-400" />
+            <span>Abrir Reproductor Web</span>
           </Link>
         </div>
       </main>
@@ -259,6 +304,18 @@ export default function CheckoutPage() {
               </p>
             </div>
           </div>
+
+          {checkoutError && (
+            <div className="p-3.5 rounded-xl border border-red-900/60 bg-red-950/40 text-xs text-red-300 flex items-center justify-between gap-3">
+              <span>{checkoutError}</span>
+              <Link
+                href="/auth/login?next=/checkout"
+                className="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 text-white font-bold shrink-0"
+              >
+                Iniciar Sesión
+              </Link>
+            </div>
+          )}
 
           <button
             type="submit"

@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { ChevronLeft, ChevronRight, Sparkles, Play, ArrowRight, ShoppingBag } from 'lucide-react'
 import type { Post } from '@/lib/types'
 import { normalizeMediaUrl } from '@/lib/utils'
+import { useLanguage } from '@/lib/i18n'
 
 type PostCarouselProps = {
   posts: Post[]
@@ -13,8 +14,8 @@ type PostCarouselProps = {
 
 export function PostCarousel({ posts }: PostCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
+  const { t } = useLanguage()
 
-  // Filter posts that have image or media
   const carouselPosts = posts.slice(0, 5)
 
   useEffect(() => {
@@ -28,19 +29,31 @@ export function PostCarousel({ posts }: PostCarouselProps) {
   if (carouselPosts.length === 0) return null
 
   const activePost = carouselPosts[currentIndex]
-  const rawCover = activePost.image_url || activePost.cover_url || 
-    (activePost.title?.toLowerCase().includes('criss angel') ? '/images/releases/criss-angel.jpg' : '/images/logos/PNG-04.png')
+  const rawCover =
+    activePost.image_url ||
+    activePost.cover_url ||
+    (activePost.title?.toLowerCase().includes('criss angel')
+      ? '/images/releases/criss-angel.jpg'
+      : '/images/logos/PNG-04.png')
   const coverImage = normalizeMediaUrl(rawCover) || '/images/logos/PNG-04.png'
   const mediaUrl = normalizeMediaUrl(activePost.media_url)
 
   const nextSlide = () => setCurrentIndex((prev) => (prev + 1) % carouselPosts.length)
-  const prevSlide = () => setCurrentIndex((prev) => (prev - 1 + carouselPosts.length) % carouselPosts.length)
+  const prevSlide = () =>
+    setCurrentIndex((prev) => (prev - 1 + carouselPosts.length) % carouselPosts.length)
 
   const postUrl = `/posts/${activePost.id}`
+  const productUrl = activePost.linked_product
+    ? `/shop/${activePost.linked_product.slug || activePost.linked_product.id}`
+    : activePost.linked_product_id
+    ? `/shop/${activePost.linked_product_id}`
+    : activePost.price && activePost.price > 0
+    ? '/shop'
+    : null
 
   return (
     <section className="relative w-full rounded-3xl overflow-hidden border border-neutral-800/90 bg-neutral-950 shadow-2xl shadow-red-950/20 group min-h-[340px] sm:min-h-[390px] flex flex-col justify-between">
-      {/* Background Banner: Imagen en grande con presencia y volumen */}
+      {/* Background Banner */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <Image
           src={coverImage}
@@ -50,7 +63,6 @@ export function PostCarousel({ posts }: PostCarouselProps) {
           sizes="(max-width: 1200px) 100vw, 1200px"
           className="object-cover object-center group-hover:scale-105 transition-transform duration-1000 transform-gpu opacity-50 sm:opacity-55"
         />
-        {/* Capa de contraste cinematográfica: sólido a la izquierda para máxima legibilidad del texto y abierto a la derecha */}
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/85 sm:via-neutral-950/70 to-neutral-950/25" />
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-transparent to-neutral-950/60" />
       </div>
@@ -64,7 +76,6 @@ export function PostCarousel({ posts }: PostCarouselProps) {
             <span>{activePost.highlight_tag || activePost.category || 'Lanzamiento Destacado'}</span>
           </span>
 
-          {/* Top Controls: Prev / Next Buttons + Slide Counter */}
           <div className="flex items-center gap-2 bg-neutral-950/80 backdrop-blur-md px-3 py-1 rounded-full border border-neutral-800 text-[11px] font-mono text-neutral-300 shadow-md shrink-0">
             {carouselPosts.length > 1 && (
               <button
@@ -76,7 +87,9 @@ export function PostCarousel({ posts }: PostCarouselProps) {
               </button>
             )}
 
-            <span>{currentIndex + 1} / {carouselPosts.length}</span>
+            <span>
+              {currentIndex + 1} / {carouselPosts.length}
+            </span>
 
             {carouselPosts.length > 1 && (
               <button
@@ -107,17 +120,24 @@ export function PostCarousel({ posts }: PostCarouselProps) {
                 href={postUrl}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 active:scale-95 transition-all shadow-lg shadow-red-950 cursor-pointer"
               >
-                <span>Ver Bitácora Completa</span>
+                <span>{t('home_view_full_post')}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
 
-              {activePost.linked_product && (
+              {productUrl && (
                 <Link
-                  href={`/shop/${activePost.linked_product.slug || activePost.linked_product.id}`}
+                  href={productUrl}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-red-950/90 hover:bg-red-900 border border-red-800/60 transition-colors shadow-md"
                 >
                   <ShoppingBag className="w-3.5 h-3.5 text-red-400" />
-                  <span>Tienda: ${(activePost.linked_product.price_cents / 100).toFixed(2)} USD</span>
+                  <span>
+                    {t('buy_now')}
+                    {activePost.linked_product
+                      ? `: $${(activePost.linked_product.price_cents / 100).toFixed(2)} USD`
+                      : activePost.price
+                      ? `: $${activePost.price} USD`
+                      : ''}
+                  </span>
                 </Link>
               )}
 
@@ -129,7 +149,7 @@ export function PostCarousel({ posts }: PostCarouselProps) {
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-neutral-200 bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 transition-colors"
                 >
                   <Play className="w-3 h-3 fill-current text-red-400" />
-                  <span>Escuchar</span>
+                  <span>{t('home_listen')}</span>
                 </a>
               )}
             </div>

@@ -1,10 +1,15 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { MessageSquare, Trash2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { MessageSquare, Trash2, Edit3, Check, X } from 'lucide-react'
 import type { CommentWithAuthor, AppUser } from '@/lib/types'
-import { deleteComment } from '@/app/comments/actions'
+import { deleteComment, updateCommentInline } from '@/app/comments/actions'
 import { CommentForm } from '@/components/comments/CommentForm'
 import { CommentLikeButton } from '@/components/comments/CommentLikeButton'
+import { useLanguage } from '@/lib/i18n'
 
 type CommentListProps = {
   postId?: string
@@ -12,6 +17,7 @@ type CommentListProps = {
   targetId?: string
   comments: CommentWithAuthor[]
   currentUser: AppUser | null
+  commentVotes?: Record<string, 1 | -1>
 }
 
 export function CommentList({
@@ -20,7 +26,13 @@ export function CommentList({
   targetId,
   comments,
   currentUser,
+  commentVotes = {},
 }: CommentListProps) {
+  const router = useRouter()
+  const { t } = useLanguage()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editBody, setEditBody] = useState('')
+
   const effectiveTargetId = targetId || postId || ''
   const effectiveTargetType = targetType || (postId ? 'post' : 'product')
   const returnUrl =
@@ -35,7 +47,7 @@ export function CommentList({
       <div className="flex items-center gap-2">
         <MessageSquare className="w-4 h-4 text-red-400" />
         <h2 className="text-lg font-semibold text-white">
-          Comentarios
+          {t('comments_title')}
           <span className="ml-2 text-sm font-normal text-neutral-500">
             ({comments.length})
           </span>
@@ -55,7 +67,7 @@ export function CommentList({
             href={`/auth/login?next=${encodeURIComponent(returnUrl)}`}
             className="inline-flex text-xs font-semibold text-red-400 hover:text-red-300"
           >
-            Iniciar sesión →
+            {t('nav_login')} →
           </Link>
         </div>
       )}
@@ -81,6 +93,8 @@ export function CommentList({
           const canModerate =
             currentUser &&
             (currentUser.id === comment.user_id || currentUser.isAdmin)
+
+          const isEditing = editingId === comment.id
 
           return (
             <li
@@ -125,32 +139,92 @@ export function CommentList({
                   </time>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <CommentLikeButton
                     commentId={comment.id}
                     initialLikes={comment.upvotes || 0}
+                    userHasVoted={commentVotes[comment.id] === 1}
                   />
 
                   {canModerate && (
-                    <form action={deleteComment}>
-                      <input type="hidden" name="comment_id" value={comment.id} />
-                      <input type="hidden" name="post_id" value={postId || effectiveTargetId} />
-                      <input type="hidden" name="target_type" value={effectiveTargetType} />
-                      <input type="hidden" name="target_id" value={effectiveTargetId} />
+                    <>
                       <button
-                        type="submit"
-                        title="Eliminar comentario"
-                        className="p-1.5 rounded-md text-neutral-500 hover:text-red-400 hover:bg-red-950/40 transition-colors cursor-pointer"
+                        type="button"
+                        onClick={() => {
+                          setEditingId(isEditing ? null : comment.id)
+                          setEditBody(comment.body)
+                        }}
+                        title="Editar comentario"
+                        className="p-1.5 rounded-md text-neutral-400 hover:text-sky-400 hover:bg-neutral-800 transition-colors cursor-pointer"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Edit3 className="w-3.5 h-3.5" />
                       </button>
-                    </form>
+
+                      <form
+                        action={async (fd) => {
+                          await deleteComment(fd)
+                          router.refresh()
+                        }}
+                      >
+                        <input type="hidden" name="comment_id" value={comment.id} />
+                        <input type="hidden" name="post_id" value={postId || ''} />
+                        <input type="hidden" name="target_type" value={effectiveTargetType} />
+                        <input type="hidden" name="target_id" value={effectiveTargetId} />
+                        <button
+                          type="submit"
+                          title="Eliminar comentario"
+                          className="p-1.5 rounded-md text-neutral-500 hover:text-red-400 hover:bg-red-950/40 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </form>
+                    </>
                   )}
                 </div>
               </div>
-              <p className="text-sm text-neutral-200 whitespace-pre-wrap leading-relaxed pl-9">
-                {comment.body}
-              </p>
+
+              {isEditing ? (
+                <form
+                  action={async (fd) => {
+                    await updateCommentInline(fd)
+                    setEditingId(null)
+                    router.refresh()
+                  }}
+                  className="space-y-2 pl-9"
+                >
+                  <input type="hidden" name="comment_id" value={comment.id} />
+                  <input type="hidden" name="post_id" value={postId || ''} />
+                  <input type="hidden" name="target_type" value={effectiveTargetType} />
+                  <input type="hidden" name="target_id" value={effectiveTargetId} />
+                  <textarea
+                    name="body"
+                    required
+                    rows={2}
+                    value={editBody}
+                    onChange={(e) => setEditBody(e.target.value)}
+                    className="w-full rounded-xl border border-neutral-700 bg-neutral-950 p-2.5 text-xs text-white outline-none focus:border-red-600"
+                  />
+                  <div className="flex items-center justify-end gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(null)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white cursor-pointer"
+                    >
+                      <X className="w-3 h-3" /> Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-red-700 hover:bg-red-600 text-white font-semibold cursor-pointer"
+                    >
+                      <Check className="w-3 h-3" /> Guardar
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <p className="text-sm text-neutral-200 whitespace-pre-wrap leading-relaxed pl-9">
+                  {comment.body}
+                </p>
+              )}
             </li>
           )
         })}

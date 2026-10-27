@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { LogIn, UserPlus, LogOut, Shield, Library, User } from 'lucide-react'
+import { LogIn, LogOut, Shield, Trophy, User, Package, Headphones } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { logout } from '@/app/auth/actions'
 import { UserMenu } from '@/components/auth/UserMenu'
@@ -8,6 +8,7 @@ import { LanguageToggle } from '@/components/auth/LanguageToggle'
 
 /**
  * Botones y menú de auth del Navbar (Server Component).
+ * Cuando no hay sesión activa, muestra únicamente el botón de Iniciar Sesión (sin obstruir con Registrarse).
  */
 export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
   const user = await getCurrentUser()
@@ -17,22 +18,15 @@ export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
       return (
         <div className="pt-3 border-t border-neutral-800/80 flex flex-col gap-2.5">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs text-neutral-400 font-medium">Idioma de la web</span>
+            <span className="text-xs text-neutral-400 font-medium">Idioma / Language</span>
             <LanguageToggle />
           </div>
           <Link
             href="/auth/login"
-            className="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-lg hover:text-white"
+            className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 rounded-xl shadow-md"
           >
-            <LogIn className="w-3.5 h-3.5 text-red-400" />
-            Iniciar Sesión
-          </Link>
-          <Link
-            href="/auth/register"
-            className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold text-white bg-gradient-to-r from-red-700 to-red-600 rounded-lg shadow-md"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            Registrarse
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Iniciar Sesión</span>
           </Link>
         </div>
       )
@@ -43,17 +37,10 @@ export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
         <LanguageToggle />
         <Link
           href="/auth/login"
-          className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium text-neutral-300 hover:text-white rounded-lg hover:bg-neutral-800/60 border border-transparent hover:border-neutral-700/60 transition-all duration-200"
+          className="relative group inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-white rounded-xl bg-gradient-to-r from-red-700 via-red-600 to-red-700 hover:from-red-600 hover:to-red-600 border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.3)] hover:shadow-[0_0_22px_rgba(220,38,38,0.55)] transition-all duration-300 active:scale-95"
         >
-          <LogIn className="w-3.5 h-3.5 text-red-400" />
-          Iniciar Sesión
-        </Link>
-        <Link
-          href="/auth/register"
-          className="relative group inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-white rounded-lg bg-gradient-to-r from-red-700 via-red-600 to-red-700 hover:from-red-600 hover:to-red-600 border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.35)] hover:shadow-[0_0_22px_rgba(220,38,38,0.6)] transition-all duration-300 active:scale-95"
-        >
-          <UserPlus className="w-3.5 h-3.5 text-red-200 group-hover:scale-110 transition-transform" />
-          Registrarse
+          <LogIn className="w-3.5 h-3.5 text-red-200 group-hover:translate-x-0.5 transition-transform" />
+          <span>Iniciar Sesión</span>
         </Link>
       </div>
     )
@@ -61,7 +48,6 @@ export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
 
   const name = user.profile?.display_name || user.email?.split('@')[0] || 'Miembro'
   const username = user.profile?.username
-  const profileHref = username ? `/u/${username}` : '/profile'
   const avatarUrl = user.profile?.avatar_url
   const initial = name.charAt(0).toUpperCase() || 'U'
 
@@ -72,7 +58,14 @@ export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
         <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-neutral-900/60 border border-neutral-800/80">
           <span className="relative w-9 h-9 rounded-full overflow-hidden border border-red-900/60 bg-neutral-950 shrink-0">
             {avatarUrl ? (
-              <Image src={avatarUrl} alt={name} fill className="object-cover" sizes="36px" />
+              <Image
+                src={avatarUrl}
+                alt={name}
+                fill
+                unoptimized={avatarUrl.endsWith('.svg')}
+                className="object-cover"
+                sizes="36px"
+              />
             ) : (
               <span className="flex h-full w-full items-center justify-center text-xs font-bold text-red-300">
                 {initial}
@@ -96,14 +89,14 @@ export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
 
         {/* Enlaces de usuario */}
         <Link
-          href={profileHref}
+          href="/profile"
           className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-neutral-200 bg-neutral-900/80 border border-neutral-800 rounded-lg hover:text-white"
         >
           <div className="flex items-center gap-2">
             <User className="w-3.5 h-3.5 text-red-400" />
             <span>Mi Perfil</span>
           </div>
-          <span className="text-[10px] text-neutral-500">Configuración</span>
+          <span className="text-[10px] text-neutral-500">Personalización & Feed</span>
         </Link>
 
         <Link
@@ -111,10 +104,32 @@ export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
           className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-neutral-200 bg-neutral-900/80 border border-neutral-800 rounded-lg hover:text-white"
         >
           <div className="flex items-center gap-2">
-            <Library className="w-3.5 h-3.5 text-red-400" />
-            <span>Mi Biblioteca</span>
+            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+            <span>Mi Biblioteca (Trofeos)</span>
           </div>
-          <span className="text-[10px] text-neutral-500">Música y descargas</span>
+          <span className="text-[10px] text-neutral-500">Colección & Descargas</span>
+        </Link>
+
+        <Link
+          href="/player"
+          className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-neutral-200 bg-neutral-900/80 border border-neutral-800 rounded-lg hover:text-white"
+        >
+          <div className="flex items-center gap-2">
+            <Headphones className="w-3.5 h-3.5 text-red-400" />
+            <span>Reproductor Web</span>
+          </div>
+          <span className="text-[10px] text-neutral-500">Streaming & Stems</span>
+        </Link>
+
+        <Link
+          href="/orders"
+          className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-neutral-200 bg-neutral-900/80 border border-neutral-800 rounded-lg hover:text-white"
+        >
+          <div className="flex items-center gap-2">
+            <Package className="w-3.5 h-3.5 text-red-400" />
+            <span>Mis Pedidos & Recibos</span>
+          </div>
+          <span className="text-[10px] text-neutral-500">Seguimiento físico</span>
         </Link>
 
         {user.isAdmin && (
@@ -151,7 +166,8 @@ export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
   }
 
   return (
-    <div className="hidden md:flex items-center">
+    <div className="hidden md:flex items-center gap-2">
+      <LanguageToggle />
       <UserMenu
         user={{
           id: user.id,

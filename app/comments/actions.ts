@@ -8,10 +8,49 @@ import { recordTelemetryEvent } from '@/lib/telemetry'
 export type CommentActionState = {
   error?: string
   success?: string
+  timestamp?: number
+}
+
+async function revalidateCommentTargets(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  targetType: string,
+  targetId: string
+) {
+  if (targetType === 'post' && targetId) {
+    revalidatePath(`/posts/${targetId}`)
+  } else if (targetType === 'product' && targetId) {
+    revalidatePath('/shop')
+    revalidatePath(`/shop/${targetId}`)
+    const { data: prod } = await supabase
+      .from('products')
+      .select('slug')
+      .eq('id', targetId)
+      .maybeSingle()
+    if (prod?.slug) {
+      revalidatePath(`/shop/${prod.slug}`)
+    }
+  } else if (targetType === 'forum_thread' && targetId) {
+    revalidatePath(`/community/${targetId}`)
+    revalidatePath('/community')
+  } else if (targetType === 'profile_update' && targetId) {
+    revalidatePath('/profile')
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', targetId)
+      .maybeSingle()
+    if (prof?.username) {
+      revalidatePath(`/u/${prof.username}`)
+    }
+  }
+  revalidatePath('/')
+  revalidatePath('/profile')
+  revalidatePath('/admin')
+  revalidatePath('/admin/comments')
 }
 
 /**
- * Crear comentario polimórfico (en post, prod   ucto, hilo de foro o actualización).
+ * Crear comentario polimórfico (en post, producto, hilo de foro o muro de perfil).
  * Requiere sesión activa.
  */
 export async function createComment(
@@ -82,22 +121,13 @@ export async function createComment(
     metadata: { length: body.length },
   })
 
-  if (targetType === 'post') {
-    revalidatePath(`/posts/${targetId}`)
-  } else if (targetType === 'product') {
-    revalidatePath(`/shop/${targetId}`)
-  } else if (targetType === 'forum_thread') {
-    revalidatePath(`/community/${targetId}`)
-    revalidatePath(`/community`)
-  }
-  revalidatePath('/')
-  revalidatePath('/admin')
-  revalidatePath('/admin/comments')
-  return { success: 'Comentario publicado.' }
+  await revalidateCommentTargets(supabase, targetType, targetId)
+
+  return { success: 'Comentario publicado.', timestamp: Date.now() }
 }
 
 /**
- * Actualizar comentario propio (o admin vía RLS).
+ * Actualizar comentario propio (o admin).
  */
 export async function updateComment(
   _prev: CommentActionState,
@@ -114,7 +144,7 @@ export async function updateComment(
   const targetId = String(formData.get('target_id') ?? postId).trim()
   const body = String(formData.get('body') ?? '').trim()
 
-  if (!commentId || !targetId) {
+  if (!commentId) {
     return { error: 'Datos incompletos.' }
   }
   if (body.length < 1 || body.length > 2000) {
@@ -131,13 +161,15 @@ export async function updateComment(
     return { error: error.message || 'No se pudo actualizar el comentario.' }
   }
 
-  if (targetType === 'post') {
-    revalidatePath(`/posts/${targetId}`)
-  } else if (targetType === 'product') {
-    revalidatePath(`/shop/${targetId}`)
-  }
-  revalidatePath('/admin/comments')
-  return { success: 'Comentario actualizado.' }
+  await revalidateCommentTargets(supabase, targetType, targetId)
+  return { success: 'Comentario actualizado.', timestamp: Date.now() }
+}
+
+/**
+ * Actualizar comentario directamente desde formulario inline (retorna void).
+ */
+export async function updateCommentInline(formData: FormData): Promise<void> {
+  await updateComment({}, formData)
 }
 
 /**
@@ -156,8 +188,5 @@ export async function deleteComment(formData: FormData): Promise<void> {
   const supabase = await createClient()
   await supabase.from('comments').delete().eq('id', commentId)
 
-  if (targetType === 'post' && targetId) revalidatePath(`/posts/${targetId}`)
-  if (targetType === 'product' && targetId) revalidatePath(`/shop/${targetId}`)
-  revalidatePath('/admin')
-  revalidatePath('/admin/comments')
+  await revalidateCommentTargets(supabase, targetType, targetId)
 }

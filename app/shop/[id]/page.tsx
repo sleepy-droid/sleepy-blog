@@ -2,16 +2,6 @@
  * Dynamic Single Product Page for sleepyred999 storefront.
  * URL Route: /shop/[id]
  * File Path: app/shop/[id]/page.tsx
- * 
- * Features implemented according to prompt requirements:
- * 1. Next.js 16 App Router dynamic async params (`Promise<{ id: string }>`).
- * 2. Amazon-like viewer: High-res artwork with hardware-accelerated zoom effect (`transform-gpu`).
- * 3. SoundCloud-like audio player: Play/Pause preview, progress timeline, duration visualizer.
- * 4. Technical Specs & Variants: Size selector for physical merch (S/M/L/XL) vs Audio format specs for digital releases.
- * 5. Purchase & Library actions ("Comprar Ahora" / "Añadir a la Biblioteca").
- * 6. "Más productos como este" (Recommended products carousel/grid).
- * 7. Language Switcher UI placeholder (ES / EN toggle ready).
- * 8. Polymorphic comment system (`target_type = 'product'`).
  */
 
 import Link from 'next/link'
@@ -19,11 +9,13 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { fetchCommentsWithProfiles } from '@/lib/comments-server'
+import { getUserSingleVote, getUserVotesMap } from '@/lib/votes-server'
 import { CommentList } from '@/components/comments/CommentList'
-import { formatPrice, type Product, type CommentWithAuthor } from '@/lib/types'
+import { formatPrice, type Product } from '@/lib/types'
 import { SingleProductClient } from './SingleProductClient'
 import { getProductFolderStats } from '@/lib/product-files'
-import { ArrowLeft, Tag, ShieldCheck, Sparkles, Globe, ArrowRight } from 'lucide-react'
+import { ArrowLeft, Sparkles, ArrowRight } from 'lucide-react'
 import type { Metadata } from 'next'
 
 interface ProductPageProps {
@@ -91,14 +83,23 @@ export default async function SingleProductPage({ params }: ProductPageProps) {
   // 2. Fetch User session
   const currentUser = await getCurrentUser()
 
-  // 3. Fetch Comments for this product (target_type = 'product')
-  const { data: commentsData } = await supabase
-    .from('comments')
-    .select('*, profiles:user_id (display_name, email, avatar_url, username)')
-    .or(`target_id.eq.${product.id},post_id.eq.${product.id}`)
-    .order('created_at', { ascending: false })
+  // 3. Fetch Comments (hydrated with author profiles) & User Vote state for this product
+  const [comments, userProductVote] = await Promise.all([
+    fetchCommentsWithProfiles({ supabase, targetId: product.id }),
+    getUserSingleVote({
+      supabase,
+      userId: currentUser?.id,
+      targetType: 'product',
+      targetId: product.id,
+    }),
+  ])
 
-  const comments = (commentsData ?? []) as CommentWithAuthor[]
+  const commentVoteMap = await getUserVotesMap({
+    supabase,
+    userId: currentUser?.id,
+    targetType: 'comment',
+    targetIds: comments.map((c) => c.id),
+  })
 
   // 4. Fetch Recommended / "More like this" products
   const { data: relatedDb } = await supabase
@@ -112,7 +113,7 @@ export default async function SingleProductPage({ params }: ProductPageProps) {
 
   return (
     <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-12 font-sans">
-      {/* Top Header Controls: Back Button & Language Selector Placeholder */}
+      {/* Top Header Controls: Back Button Only (Global Language Toggle lives in Navbar) */}
       <nav className="flex items-center justify-between border-b border-neutral-800/80 pb-4">
         <Link
           href="/shop"
@@ -121,19 +122,11 @@ export default async function SingleProductPage({ params }: ProductPageProps) {
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           <span>Volver al Catálogo de Productos</span>
         </Link>
-
-        {/* Language Selector UI Framework Placeholder */}
-        <div className="flex items-center gap-2 text-xs font-mono bg-neutral-900/80 border border-neutral-800 px-3 py-1 rounded-full text-neutral-400">
-          <Globe className="w-3.5 h-3.5 text-red-500" />
-          <span className="text-white font-bold">ES</span>
-          <span className="text-neutral-600">|</span>
-          <span className="hover:text-white cursor-pointer transition-colors" title="Cambiar a Inglés (Próximamente)">EN</span>
-        </div>
       </nav>
 
       {/* Main Single Product Display: Interactive Client View */}
       <article className="border border-neutral-800/90 rounded-3xl p-6 md:p-10 bg-neutral-900/40 backdrop-blur-xl shadow-2xl shadow-black/80 space-y-10">
-        <SingleProductClient product={product} />
+        <SingleProductClient product={product} initialUserVote={userProductVote} />
       </article>
 
       {/* Recommended Section: "Más como esto" / "You'd also like" */}
@@ -199,6 +192,7 @@ export default async function SingleProductPage({ params }: ProductPageProps) {
         targetId={product.id}
         comments={comments}
         currentUser={currentUser}
+        commentVotes={commentVoteMap}
       />
     </main>
   )

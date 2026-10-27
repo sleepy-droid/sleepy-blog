@@ -1,8 +1,10 @@
 'use client'
 
 import { useActionState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { MessageSquarePlus, Loader2 } from 'lucide-react'
 import { createComment, type CommentActionState } from '@/app/comments/actions'
+import { useLanguage } from '@/lib/i18n'
 
 const initialState: CommentActionState = {}
 
@@ -13,6 +15,8 @@ type CommentFormProps = {
 }
 
 export function CommentForm({ postId, targetType = 'post', targetId }: CommentFormProps) {
+  const router = useRouter()
+  const { t } = useLanguage()
   const [state, formAction, pending] = useActionState(createComment, initialState)
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -22,16 +26,21 @@ export function CommentForm({ postId, targetType = 'post', targetId }: CommentFo
   useEffect(() => {
     if (state?.success) {
       formRef.current?.reset()
+      router.refresh()
     }
-  }, [state?.success])
+  }, [state?.success, state?.timestamp, router])
 
   return (
     <form ref={formRef} action={formAction} className="space-y-3">
-      <input type="hidden" name="post_id" value={postId || effectiveTargetId} />
+      <input
+        type="hidden"
+        name="post_id"
+        value={effectiveTargetType === 'post' ? postId || effectiveTargetId : ''}
+      />
       <input type="hidden" name="target_type" value={effectiveTargetType} />
       <input type="hidden" name="target_id" value={effectiveTargetId} />
       <label htmlFor="body" className="block text-xs font-medium text-neutral-300">
-        Escribe un comentario
+        {t('write_comment')}
       </label>
       <textarea
         id="body"
@@ -40,7 +49,7 @@ export function CommentForm({ postId, targetType = 'post', targetId }: CommentFo
         minLength={1}
         maxLength={2000}
         rows={3}
-        placeholder="Comparte tu opinión sobre este lanzamiento…"
+        placeholder={t('write_comment')}
         className="w-full rounded-lg border border-neutral-800 bg-neutral-950/80 px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 outline-none focus:border-red-700/60 focus:ring-2 focus:ring-red-900/40 resize-y"
       />
 
@@ -63,7 +72,7 @@ export function CommentForm({ postId, targetType = 'post', targetId }: CommentFo
         ) : (
           <MessageSquarePlus className="w-3.5 h-3.5" />
         )}
-        {pending ? 'Publicando…' : 'Publicar comentario'}
+        {pending ? 'Publicando…' : t('publish_comment')}
       </button>
     </form>
   )

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useActionState } from 'react'
+import { useState, useActionState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import {
   Edit3,
@@ -16,6 +17,8 @@ import {
   BANNER_PRESETS,
   AVATAR_PRESETS,
   SONG_PRESETS,
+  extractProfileFavSongId,
+  extractProfileStatus,
   type SongPreset,
 } from '@/lib/profile-presets'
 import type { Profile } from '@/lib/types'
@@ -28,10 +31,13 @@ type ProfileEditFormProps = {
 const initialState: ProfileActionState = {}
 
 export function ProfileEditForm({ profile, availableSongs }: ProfileEditFormProps) {
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const [state, formAction, pending] = useActionState(updateProfile, initialState)
 
   const songsList = availableSongs && availableSongs.length > 0 ? availableSongs : SONG_PRESETS
+  const initialFavSongId = extractProfileFavSongId(profile) || songsList[0].id
+  const cleanInitialStatus = extractProfileStatus(profile?.status_update)
 
   const [selectedBanner, setSelectedBanner] = useState(
     profile?.banner_url || BANNER_PRESETS[0].url
@@ -39,18 +45,36 @@ export function ProfileEditForm({ profile, availableSongs }: ProfileEditFormProp
   const [selectedAvatar, setSelectedAvatar] = useState(
     profile?.avatar_url || AVATAR_PRESETS[0].url
   )
-  const [selectedSong, setSelectedSong] = useState(
-    profile?.favorite_product_id || songsList[0].id
-  )
+  const [selectedSong, setSelectedSong] = useState(initialFavSongId)
   const [avatarFileName, setAvatarFileName] = useState<string | null>(null)
   const [bannerFileName, setBannerFileName] = useState<string | null>(null)
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null)
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (profile?.banner_url) setSelectedBanner(profile.banner_url)
+    if (profile?.avatar_url) setSelectedAvatar(profile.avatar_url)
+    const favId = extractProfileFavSongId(profile)
+    if (favId) setSelectedSong(favId)
+  }, [profile?.banner_url, profile?.avatar_url, profile?.favorite_product_id, profile?.status_update])
+
+  useEffect(() => {
+    if (state?.success) {
+      setIsOpen(false)
+      setAvatarFileName(null)
+      setBannerFileName(null)
+      setAvatarPreviewUrl(null)
+      setBannerPreviewUrl(null)
+      router.refresh()
+    }
+  }, [state, router])
 
   if (!isOpen) {
     return (
       <div className="space-y-2">
         {state?.success && (
           <div className="p-3 rounded-xl border border-emerald-800/60 bg-emerald-950/40 text-emerald-300 text-xs flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-400" />
+            <Check className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{state.success}</span>
           </div>
         )}
@@ -61,7 +85,7 @@ export function ProfileEditForm({ profile, availableSongs }: ProfileEditFormProp
           className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-neutral-200 bg-neutral-900 border border-neutral-800 hover:text-white hover:border-red-900/50 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md"
         >
           <Edit3 className="w-3.5 h-3.5 text-red-400" />
-          <span>Personalizar Perfil (Banner, Foto CDN, Canción Favorita, Bio)</span>
+          <span>Personalizar Perfil (Banner, Foto CDN, Canción Favorita, Cumpleaños, Género)</span>
         </button>
       </div>
     )
@@ -69,10 +93,7 @@ export function ProfileEditForm({ profile, availableSongs }: ProfileEditFormProp
 
   return (
     <form
-      action={async (formData) => {
-        await formAction(formData)
-        setIsOpen(false)
-      }}
+      action={formAction}
       className="space-y-4 pt-3 border-t border-neutral-800 animate-in fade-in duration-200"
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -110,7 +131,7 @@ export function ProfileEditForm({ profile, availableSongs }: ProfileEditFormProp
         <input
           type="text"
           name="status_update"
-          defaultValue={profile?.status_update || ''}
+          defaultValue={cleanInitialStatus}
           placeholder="Ej: En el estudio escuchando el nuevo drop en WAV..."
           className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-red-600 font-sans"
         />
@@ -120,10 +141,10 @@ export function ProfileEditForm({ profile, availableSongs }: ProfileEditFormProp
       <div className="space-y-1.5 p-3 rounded-2xl bg-neutral-950 border border-neutral-800">
         <div className="flex items-center gap-2 text-xs font-bold text-white">
           <Music className="w-4 h-4 text-red-400" />
-          <span>Canción Favorita (Snippet de 30s en tu perfil)</span>
+          <span>Canción Favorita Fija de tu Perfil (Snippet de 30s en cabecera)</span>
         </div>
         <p className="text-[10px] text-neutral-400">
-          Esta canción se destacará en la parte superior de tu perfil con reproductor de audio.
+          Esta es tu canción insignia permanente en la parte superior de tu perfil (independiente de la Canción Mood del Día que compartes en tu feed).
         </p>
 
         <select
@@ -157,6 +178,7 @@ export function ProfileEditForm({ profile, availableSongs }: ProfileEditFormProp
               onClick={() => {
                 setSelectedBanner(b.url)
                 setBannerFileName(null)
+                setBannerPreviewUrl(null)
               }}
               className={`relative h-20 rounded-xl overflow-hidden border-2 transition-all cursor-pointer text-left ${
                 selectedBanner === b.url && !bannerFileName
@@ -186,6 +208,16 @@ export function ProfileEditForm({ profile, availableSongs }: ProfileEditFormProp
           ))}
         </div>
 
+        {bannerPreviewUrl && (
+          <div className="relative h-24 w-full rounded-xl overflow-hidden border-2 border-emerald-500/80 bg-neutral-900">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={bannerPreviewUrl} alt="Banner Preview" className="w-full h-full object-cover" />
+            <span className="absolute bottom-1.5 left-2 px-2 py-0.5 rounded bg-black/80 text-[10px] font-mono text-emerald-300">
+              Nuevo Banner listo: {bannerFileName}
+            </span>
+          </div>
+        )}
+
         <div className="pt-1 space-y-2">
           <label className="block text-[10px] text-neutral-300 font-semibold flex items-center gap-1.5">
             <Upload className="w-3 h-3 text-red-400" />
@@ -198,6 +230,7 @@ export function ProfileEditForm({ profile, availableSongs }: ProfileEditFormProp
             onChange={(e) => {
               const f = e.target.files?.[0]
               setBannerFileName(f ? f.name : null)
+              setBannerPreviewUrl(f ? URL.createObjectURL(f) : null)
             }}
             className="block w-full text-xs text-neutral-400 file:mr-2.5 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-950 file:text-red-300 hover:file:bg-red-900 cursor-pointer"
           />
@@ -220,6 +253,7 @@ export function ProfileEditForm({ profile, availableSongs }: ProfileEditFormProp
               onClick={() => {
                 setSelectedAvatar(a.url)
                 setAvatarFileName(null)
+                setAvatarPreviewUrl(null)
               }}
               title={a.name}
               className={`relative w-14 h-14 rounded-2xl overflow-hidden border-2 transition-all cursor-pointer ${
@@ -243,6 +277,13 @@ export function ProfileEditForm({ profile, availableSongs }: ProfileEditFormProp
               )}
             </button>
           ))}
+
+          {avatarPreviewUrl && (
+            <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-emerald-500 ring-2 ring-emerald-500/50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={avatarPreviewUrl} alt="Avatar Preview" className="w-full h-full object-cover" />
+            </div>
+          )}
         </div>
 
         <div className="pt-1 space-y-2">
@@ -257,6 +298,7 @@ export function ProfileEditForm({ profile, availableSongs }: ProfileEditFormProp
             onChange={(e) => {
               const f = e.target.files?.[0]
               setAvatarFileName(f ? f.name : null)
+              setAvatarPreviewUrl(f ? URL.createObjectURL(f) : null)
             }}
             className="block w-full text-xs text-neutral-400 file:mr-2.5 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-950 file:text-red-300 hover:file:bg-red-900 cursor-pointer"
           />
