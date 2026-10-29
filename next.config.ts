@@ -12,6 +12,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   experimental: {
+    proxyClientMaxBodySize: '250mb',
     serverActions: {
       bodySizeLimit: '250mb',
     },

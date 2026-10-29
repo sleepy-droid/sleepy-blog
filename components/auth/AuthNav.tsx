@@ -167,7 +167,6 @@ export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
 
   return (
     <div className="hidden md:flex items-center gap-2">
-      <LanguageToggle />
       <UserMenu
         user={{
           id: user.id,

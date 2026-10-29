@@ -13,11 +13,9 @@ export type CheckoutItemInput = {
 }
 
 export type PlaceOrderInput = {
-  customerName: string
-  customerEmail: string
-  shippingAddress: string
-  city: string
-  country: string
+  shippingAddress?: string
+  city?: string
+  country?: string
   totalCents: number
   items: CheckoutItemInput[]
 }
@@ -40,8 +38,20 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<{
   }
 
   const supabase = await createClient()
-  const fullShippingAddress = `${input.shippingAddress}, ${input.city}, ${input.country}`.trim()
-  const billingInfo = `${input.customerName} (${input.customerEmail})`
+
+  // Extraer nombre y correo directamente de la cuenta autenticada
+  const accountName =
+    user.profile?.display_name ||
+    user.profile?.username ||
+    user.email?.split('@')[0] ||
+    'Miembro'
+  const accountEmail = user.email || user.profile?.email || ''
+  const billingInfo = accountEmail ? `${accountName} (${accountEmail})` : accountName
+
+  const hasPhysical = input.items.some((i) => i.fulfillment === 'physical')
+  const fullShippingAddress = hasPhysical
+    ? [input.shippingAddress, input.city, input.country].filter(Boolean).join(', ').trim()
+    : 'Entrega Digital Instantánea (Cuenta verificada)'
 
   // 1. Crear el recibo maestro en `public.orders`
   const { data: orderRow, error: orderError } = await supabase
