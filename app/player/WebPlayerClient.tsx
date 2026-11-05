@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -21,6 +21,16 @@ import {
   ShoppingBag,
   PictureInPicture2,
   Minimize2,
+  ChevronUp,
+  ChevronDown,
+  Shuffle,
+  Repeat,
+  Repeat1,
+  GripVertical,
+  X,
+  RotateCcw,
+  ListMusic,
+  CornerDownRight,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/types'
 import {
@@ -52,6 +62,7 @@ export function WebPlayerClient({
     isMuted,
     isMinimized,
     isPiPActive,
+    loopMode,
     setQueue,
     selectAndPlayTrack,
     seek,
@@ -59,10 +70,19 @@ export function WebPlayerClient({
     toggleMute,
     setIsMinimized,
     togglePiP,
+    moveTrackInQueue,
+    moveTrackById,
+    playNextInQueue,
+    removeFromQueue,
+    shuffleQueue,
+    toggleLoopMode,
   } = useGlobalPlayer()
 
   const [filterUnlockedOnly, setFilterUnlockedOnly] = useState(false)
   const [showVideoModal, setShowVideoModal] = useState(false)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const deckRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (tracks.length > 0) {
@@ -119,14 +139,40 @@ export function WebPlayerClient({
     ? `&file=${encodeURIComponent(currentTrack.fileName)}`
     : ''
 
-  const handlePlayTrack = (track: PlayerTrack, mode: StemMode = 'master') => {
+  const handlePlayTrack = (
+    track: PlayerTrack,
+    mode: StemMode = 'master',
+    sprawlToDeck = false
+  ) => {
+    setIsMinimized(false)
     selectAndPlayTrack(track, mode, allTracks)
+    if (
+      sprawlToDeck &&
+      typeof window !== 'undefined' &&
+      window.innerWidth < 1024
+    ) {
+      deckRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  const handleRestoreCatalog = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem('sleepy_player_queue_order_v1')
+      } catch {
+        // Ignore storage errors
+      }
+    }
+    setQueue(tracks, currentTrack.id)
   }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       {/* Columna Izquierda: Consola Maestra de Reproducción */}
-      <div className="lg:col-span-7 rounded-3xl border border-red-900/50 bg-gradient-to-br from-neutral-950 via-neutral-900/95 to-neutral-950 p-6 sm:p-8 shadow-2xl space-y-6">
+      <div
+        ref={deckRef}
+        className="lg:col-span-7 rounded-3xl border border-red-900/50 bg-gradient-to-br from-neutral-950 via-neutral-900/95 to-neutral-950 p-6 sm:p-8 shadow-2xl space-y-6 scroll-mt-24"
+      >
         {/* Cabecera de Estado del Deck + Controles Picture-in-Picture y Minimizar */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -428,94 +474,258 @@ export function WebPlayerClient({
         </div>
       </div>
 
-      {/* Columna Derecha: Lista de Pistas del Reproductor */}
+      {/* Columna Derecha: Cola de Reproducción & Playlist Reordenable */}
       <div className="lg:col-span-5 rounded-3xl border border-neutral-800/90 bg-neutral-950/80 p-5 sm:p-6 space-y-4 shadow-xl">
-        <div className="flex items-center justify-between gap-2 border-b border-neutral-800 pb-3">
-          <h3 className="text-sm font-extrabold text-white uppercase tracking-wider">
-            Pistas ({visibleTracks.length})
-          </h3>
-
-          {isLoggedIn && (
-            <div className="flex items-center gap-1 bg-neutral-900 p-1 rounded-xl border border-neutral-800 text-[11px] font-mono">
-              <button
-                type="button"
-                onClick={() => setFilterUnlockedOnly(false)}
-                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                  !filterUnlockedOnly
-                    ? 'bg-red-700 text-white font-bold'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                Todas
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterUnlockedOnly(true)}
-                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                  filterUnlockedOnly
-                    ? 'bg-red-700 text-white font-bold'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                Mis Másters
-              </button>
+        <div className="space-y-3 border-b border-neutral-800 pb-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ListMusic className="w-4 h-4 text-red-500" />
+              <h3 className="text-sm font-extrabold text-white uppercase tracking-wider">
+                Cola & Playlist ({visibleTracks.length})
+              </h3>
             </div>
-          )}
+
+            {isLoggedIn && (
+              <div className="flex items-center gap-1 bg-neutral-900 p-1 rounded-xl border border-neutral-800 text-[11px] font-mono">
+                <button
+                  type="button"
+                  onClick={() => setFilterUnlockedOnly(false)}
+                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                    !filterUnlockedOnly
+                      ? 'bg-red-700 text-white font-bold'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Todas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterUnlockedOnly(true)}
+                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                    filterUnlockedOnly
+                      ? 'bg-red-700 text-white font-bold'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Mis Másters
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Controles de Cola: Mezclar, Repetir, Restaurar */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[10px] font-mono text-neutral-400">
+              Arrastra una canción o usa ↑↓ para ordenar tu cola
+            </span>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={shuffleQueue}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-neutral-900 border border-neutral-800 text-[11px] font-mono text-neutral-300 hover:text-white hover:border-red-800/60 cursor-pointer"
+                title="Mezclar orden de reproducción"
+              >
+                <Shuffle className="w-3 h-3 text-red-400" />
+                <span>Mezclar</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={toggleLoopMode}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-mono cursor-pointer ${
+                  loopMode === 'one'
+                    ? 'bg-red-950/80 border-red-700 text-red-200'
+                    : 'bg-neutral-900 border-neutral-800 text-neutral-300 hover:text-white'
+                }`}
+                title={
+                  loopMode === 'one'
+                    ? 'Modo actual: Repetir 1 canción'
+                    : 'Modo actual: Repetir toda la cola'
+                }
+              >
+                {loopMode === 'one' ? (
+                  <>
+                    <Repeat1 className="w-3 h-3 text-red-400" />
+                    <span>Repetir 1</span>
+                  </>
+                ) : (
+                  <>
+                    <Repeat className="w-3 h-3 text-red-400" />
+                    <span>Cola</span>
+                  </>
+                )}
+              </button>
+
+              {allTracks.length !== tracks.length && (
+                <button
+                  type="button"
+                  onClick={handleRestoreCatalog}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-neutral-900 border border-neutral-800 text-[11px] font-mono text-neutral-400 hover:text-white cursor-pointer"
+                  title="Restaurar todas las canciones del catálogo"
+                >
+                  <RotateCcw className="w-3 h-3 text-red-400" />
+                  <span>Restaurar</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-2.5 max-h-[480px] overflow-y-auto pr-1">
-          {visibleTracks.map((t) => {
+        <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+          {visibleTracks.map((t, visibleIdx) => {
             const isCurrent = currentTrack.id === t.id
+            const globalIdx = allTracks.findIndex((item) => item.id === t.id)
+            const isDragOver = dragOverIndex === visibleIdx
+
             return (
               <div
                 key={t.id}
-                onClick={() => handlePlayTrack(t, 'master')}
-                className={`p-3 rounded-2xl border flex items-center justify-between gap-3 transition-all cursor-pointer ${
-                  isCurrent
-                    ? 'bg-red-950/30 border-red-700/70 shadow-md'
-                    : 'bg-neutral-900/50 border-neutral-800/80 hover:border-neutral-700'
+                draggable={!filterUnlockedOnly}
+                onDragStart={() => setDragIndex(globalIdx)}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  if (dragOverIndex !== visibleIdx) setDragOverIndex(visibleIdx)
+                }}
+                onDragLeave={() => {
+                  if (dragOverIndex === visibleIdx) setDragOverIndex(null)
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  if (
+                    dragIndex !== null &&
+                    globalIdx !== -1 &&
+                    dragIndex !== globalIdx
+                  ) {
+                    moveTrackInQueue(dragIndex, globalIdx)
+                  }
+                  setDragIndex(null)
+                  setDragOverIndex(null)
+                }}
+                onDragEnd={() => {
+                  setDragIndex(null)
+                  setDragOverIndex(null)
+                }}
+                className={`p-2.5 sm:p-3 rounded-2xl border flex items-center justify-between gap-2.5 transition-all ${
+                  isDragOver
+                    ? 'bg-red-950/50 border-red-500 shadow-lg'
+                    : isCurrent
+                      ? 'bg-red-950/30 border-red-700/70 shadow-md'
+                      : 'bg-neutral-900/50 border-neutral-800/80 hover:border-neutral-700'
                 }`}
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800 shrink-0">
-                    <Image
-                      src={t.thumbnailUrl}
-                      alt={t.title}
-                      fill
-                      unoptimized={t.thumbnailUrl.endsWith('.svg')}
-                      className="object-cover"
-                      sizes="44px"
-                    />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      {isCurrent && isPlaying ? (
-                        <Pause className="w-4 h-4 text-white fill-current" />
-                      ) : (
-                        <Play className="w-4 h-4 text-white fill-current ml-0.5" />
-                      )}
-                    </div>
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  {/* Drag Handle + Position Number */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span
+                      className="text-neutral-500 hover:text-neutral-300 cursor-grab active:cursor-grabbing"
+                      title="Arrastrar para cambiar el orden"
+                    >
+                      <GripVertical className="w-4 h-4" />
+                    </span>
+                    <span className="text-[11px] font-mono text-neutral-500 w-4 text-center">
+                      {visibleIdx + 1}
+                    </span>
                   </div>
 
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-white truncate">
-                      {t.title}
-                    </p>
-                    <p className="text-[10px] font-mono text-neutral-400 truncate">
-                      {t.isUnlocked
-                        ? 'WAV / MP3 / Stems Desbloqueados'
-                        : 'Preview 30s'}
-                    </p>
-                  </div>
+                  {/* Clickable Song Area: Plays song & sprawls back to Studio Deck */}
+                  <button
+                    type="button"
+                    onClick={() => handlePlayTrack(t, 'master', true)}
+                    className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer group"
+                  >
+                    <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800 shrink-0">
+                      <Image
+                        src={t.thumbnailUrl}
+                        alt={t.title}
+                        fill
+                        unoptimized={t.thumbnailUrl.endsWith('.svg')}
+                        className="object-cover"
+                        sizes="44px"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        {isCurrent && isPlaying ? (
+                          <Pause className="w-4 h-4 text-white fill-current" />
+                        ) : (
+                          <Play className="w-4 h-4 text-white fill-current ml-0.5" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p
+                          className={`text-xs font-bold truncate ${
+                            isCurrent
+                              ? 'text-red-300'
+                              : 'text-white group-hover:text-red-200'
+                          }`}
+                        >
+                          {t.title}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {t.isUnlocked ? (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
+                            MÁSTER
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-mono text-amber-300 bg-amber-950/60 border border-amber-800/50">
+                            30s
+                          </span>
+                        )}
+                        <span className="text-[10px] font-mono text-neutral-400 truncate">
+                          {t.isUnlocked ? 'WAV / Stems' : 'Preview'}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
                 </div>
 
-                <div className="shrink-0">
-                  {t.isUnlocked ? (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
-                      MÁSTER
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-amber-300 bg-amber-950/60 border border-amber-800/50">
-                      30s
-                    </span>
+                {/* Controles de Orden en Playlist (Subir, Bajar, Poner Siguiente, Quitar) */}
+                <div className="flex items-center gap-1 shrink-0">
+                  {!isCurrent && (
+                    <button
+                      type="button"
+                      onClick={() => playNextInQueue(t)}
+                      className="p-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-red-300 hover:border-red-800/50 cursor-pointer"
+                      title="Reproducir justo después de la canción actual"
+                    >
+                      <CornerDownRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => moveTrackById(t.id, -1)}
+                    disabled={globalIdx <= 0}
+                    className="p-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white disabled:opacity-30 cursor-pointer"
+                    title="Subir posición en la playlist"
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => moveTrackById(t.id, 1)}
+                    disabled={
+                      globalIdx === -1 || globalIdx >= allTracks.length - 1
+                    }
+                    className="p-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white disabled:opacity-30 cursor-pointer"
+                    title="Bajar posición en la playlist"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+
+                  {allTracks.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeFromQueue(t.id)}
+                      className="p-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-500 hover:text-red-400 cursor-pointer"
+                      title="Quitar de la cola"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   )}
                 </div>
               </div>

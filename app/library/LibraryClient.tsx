@@ -19,6 +19,7 @@ import {
   Play,
   Pause,
   PictureInPicture2,
+  ListPlus,
 } from 'lucide-react'
 import type { LibraryItem, Product } from '@/lib/types'
 import {
@@ -47,12 +48,15 @@ export function LibraryClient({
   physicalOrders,
 }: LibraryClientProps) {
   const [openDownloadId, setOpenDownloadId] = useState<string | null>(null)
+  const [queuedFeedbackId, setQueuedFeedbackId] = useState<string | null>(null)
   const {
     activeTrack,
     isPlaying,
     isPiPActive,
     selectAndPlayTrack,
     togglePiP,
+    addToQueue,
+    setIsMinimized,
   } = useGlobalPlayer()
 
   // Build full unlocked queue from all digital library items
@@ -253,9 +257,25 @@ export function LibraryClient({
                                 )}
                           </span>
                         </div>
-                        <h3 className="text-sm font-extrabold text-white truncate">
-                          {item.product.name}
-                        </h3>
+                        <Link
+                          href={`/player?track=${pid}`}
+                          onClick={() => {
+                            setIsMinimized(false)
+                            if (!isItemActive && primaryTrack) {
+                              selectAndPlayTrack(
+                                primaryTrack,
+                                'master',
+                                allLibraryTracks
+                              )
+                            }
+                          }}
+                          className="block group/title"
+                          title="Haz clic en la canción para abrirla en el Web Player"
+                        >
+                          <h3 className="text-sm font-extrabold text-white group-hover/title:text-red-300 truncate transition-colors">
+                            {item.product.name}
+                          </h3>
+                        </Link>
                         <p className="text-[11px] text-neutral-400 line-clamp-1">
                           {item.product.description ||
                             'Máster Oficial Desbloqueado'}
@@ -339,6 +359,37 @@ export function LibraryClient({
                         )}
                       </button>
 
+                      {primaryTrack && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            for (const tr of itemTracks) {
+                              addToQueue(tr)
+                            }
+                            setQueuedFeedbackId(item.id)
+                            setTimeout(() => {
+                              setQueuedFeedbackId((prev) =>
+                                prev === item.id ? null : prev
+                              )
+                            }, 1800)
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs font-mono font-semibold bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-red-800/60 transition-all cursor-pointer"
+                          title="Añadir canción(es) a la cola de reproducción"
+                        >
+                          {queuedFeedbackId === item.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className="text-emerald-300">En Cola</span>
+                            </>
+                          ) : (
+                            <>
+                              <ListPlus className="w-3.5 h-3.5 text-red-400" />
+                              <span>+ Cola</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => {
@@ -360,6 +411,7 @@ export function LibraryClient({
 
                       <Link
                         href={`/player?track=${pid}`}
+                        onClick={() => setIsMinimized(false)}
                         className="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs font-semibold text-neutral-300 bg-neutral-900 border border-neutral-800 hover:text-white transition-all"
                         title="Abrir en Consola del Reproductor Web"
                       >

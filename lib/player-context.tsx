@@ -32,11 +32,15 @@ export type PlayerTrack = {
 }
 
 export type StemMode = 'master' | 'mp3' | 'acapella' | 'instrumental'
+export type LoopMode = 'all' | 'one'
+
+const QUEUE_ORDER_STORAGE_KEY = 'sleepy_player_queue_order_v1'
 
 type GlobalPlayerContextValue = {
   tracks: PlayerTrack[]
   activeTrack: PlayerTrack | null
   stemMode: StemMode
+  loopMode: LoopMode
   isPlaying: boolean
   currentTime: number
   duration: number
@@ -52,6 +56,13 @@ type GlobalPlayerContextValue = {
     newStem?: StemMode,
     queueIfMissing?: PlayerTrack[]
   ) => void
+  moveTrackInQueue: (fromIndex: number, toIndex: number) => void
+  moveTrackById: (trackId: string, direction: -1 | 1) => void
+  playNextInQueue: (track: PlayerTrack) => void
+  addToQueue: (track: PlayerTrack) => void
+  removeFromQueue: (trackId: string) => void
+  shuffleQueue: () => void
+  toggleLoopMode: () => void
   togglePlay: () => void
   pause: () => void
   seek: (time: number) => void
@@ -213,6 +224,7 @@ export function GlobalPlayerProvider({
   const [tracks, setTracks] = useState<PlayerTrack[]>([])
   const [activeTrack, setActiveTrack] = useState<PlayerTrack | null>(null)
   const [stemMode, setStemMode] = useState<StemMode>('master')
+  const [loopMode, setLoopMode] = useState<LoopMode>('all')
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -233,9 +245,40 @@ export function GlobalPlayerProvider({
   const activeTrackRef = useRef<PlayerTrack | null>(null)
   const tracksRef = useRef<PlayerTrack[]>([])
   const stemModeRef = useRef<StemMode>('master')
+  const loopModeRef = useRef<LoopMode>('all')
   const isPlayingRef = useRef<boolean>(false)
   const isAdminUserRef = useRef<boolean>(false)
   const unlockedKeysRef = useRef<Set<string>>(new Set())
+
+  const persistQueueOrder = useCallback((list: PlayerTrack[]) => {
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(
+          QUEUE_ORDER_STORAGE_KEY,
+          JSON.stringify(list.map((t) => t.id))
+        )
+      }
+    } catch {}
+  }, [])
+
+  const applySavedQueueOrder = useCallback((list: PlayerTrack[]): PlayerTrack[] => {
+    try {
+      if (typeof window === 'undefined') return list
+      const raw = window.localStorage.getItem(QUEUE_ORDER_STORAGE_KEY)
+      if (!raw) return list
+      const savedIds = JSON.parse(raw) as string[]
+      if (!Array.isArray(savedIds) || savedIds.length === 0) return list
+      const orderMap = new Map<string, number>()
+      savedIds.forEach((id, idx) => orderMap.set(id, idx))
+      return [...list].sort((a, b) => {
+        const ia = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999
+        const ib = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999
+        return ia - ib
+      })
+    } catch {
+      return list
+    }
+  }, [])
 
   const enrichTrackUnlockStatus = useCallback((t: PlayerTrack): PlayerTrack => {
     const pid = t.productId || t.id
@@ -536,7 +579,9 @@ export function GlobalPlayerProvider({
 
   const setQueue = useCallback(
     (newTracks: PlayerTrack[], initialTrackId?: string | null) => {
-      const enrichedList = newTracks.map((t) => enrichTrackUnlockStatus(t))
+      const enrichedList = applySavedQueueOrder(
+        newTracks.map((t) => enrichTrackUnlockStatus(t))
+      )
       tracksRef.current = enrichedList
       setTracks(enrichedList)
 
@@ -585,8 +630,122 @@ export function GlobalPlayerProvider({
         }
       }
     },
-    [enrichTrackUnlockStatus, preloadTrackSilently]
+    [applySavedQueueOrder, enrichTrackUnlockStatus, preloadTrackSilently]
   )
+
+  const moveTrackInQueue = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      const list = [...tracksRef.current]
+      if (
+        fromIndex < 0 ||
+        fromIndex >= list.length ||
+        toIndex < 0 ||
+        toIndex >= list.length ||
+        fromIndex === toIndex
+      ) {
+        return
+      }
+      const [moved] = list.splice(fromIndex, 1)
+      list.splice(toIndex, 0, moved)
+      tracksRef.current = list
+      setTracks(list)
+      persistQueueOrder(list)
+    },
+    [persistQueueOrder]
+  )
+
+  const moveTrackById = useCallback(
+    (trackId: string, direction: -1 | 1) => {
+      const list = [...tracksRef.current]
+      const idx = list.findIndex((t) => t.id === trackId)
+      if (idx === -1) return
+      const targetIdx = idx + direction
+      if (targetIdx < 0 || targetIdx >= list.length) return
+      const [moved] = list.splice(idx, 1)
+      list.splice(targetIdx, 0, moved)
+      tracksRef.current = list
+      setTracks(list)
+      persistQueueOrder(list)
+    },
+    [persistQueueOrder]
+  )
+
+  const playNextInQueue = useCallback(
+    (rawTrack: PlayerTrack) => {
+      const track = enrichTrackUnlockStatus(rawTrack)
+      const list = [...tracksRef.current]
+      const existingIdx = list.findIndex((t) => t.id === track.id)
+      if (existingIdx !== -1) {
+        list.splice(existingIdx, 1)
+      }
+      const activeIdx = activeTrackRef.current
+        ? list.findIndex((t) => t.id === activeTrackRef.current?.id)
+        : -1
+      const insertAt = activeIdx === -1 ? 0 : activeIdx + 1
+      list.splice(insertAt, 0, track)
+      tracksRef.current = list
+      setTracks(list)
+      persistQueueOrder(list)
+
+      if (!activeTrackRef.current) {
+        activeTrackRef.current = track
+        setActiveTrack(track)
+        preloadTrackSilently(track, 'master')
+      }
+    },
+    [enrichTrackUnlockStatus, persistQueueOrder, preloadTrackSilently]
+  )
+
+  const addToQueue = useCallback(
+    (rawTrack: PlayerTrack) => {
+      const track = enrichTrackUnlockStatus(rawTrack)
+      const list = [...tracksRef.current]
+      const exists = list.some((t) => t.id === track.id)
+      if (!exists) {
+        list.push(track)
+        tracksRef.current = list
+        setTracks(list)
+        persistQueueOrder(list)
+      }
+      if (!activeTrackRef.current) {
+        activeTrackRef.current = track
+        setActiveTrack(track)
+        preloadTrackSilently(track, 'master')
+      }
+    },
+    [enrichTrackUnlockStatus, persistQueueOrder, preloadTrackSilently]
+  )
+
+  const removeFromQueue = useCallback(
+    (trackId: string) => {
+      const list = tracksRef.current.filter((t) => t.id !== trackId)
+      tracksRef.current = list
+      setTracks(list)
+      persistQueueOrder(list)
+    },
+    [persistQueueOrder]
+  )
+
+  const shuffleQueue = useCallback(() => {
+    const list = [...tracksRef.current]
+    if (list.length <= 1) return
+    const curr = activeTrackRef.current
+    const rest = curr ? list.filter((t) => t.id !== curr.id) : list
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[rest[i], rest[j]] = [rest[j], rest[i]]
+    }
+    const nextList = curr ? [curr, ...rest] : rest
+    tracksRef.current = nextList
+    setTracks(nextList)
+    persistQueueOrder(nextList)
+  }, [persistQueueOrder])
+
+  const toggleLoopMode = useCallback(() => {
+    const next: LoopMode = loopModeRef.current === 'all' ? 'one' : 'all'
+    loopModeRef.current = next
+    setLoopMode(next)
+  }, [])
 
   const selectAndPlayTrack = useCallback(
     (
@@ -821,10 +980,16 @@ export function GlobalPlayerProvider({
     const onEnded = () => {
       const list = tracksRef.current
       const curr = activeTrackRef.current
+      if (loopModeRef.current === 'one' && curr) {
+        const url = resolveTrackAudioSource(curr, stemModeRef.current)
+        playAudioElement(url, true)
+        return
+      }
       if (list.length > 1 && curr) {
         const idx = list.findIndex((t) => t.id === curr.id)
-        if (idx !== -1 && idx + 1 < list.length) {
-          selectAndPlayTrack(list[idx + 1], 'master')
+        if (idx !== -1) {
+          const nextIdx = (idx + 1) % list.length
+          selectAndPlayTrack(list[nextIdx], 'master')
           return
         }
       }
@@ -1050,6 +1215,7 @@ export function GlobalPlayerProvider({
         tracks,
         activeTrack,
         stemMode,
+        loopMode,
         isPlaying,
         currentTime,
         duration,
@@ -1061,6 +1227,13 @@ export function GlobalPlayerProvider({
         pipContainer,
         setQueue,
         selectAndPlayTrack,
+        moveTrackInQueue,
+        moveTrackById,
+        playNextInQueue,
+        addToQueue,
+        removeFromQueue,
+        shuffleQueue,
+        toggleLoopMode,
         togglePlay,
         pause,
         seek,
