@@ -39,7 +39,7 @@ export default function RootLayout({
       lang="es"
       className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", geist.variable)}
     >
-      <body className="min-h-full flex flex-col pt-20 pb-24 bg-neutral-950 text-neutral-100">
+      <body className="min-h-full flex flex-col pt-20 pb-40 sm:pb-32 bg-neutral-950 text-neutral-100">
         <LanguageProvider>
           <CartProvider>
             <GlobalPlayerProvider>

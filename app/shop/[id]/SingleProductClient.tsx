@@ -251,79 +251,42 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
 
         {/* SoundCloud Style Audio Preview Player with Picture-in-Picture & Persistent Mini-Tab */}
         {isMusic && previewUrl && (
-          <div className="bg-gradient-to-r from-red-950/60 via-neutral-950 to-neutral-900 border border-red-900/50 rounded-2xl p-4 sm:p-5 space-y-3 shadow-xl">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-3 min-w-0">
-                <button
-                  type="button"
-                  onClick={togglePlay}
-                  aria-label={isPlaying ? 'Pausar previsualización' : 'Reproducir previsualización'}
-                  className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 active:scale-95 text-white flex items-center justify-center shadow-lg shadow-red-900/50 transition-all cursor-pointer shrink-0"
-                >
-                  {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
-                </button>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 text-xs text-red-400 font-semibold uppercase tracking-wider">
-                    <Music className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">
-                      {albumTracks.length > 1
-                        ? `Reproductor Álbum (${albumTracks.length} pistas)`
-                        : 'Reproductor Web & PiP'}
-                    </span>
+          <div className="bg-gradient-to-r from-red-950/60 via-neutral-950 to-neutral-900 border border-red-900/50 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl">
+            {/* ROW 1 (TOP): Cover Art & Song Name */}
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden border border-red-900/60 bg-neutral-950 shrink-0 shadow-md">
+                {resolvedThumbnailUrl ? (
+                  <Image
+                    src={resolvedThumbnailUrl}
+                    alt={product.name}
+                    fill
+                    sizes="56px"
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-red-400">
+                    <Music className="w-5 h-5" />
                   </div>
-                  <p className="text-sm font-semibold text-white truncate max-w-[200px] sm:max-w-[260px]">
-                    {selectedTrackTitle || product.name}
-                  </p>
-                </div>
+                )}
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!isThisProductActive && currentProductTrack) {
-                      selectAndPlayTrack(currentProductTrack, 'master', productTracks)
-                    }
-                    togglePiP()
-                  }}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
-                    isPiPActive
-                      ? 'bg-red-700 text-white border-red-400 shadow-md'
-                      : 'bg-red-950/70 text-red-300 border-red-800/70 hover:bg-red-900/60 hover:text-white'
-                  }`}
-                  title="Modo Picture-in-Picture (sigue reproduciendo en ventana flotante aunque cambies de ventana o pestaña)"
-                >
-                  <PictureInPicture2 className="w-3.5 h-3.5" />
-                  <span>{isPiPActive ? 'PiP Activo' : 'Modo PiP'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!isThisProductActive && currentProductTrack) {
-                      selectAndPlayTrack(currentProductTrack, 'master', productTracks)
-                    }
-                    setIsMinimized(!isMinimized)
-                  }}
-                  className="p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800/60 transition-colors cursor-pointer"
-                  title="Minimizar reproductor en pestaña flotante"
-                >
-                  <Minimize2 className="w-4 h-4" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={toggleMute}
-                  className="p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800/60 transition-colors cursor-pointer"
-                  title={isMuted ? 'Desactivar silencio' : 'Silenciar'}
-                >
-                  {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
-                </button>
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="flex items-center gap-1.5 text-xs text-red-400 font-semibold uppercase tracking-wider">
+                  <Music className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">
+                    {albumTracks.length > 1
+                      ? `Reproductor Álbum (${albumTracks.length} pistas)`
+                      : 'Reproductor Web & PiP'}
+                  </span>
+                </div>
+                <p className="text-sm sm:text-base font-extrabold text-white truncate">
+                  {selectedTrackTitle || product.name}
+                </p>
               </div>
             </div>
 
-            {/* Audio Timeline Scrubber & Equalizer Bars Effect */}
-            <div className="space-y-1.5 pt-1">
+            {/* ROW 2 (MIDDLE): Audio Timeline Scrubber & Equalizer Bars */}
+            <div className="space-y-1.5">
               <div className="relative flex items-center">
                 <input
                   type="range"
@@ -347,6 +310,75 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
                   ))}
                 </div>
                 <span>{formatTime(duration)}</span>
+              </div>
+            </div>
+
+            {/* ROW 3 (BOTTOM): Controls (Play/Pause, Mute, Modo PiP, Minimizar) */}
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-red-950/60">
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={togglePlay}
+                  aria-label={isPlaying ? 'Pausar previsualización' : 'Reproducir previsualización'}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 active:scale-95 text-white text-xs font-bold shadow-lg shadow-red-900/50 transition-all cursor-pointer"
+                >
+                  {isPlaying ? (
+                    <>
+                      <Pause className="w-4 h-4 fill-current" />
+                      <span>Pausar</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 fill-current" />
+                      <span>Reproducir</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={toggleMute}
+                  className="p-2.5 text-neutral-300 hover:text-white rounded-xl bg-neutral-900/90 border border-neutral-800 hover:bg-neutral-800 transition-colors cursor-pointer"
+                  title={isMuted ? 'Desactivar silencio' : 'Silenciar'}
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isThisProductActive && currentProductTrack) {
+                      selectAndPlayTrack(currentProductTrack, 'master', productTracks)
+                    }
+                    togglePiP()
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
+                    isPiPActive
+                      ? 'bg-red-700 text-white border-red-400 shadow-md'
+                      : 'bg-red-950/70 text-red-300 border-red-800/70 hover:bg-red-900/60 hover:text-white'
+                  }`}
+                  title="Modo Picture-in-Picture (sigue reproduciendo en ventana flotante aunque cambies de ventana o pestaña)"
+                >
+                  <PictureInPicture2 className="w-3.5 h-3.5" />
+                  <span>{isPiPActive ? 'PiP Activo' : 'Modo PiP'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isThisProductActive && currentProductTrack) {
+                      selectAndPlayTrack(currentProductTrack, 'master', productTracks)
+                    }
+                    setIsMinimized(!isMinimized)
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-mono text-neutral-300 hover:text-white rounded-xl bg-neutral-900/90 border border-neutral-800 hover:bg-neutral-800 transition-colors cursor-pointer"
+                  title="Minimizar reproductor en pestaña flotante"
+                >
+                  <Minimize2 className="w-3.5 h-3.5 text-red-400" />
+                  <span className="hidden sm:inline">Minimizar</span>
+                </button>
               </div>
             </div>
 

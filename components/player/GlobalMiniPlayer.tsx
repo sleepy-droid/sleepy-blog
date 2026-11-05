@@ -481,11 +481,71 @@ export function GlobalMiniPlayer() {
       ) : (
         /* Expanded Persistent Floating Player Dock at Bottom of Viewport */
         !isOnDedicatedPlayerPage && (
-          <div className="fixed bottom-0 inset-x-0 z-50 border-t border-red-900/60 bg-neutral-950/95 backdrop-blur-xl shadow-[0_-10px_35px_rgba(0,0,0,0.85)]">
-            <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex flex-col gap-2">
-              {/* Scrubber Timeline */}
-              <div className="flex items-center gap-2.5 text-[10px] font-mono text-neutral-400">
-                <span className="w-8 text-right">{formatTime(currentTime)}</span>
+          <div className="fixed bottom-0 inset-x-0 z-50 border-t border-red-900/60 bg-neutral-950/95 backdrop-blur-xl shadow-[0_-12px_40px_rgba(0,0,0,0.9)]">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 sm:py-4 flex flex-col gap-3">
+              {/* ROW 1 (TOP): Cover Artwork & Track Name + Minimize/Close */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden border border-red-900/50 bg-neutral-900 shrink-0 shadow-lg">
+                    <Image
+                      src={activeTrack.thumbnailUrl}
+                      alt={activeTrack.title}
+                      fill
+                      unoptimized={activeTrack.thumbnailUrl.endsWith('.svg')}
+                      className="object-cover"
+                      sizes="56px"
+                    />
+                  </div>
+
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-red-400 font-bold">
+                        {activeTrack.artist}
+                      </span>
+                      {activeTrack.isUnlocked ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-800/60">
+                          <Unlock className="w-2.5 h-2.5" /> Máster
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-950/90 text-amber-300 border border-amber-800/60">
+                          <Lock className="w-2.5 h-2.5" /> Preview 30s
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm sm:text-base font-extrabold text-white truncate">
+                      {activeTrack.title}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Top-Right Window Controls (Minimize & Close) */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsMinimized(true)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs font-mono text-neutral-300 hover:text-white cursor-pointer"
+                    title="Minimizar en pestaña flotante"
+                  >
+                    <Minimize2 className="w-3.5 h-3.5 text-red-400" />
+                    <span className="hidden sm:inline">Minimizar</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={closePlayer}
+                    className="p-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-red-400 cursor-pointer"
+                    title="Cerrar reproductor"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* ROW 2 (MIDDLE): Time Player / Scrubber Timeline */}
+              <div className="flex items-center gap-3 text-[11px] font-mono text-neutral-400 py-0.5">
+                <span className="w-9 text-right text-neutral-300">
+                  {formatTime(currentTime)}
+                </span>
                 <input
                   type="range"
                   min={0}
@@ -493,86 +553,36 @@ export function GlobalMiniPlayer() {
                   step={0.1}
                   value={currentTime}
                   onChange={(e) => seek(Number(e.target.value))}
-                  className="flex-1 h-1.5 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-red-600"
+                  className="flex-1 h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-red-600"
                 />
-                <span className="w-8">{formatTime(maxDur)}</span>
+                <span className="w-9 text-neutral-400">
+                  {formatTime(maxDur)}
+                </span>
               </div>
 
-              <div className="flex items-center justify-between gap-3">
-                {/* Left: Cover & Track Info */}
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-xl overflow-hidden border border-neutral-800 bg-neutral-900 shrink-0 shadow-md">
-                    <Image
-                      src={activeTrack.thumbnailUrl}
-                      alt={activeTrack.title}
-                      fill
-                      unoptimized={activeTrack.thumbnailUrl.endsWith('.svg')}
-                      className="object-cover"
-                      sizes="48px"
-                    />
-                  </div>
-
-                  <div className="min-w-0 space-y-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-red-400 font-bold">
-                        {activeTrack.artist}
-                      </span>
-                      {activeTrack.isUnlocked ? (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-800/60">
-                          <Unlock className="w-2.5 h-2.5" /> Máster
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-950/90 text-amber-300 border border-amber-800/60">
-                          <Lock className="w-2.5 h-2.5" /> 30s
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs sm:text-sm font-extrabold text-white truncate">
-                      {activeTrack.title}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Center: Transport & Stems */}
-                <div className="flex items-center gap-2 sm:gap-3">
+              {/* ROW 3 (BOTTOM): Playback Controls, Stems & Picture-in-Picture */}
+              <div className="flex items-center justify-between gap-2 pt-0.5">
+                {/* Left: Mute + Optional Stems */}
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => stepTrack(-1)}
-                    className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white cursor-pointer"
-                    title="Anterior"
+                    onClick={toggleMute}
+                    className="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white cursor-pointer"
+                    title={isMuted ? 'Activar sonido' : 'Silenciar'}
                   >
-                    <SkipBack className="w-3.5 h-3.5" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={togglePlay}
-                    className="w-10 h-10 rounded-full bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white flex items-center justify-center shadow-lg shadow-red-950/60 cursor-pointer"
-                    title={isPlaying ? 'Pausar' : 'Reproducir'}
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-4 h-4 fill-current" />
+                    {isMuted ? (
+                      <VolumeX className="w-4 h-4 text-red-400" />
                     ) : (
-                      <Play className="w-4 h-4 fill-current ml-0.5" />
+                      <Volume2 className="w-4 h-4" />
                     )}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => stepTrack(1)}
-                    className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white cursor-pointer"
-                    title="Siguiente"
-                  >
-                    <SkipForward className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Quick Stem Switcher on Desktop */}
                   {activeTrack.isUnlocked && (
-                    <div className="hidden md:flex items-center gap-1 pl-2 border-l border-neutral-800">
+                    <div className="hidden sm:flex items-center gap-1 pl-1">
                       <button
                         type="button"
                         onClick={() => selectAndPlayTrack(activeTrack, 'master')}
-                        className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold border cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold border cursor-pointer ${
                           stemMode === 'master'
                             ? 'bg-red-700 text-white border-red-500'
                             : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-white'
@@ -586,7 +596,7 @@ export function GlobalMiniPlayer() {
                           onClick={() =>
                             selectAndPlayTrack(activeTrack, 'acapella')
                           }
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-bold border cursor-pointer ${
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold border cursor-pointer ${
                             stemMode === 'acapella'
                               ? 'bg-amber-600 text-white border-amber-400'
                               : 'bg-neutral-900 text-amber-300 border-amber-900/50'
@@ -601,7 +611,7 @@ export function GlobalMiniPlayer() {
                           onClick={() =>
                             selectAndPlayTrack(activeTrack, 'instrumental')
                           }
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-bold border cursor-pointer ${
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold border cursor-pointer ${
                             stemMode === 'instrumental'
                               ? 'bg-sky-600 text-white border-sky-400'
                               : 'bg-neutral-900 text-sky-300 border-sky-900/50'
@@ -614,25 +624,46 @@ export function GlobalMiniPlayer() {
                   )}
                 </div>
 
-                {/* Right: PiP, Minimize, Console Link, Close */}
-                <div className="flex items-center justify-end gap-1.5 flex-1">
+                {/* Center: Main Transport Buttons (Prev / Play-Pause / Next) */}
+                <div className="flex items-center gap-3 sm:gap-4">
                   <button
                     type="button"
-                    onClick={toggleMute}
-                    className="hidden sm:inline-flex p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white cursor-pointer"
-                    title={isMuted ? 'Activar sonido' : 'Silenciar'}
+                    onClick={() => stepTrack(-1)}
+                    className="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white cursor-pointer"
+                    title="Anterior"
                   >
-                    {isMuted ? (
-                      <VolumeX className="w-3.5 h-3.5 text-red-400" />
+                    <SkipBack className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={togglePlay}
+                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white flex items-center justify-center shadow-lg shadow-red-950/60 active:scale-95 transition-transform cursor-pointer"
+                    title={isPlaying ? 'Pausar' : 'Reproducir'}
+                  >
+                    {isPlaying ? (
+                      <Pause className="w-5 h-5 fill-current" />
                     ) : (
-                      <Volume2 className="w-3.5 h-3.5" />
+                      <Play className="w-5 h-5 fill-current ml-0.5" />
                     )}
                   </button>
 
                   <button
                     type="button"
+                    onClick={() => stepTrack(1)}
+                    className="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white cursor-pointer"
+                    title="Siguiente"
+                  >
+                    <SkipForward className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Right: Picture-in-Picture & Full Console Link */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
                     onClick={togglePiP}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
                       isPiPActive
                         ? 'bg-red-700 text-white border-red-400 shadow-lg shadow-red-950/60'
                         : 'bg-red-950/60 text-red-300 border-red-800/70 hover:bg-red-900/60 hover:text-white'
@@ -640,39 +671,19 @@ export function GlobalMiniPlayer() {
                     title="Modo Picture-in-Picture (sigue reproduciendo en ventana flotante aunque cambies de ventana o pestaña)"
                   >
                     <PictureInPicture2 className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">
-                      {isPiPActive ? 'PiP Activo' : 'Modo PiP'}
-                    </span>
+                    <span>{isPiPActive ? 'PiP Activo' : 'PiP'}</span>
                   </button>
 
                   <Link
                     href={`/player?track=${encodeURIComponent(
                       activeTrack.productId || activeTrack.id
                     )}`}
-                    className="hidden lg:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs font-semibold text-neutral-300 hover:text-white"
+                    className="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-xs font-semibold text-neutral-300 hover:text-white"
                     title="Abrir consola completa del reproductor"
                   >
                     <Headphones className="w-3.5 h-3.5 text-red-400" />
-                    <span>Consola</span>
+                    <span className="hidden sm:inline">Consola</span>
                   </Link>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsMinimized(true)}
-                    className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white cursor-pointer"
-                    title="Minimizar en pestaña flotante"
-                  >
-                    <Minimize2 className="w-3.5 h-3.5" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={closePlayer}
-                    className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-red-400 cursor-pointer"
-                    title="Cerrar reproductor"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
                 </div>
               </div>
             </div>
