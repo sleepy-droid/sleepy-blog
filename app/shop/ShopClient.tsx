@@ -4,13 +4,14 @@ import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Search, Music, Package, Sparkles, SlidersHorizontal, ArrowUpRight, Heart } from 'lucide-react'
+import { Search, Music, Package, Sparkles, SlidersHorizontal, ArrowUpRight, Heart, Play, Pause } from 'lucide-react'
 import { sanitizeSearch } from '@/lib/search'
 import { formatPrice, type Product } from '@/lib/types'
 import { normalizeMediaUrl } from '@/lib/utils'
 import { useLanguage } from '@/lib/i18n'
 import { toggleVote, getMyVoteState } from '@/app/votes/actions'
 import { GuestLoginModal } from '@/components/auth/GuestLoginModal'
+import { useGlobalPlayer, productToPlayerTracks } from '@/lib/player-context'
 
 type ShopClientProps = {
   initialProducts: Product[]
@@ -252,7 +253,18 @@ function ProductCard({
 }) {
   const pathname = usePathname()
   const { t } = useLanguage()
+  const { activeTrack, isPlaying, selectAndPlayTrack } = useGlobalPlayer()
   const targetHref = `/shop/${product.slug || product.id}`
+
+  const cardTracks = useMemo(() => productToPlayerTracks(product, false), [product])
+  const primaryTrack = cardTracks[0]
+  const hasAudio = Boolean(
+    primaryTrack &&
+      (primaryTrack.previewUrl || primaryTrack.mp3Url || primaryTrack.wavUrl) &&
+      (product.category === 'music' || product.fulfillment === 'digital')
+  )
+  const isCardActive = cardTracks.some((tr) => tr.id === activeTrack?.id)
+  const isCardPlaying = isCardActive && isPlaying
 
   const [likes, setLikes] = useState(product.upvotes || 0)
   const [isLiked, setIsLiked] = useState(userHasVoted)
@@ -336,6 +348,26 @@ function ProductCard({
               {t('shop_explore')} <ArrowUpRight className="w-3.5 h-3.5" />
             </span>
           </div>
+
+          {/* Quick Play Button for Music Releases */}
+          {hasAudio && primaryTrack && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                selectAndPlayTrack(primaryTrack, 'master', cardTracks)
+              }}
+              title={isCardPlaying ? 'Pausar previsualización' : 'Escuchar previsualización'}
+              className="absolute bottom-3 right-3 z-20 w-10 h-10 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg shadow-black/70 transition-transform active:scale-95 cursor-pointer"
+            >
+              {isCardPlaying ? (
+                <Pause className="w-4 h-4 fill-current" />
+              ) : (
+                <Play className="w-4 h-4 fill-current ml-0.5" />
+              )}
+            </button>
+          )}
         </Link>
 
         <div>

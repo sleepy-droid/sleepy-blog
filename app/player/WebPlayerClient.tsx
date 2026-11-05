@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -19,29 +19,17 @@ import {
   Music,
   Video,
   ShoppingBag,
+  PictureInPicture2,
+  Minimize2,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/types'
+import {
+  useGlobalPlayer,
+  type PlayerTrack,
+  type StemMode,
+} from '@/lib/player-context'
 
-export type PlayerTrack = {
-  id: string
-  productId?: string
-  fileName?: string
-  slug: string
-  title: string
-  artist: string
-  description: string
-  thumbnailUrl: string
-  wavUrl: string | null
-  mp3Url: string | null
-  previewUrl: string | null
-  acapellaUrl: string | null
-  instrumentalUrl: string | null
-  videoUrl: string | null
-  isUnlocked: boolean
-  priceCents: number
-}
-
-type StemMode = 'master' | 'mp3' | 'acapella' | 'instrumental'
+export type { PlayerTrack }
 
 type WebPlayerClientProps = {
   tracks: PlayerTrack[]
@@ -54,128 +42,52 @@ export function WebPlayerClient({
   initialTrackId,
   isLoggedIn,
 }: WebPlayerClientProps) {
-  const initialTrack =
+  const {
+    tracks: globalTracks,
+    activeTrack,
+    stemMode,
+    isPlaying,
+    currentTime,
+    duration,
+    isMuted,
+    isMinimized,
+    isPiPActive,
+    setQueue,
+    selectAndPlayTrack,
+    seek,
+    stepTrack,
+    toggleMute,
+    setIsMinimized,
+    togglePiP,
+  } = useGlobalPlayer()
+
+  const [filterUnlockedOnly, setFilterUnlockedOnly] = useState(false)
+  const [showVideoModal, setShowVideoModal] = useState(false)
+
+  useEffect(() => {
+    if (tracks.length > 0) {
+      setQueue(tracks, initialTrackId)
+    }
+  }, [tracks, initialTrackId, setQueue])
+
+  const allTracks = globalTracks.length > 0 ? globalTracks : tracks
+  const currentTrack =
+    activeTrack ||
     (initialTrackId
-      ? tracks.find(
+      ? allTracks.find(
           (t) =>
             t.id === initialTrackId ||
             t.productId === initialTrackId ||
             t.slug === initialTrackId
         )
       : null) ||
-    tracks.find((t) => t.isUnlocked) ||
-    tracks[0] ||
+    allTracks.find((t) => t.isUnlocked) ||
+    allTracks[0] ||
     null
 
-  const [activeTrack, setActiveTrack] = useState<PlayerTrack | null>(initialTrack)
-  const [stemMode, setStemMode] = useState<StemMode>('master')
-  const [filterUnlockedOnly, setFilterUnlockedOnly] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [isMuted, setIsMuted] = useState(false)
-  const [showVideoModal, setShowVideoModal] = useState(false)
-
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-
-  const resolveAudioSource = (track: PlayerTrack | null, mode: StemMode): string => {
-    if (!track) return ''
-    if (!track.isUnlocked) {
-      return track.previewUrl || track.mp3Url || ''
-    }
-    switch (mode) {
-      case 'acapella':
-        return track.acapellaUrl || track.wavUrl || track.mp3Url || track.previewUrl || ''
-      case 'instrumental':
-        return track.instrumentalUrl || track.wavUrl || track.mp3Url || track.previewUrl || ''
-      case 'mp3':
-        return track.mp3Url || track.previewUrl || track.wavUrl || ''
-      case 'master':
-      default:
-        return track.wavUrl || track.mp3Url || track.previewUrl || ''
-    }
-  }
-
-  const currentAudioUrl = resolveAudioSource(activeTrack, stemMode)
-
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    const updateTime = () => {
-      // Si la pista no está desbloqueada, limitar preview a 30 segundos
-      if (activeTrack && !activeTrack.isUnlocked && audio.currentTime >= 30) {
-        audio.pause()
-        audio.currentTime = 0
-        setIsPlaying(false)
-        setCurrentTime(0)
-        return
-      }
-      setCurrentTime(audio.currentTime)
-    }
-    const updateDuration = () => {
-      const rawDur = audio.duration || 0
-      setDuration(activeTrack && !activeTrack.isUnlocked ? Math.min(rawDur || 30, 30) : rawDur)
-    }
-    const onEnded = () => setIsPlaying(false)
-
-    audio.addEventListener('timeupdate', updateTime)
-    audio.addEventListener('loadedmetadata', updateDuration)
-    audio.addEventListener('ended', onEnded)
-
-    return () => {
-      audio.removeEventListener('timeupdate', updateTime)
-      audio.removeEventListener('loadedmetadata', updateDuration)
-      audio.removeEventListener('ended', onEnded)
-    }
-  }, [activeTrack, stemMode])
-
-  const selectAndPlayTrack = (track: PlayerTrack, newStem: StemMode = 'master') => {
-    const isSameTrack = activeTrack?.id === track.id && stemMode === newStem
-    if (isSameTrack) {
-      if (isPlaying) {
-        audioRef.current?.pause()
-        setIsPlaying(false)
-      } else {
-        audioRef.current
-          ?.play()
-          .then(() => setIsPlaying(true))
-          .catch(() => setIsPlaying(false))
-      }
-      return
-    }
-
-    setActiveTrack(track)
-    setStemMode(newStem)
-    setCurrentTime(0)
-    setIsPlaying(true)
-    setTimeout(() => {
-      audioRef.current
-        ?.play()
-        .then(() => setIsPlaying(true))
-        .catch(() => setIsPlaying(false))
-    }, 80)
-  }
-
   const visibleTracks = filterUnlockedOnly
-    ? tracks.filter((t) => t.isUnlocked)
-    : tracks
-
-  const stepTrack = (direction: -1 | 1) => {
-    if (visibleTracks.length === 0 || !activeTrack) return
-    const idx = visibleTracks.findIndex((t) => t.id === activeTrack.id)
-    const nextIdx =
-      idx === -1
-        ? 0
-        : (idx + direction + visibleTracks.length) % visibleTracks.length
-    selectAndPlayTrack(visibleTracks[nextIdx], 'master')
-  }
-
-  const toggleMute = () => {
-    if (!audioRef.current) return
-    audioRef.current.muted = !isMuted
-    setIsMuted(!isMuted)
-  }
+    ? allTracks.filter((t) => t.isUnlocked)
+    : allTracks
 
   const formatTime = (secs: number) => {
     if (!Number.isFinite(secs) || secs < 0) return '0:00'
@@ -184,11 +96,13 @@ export function WebPlayerClient({
     return `${m}:${s < 10 ? '0' : ''}${s}`
   }
 
-  if (!activeTrack) {
+  if (!currentTrack) {
     return (
       <div className="p-10 rounded-3xl border border-neutral-800 bg-neutral-950/70 text-center space-y-4">
         <Music className="w-10 h-10 text-neutral-600 mx-auto" />
-        <p className="text-sm font-bold text-white">No hay pistas disponibles en el reproductor</p>
+        <p className="text-sm font-bold text-white">
+          No hay pistas disponibles en el reproductor
+        </p>
         <Link
           href="/shop"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600"
@@ -200,47 +114,81 @@ export function WebPlayerClient({
     )
   }
 
-  const pid = encodeURIComponent(activeTrack.productId || activeTrack.id)
-  const fileParam = activeTrack.fileName ? `&file=${encodeURIComponent(activeTrack.fileName)}` : ''
+  const pid = encodeURIComponent(currentTrack.productId || currentTrack.id)
+  const fileParam = currentTrack.fileName
+    ? `&file=${encodeURIComponent(currentTrack.fileName)}`
+    : ''
+
+  const handlePlayTrack = (track: PlayerTrack, mode: StemMode = 'master') => {
+    selectAndPlayTrack(track, mode, allTracks)
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      {currentAudioUrl && (
-        <audio ref={audioRef} src={currentAudioUrl} preload="metadata" />
-      )}
-
       {/* Columna Izquierda: Consola Maestra de Reproducción */}
       <div className="lg:col-span-7 rounded-3xl border border-red-900/50 bg-gradient-to-br from-neutral-950 via-neutral-900/95 to-neutral-950 p-6 sm:p-8 shadow-2xl space-y-6">
-        {/* Cabecera de Estado del Deck */}
-        <div className="flex items-center justify-between gap-2">
+        {/* Cabecera de Estado del Deck + Controles Picture-in-Picture y Minimizar */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Disc
-              className={`w-4 h-4 text-red-500 ${isPlaying ? 'animate-spin' : ''}`}
+              className={`w-4 h-4 text-red-500 ${
+                isPlaying ? 'animate-spin' : ''
+              }`}
             />
             <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
               sleepyred999 Studio Deck • {stemMode.toUpperCase()}
             </span>
           </div>
 
-          {activeTrack.isUnlocked ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
-              <Unlock className="w-3 h-3" /> Máster Desbloqueado
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-amber-950/80 text-amber-300 border border-amber-700/60">
-              <Lock className="w-3 h-3" /> Preview 30s
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={togglePiP}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold border transition-all cursor-pointer ${
+                isPiPActive
+                  ? 'bg-red-700 text-white border-red-400 shadow-lg shadow-red-950/60'
+                  : 'bg-red-950/70 text-red-300 border-red-800/70 hover:bg-red-900/60 hover:text-white'
+              }`}
+              title="Abrir reproductor en ventana flotante Picture-in-Picture (se mantiene visible aunque cambies de ventana o programa)"
+            >
+              <PictureInPicture2 className="w-3.5 h-3.5" />
+              <span>{isPiPActive ? 'PiP Flotante Activo' : 'Modo PiP Flotante'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsMinimized(!isMinimized)}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold border transition-all cursor-pointer ${
+                isMinimized
+                  ? 'bg-neutral-800 text-white border-neutral-600'
+                  : 'bg-neutral-900 text-neutral-300 border-neutral-800 hover:text-white'
+              }`}
+              title="Mostrar pestaña minimizada flotante en la esquina"
+            >
+              <Minimize2 className="w-3 h-3" />
+              <span>{isMinimized ? 'Pestaña Activa' : 'Minimizar'}</span>
+            </button>
+
+            {currentTrack.isUnlocked ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
+                <Unlock className="w-3 h-3" /> Máster Desbloqueado
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-amber-950/80 text-amber-300 border border-amber-700/60">
+                <Lock className="w-3 h-3" /> Preview 30s
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Portada y Metadatos */}
         <div className="flex flex-col sm:flex-row items-center gap-6">
           <div className="relative w-40 h-40 sm:w-44 sm:h-44 rounded-2xl overflow-hidden border-2 border-neutral-800 bg-neutral-950 shadow-2xl shrink-0">
             <Image
-              src={activeTrack.thumbnailUrl}
-              alt={activeTrack.title}
+              src={currentTrack.thumbnailUrl}
+              alt={currentTrack.title}
               fill
-              unoptimized={activeTrack.thumbnailUrl.endsWith('.svg')}
+              unoptimized={currentTrack.thumbnailUrl.endsWith('.svg')}
               className="object-cover"
               sizes="176px"
             />
@@ -249,13 +197,13 @@ export function WebPlayerClient({
           <div className="space-y-3 text-center sm:text-left min-w-0 flex-1">
             <div className="space-y-1">
               <p className="text-xs font-mono uppercase tracking-widest text-red-400 font-bold">
-                {activeTrack.artist}
+                {currentTrack.artist}
               </p>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight truncate">
-                {activeTrack.title}
+                {currentTrack.title}
               </h2>
               <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed">
-                {activeTrack.description}
+                {currentTrack.description}
               </p>
             </div>
 
@@ -267,20 +215,20 @@ export function WebPlayerClient({
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                 <button
                   type="button"
-                  onClick={() => selectAndPlayTrack(activeTrack, 'master')}
+                  onClick={() => handlePlayTrack(currentTrack, 'master')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
                     stemMode === 'master'
                       ? 'bg-red-700 text-white border-red-500 shadow-md'
                       : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white'
                   }`}
                 >
-                  💿 {activeTrack.isUnlocked ? 'WAV Máster' : 'Preview 30s'}
+                  💿 {currentTrack.isUnlocked ? 'WAV Máster' : 'Preview 30s'}
                 </button>
 
-                {activeTrack.isUnlocked && activeTrack.mp3Url && (
+                {currentTrack.isUnlocked && currentTrack.mp3Url && (
                   <button
                     type="button"
-                    onClick={() => selectAndPlayTrack(activeTrack, 'mp3')}
+                    onClick={() => handlePlayTrack(currentTrack, 'mp3')}
                     className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
                       stemMode === 'mp3'
                         ? 'bg-red-700 text-white border-red-500 shadow-md'
@@ -291,10 +239,10 @@ export function WebPlayerClient({
                   </button>
                 )}
 
-                {activeTrack.isUnlocked && activeTrack.acapellaUrl && (
+                {currentTrack.isUnlocked && currentTrack.acapellaUrl && (
                   <button
                     type="button"
-                    onClick={() => selectAndPlayTrack(activeTrack, 'acapella')}
+                    onClick={() => handlePlayTrack(currentTrack, 'acapella')}
                     className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
                       stemMode === 'acapella'
                         ? 'bg-amber-600 text-white border-amber-400 shadow-md'
@@ -305,10 +253,10 @@ export function WebPlayerClient({
                   </button>
                 )}
 
-                {activeTrack.isUnlocked && activeTrack.instrumentalUrl && (
+                {currentTrack.isUnlocked && currentTrack.instrumentalUrl && (
                   <button
                     type="button"
-                    onClick={() => selectAndPlayTrack(activeTrack, 'instrumental')}
+                    onClick={() => handlePlayTrack(currentTrack, 'instrumental')}
                     className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
                       stemMode === 'instrumental'
                         ? 'bg-sky-600 text-white border-sky-400 shadow-md'
@@ -332,18 +280,13 @@ export function WebPlayerClient({
               max={duration || 30}
               step={0.1}
               value={currentTime}
-              onChange={(e) => {
-                if (audioRef.current) {
-                  audioRef.current.currentTime = Number(e.target.value)
-                  setCurrentTime(Number(e.target.value))
-                }
-              }}
+              onChange={(e) => seek(Number(e.target.value))}
               className="w-full h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-red-600"
             />
             <div className="flex justify-between text-[11px] font-mono text-neutral-400">
               <span>{formatTime(currentTime)}</span>
               <span>
-                {activeTrack.isUnlocked
+                {currentTrack.isUnlocked
                   ? formatTime(duration)
                   : `${formatTime(duration || 30)} (Snippet)`}
               </span>
@@ -357,7 +300,11 @@ export function WebPlayerClient({
               className="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white cursor-pointer"
               title={isMuted ? 'Activar sonido' : 'Silenciar'}
             >
-              {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
+              {isMuted ? (
+                <VolumeX className="w-4 h-4 text-red-400" />
+              ) : (
+                <Volume2 className="w-4 h-4" />
+              )}
             </button>
 
             <div className="flex items-center gap-4">
@@ -372,7 +319,7 @@ export function WebPlayerClient({
 
               <button
                 type="button"
-                onClick={() => selectAndPlayTrack(activeTrack, stemMode)}
+                onClick={() => handlePlayTrack(currentTrack, stemMode)}
                 className="w-14 h-14 rounded-full bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white flex items-center justify-center shadow-xl shadow-red-950/60 transition-transform active:scale-95 cursor-pointer"
               >
                 {isPlaying ? (
@@ -392,7 +339,7 @@ export function WebPlayerClient({
               </button>
             </div>
 
-            {activeTrack.videoUrl ? (
+            {currentTrack.videoUrl ? (
               <button
                 type="button"
                 onClick={() => setShowVideoModal(true)}
@@ -402,14 +349,25 @@ export function WebPlayerClient({
                 <span className="hidden sm:inline">Vídeo</span>
               </button>
             ) : (
-              <div className="w-9" />
+              <button
+                type="button"
+                onClick={togglePiP}
+                className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${
+                  isPiPActive
+                    ? 'bg-red-700 border-red-500 text-white'
+                    : 'bg-neutral-900 border-neutral-800 text-neutral-300 hover:text-white'
+                }`}
+                title="Activar Picture-in-Picture (Ventana Flotante)"
+              >
+                <PictureInPicture2 className="w-4 h-4" />
+              </button>
             )}
           </div>
         </div>
 
         {/* Descargas directas verificadas o CTA de compra */}
         <div className="pt-3 border-t border-neutral-800/80">
-          {activeTrack.isUnlocked ? (
+          {currentTrack.isUnlocked ? (
             <div className="space-y-2">
               <span className="text-[11px] font-mono text-neutral-400 block">
                 Descargas directas de tu bóveda personal:
@@ -427,7 +385,7 @@ export function WebPlayerClient({
                 >
                   <Download className="w-3.5 h-3.5" /> MP3 320k
                 </a>
-                {activeTrack.acapellaUrl && (
+                {currentTrack.acapellaUrl && (
                   <a
                     href={`/api/media/download?productId=${pid}&asset=acapella`}
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold bg-amber-950/50 border border-amber-800/60 text-amber-300 hover:bg-amber-900/50 transition-colors"
@@ -435,7 +393,7 @@ export function WebPlayerClient({
                     <Mic className="w-3.5 h-3.5" /> Acapella
                   </a>
                 )}
-                {activeTrack.instrumentalUrl && (
+                {currentTrack.instrumentalUrl && (
                   <a
                     href={`/api/media/download?productId=${pid}&asset=instrumental`}
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold bg-sky-950/50 border border-sky-800/60 text-sky-300 hover:bg-sky-900/50 transition-colors"
@@ -448,15 +406,19 @@ export function WebPlayerClient({
           ) : (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800">
               <div className="text-xs text-neutral-300">
-                Estás escuchando el preview de 30s. Desbloquea el máster WAV completo y stems en la tienda.
+                Estás escuchando el preview de 30s. Desbloquea el máster WAV
+                completo y stems en la tienda.
               </div>
               <Link
-                href={`/shop/${activeTrack.slug}`}
+                href={`/shop/${currentTrack.slug}`}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 shrink-0 shadow-md"
               >
                 <ShoppingBag className="w-3.5 h-3.5" />
                 <span>
-                  Desbloquear {activeTrack.priceCents > 0 ? formatPrice(activeTrack.priceCents) : ''}
+                  Desbloquear{' '}
+                  {currentTrack.priceCents > 0
+                    ? formatPrice(currentTrack.priceCents)
+                    : ''}
                 </span>
               </Link>
             </div>
@@ -477,7 +439,9 @@ export function WebPlayerClient({
                 type="button"
                 onClick={() => setFilterUnlockedOnly(false)}
                 className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                  !filterUnlockedOnly ? 'bg-red-700 text-white font-bold' : 'text-neutral-400 hover:text-white'
+                  !filterUnlockedOnly
+                    ? 'bg-red-700 text-white font-bold'
+                    : 'text-neutral-400 hover:text-white'
                 }`}
               >
                 Todas
@@ -486,7 +450,9 @@ export function WebPlayerClient({
                 type="button"
                 onClick={() => setFilterUnlockedOnly(true)}
                 className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                  filterUnlockedOnly ? 'bg-red-700 text-white font-bold' : 'text-neutral-400 hover:text-white'
+                  filterUnlockedOnly
+                    ? 'bg-red-700 text-white font-bold'
+                    : 'text-neutral-400 hover:text-white'
                 }`}
               >
                 Mis Másters
@@ -497,11 +463,11 @@ export function WebPlayerClient({
 
         <div className="space-y-2.5 max-h-[480px] overflow-y-auto pr-1">
           {visibleTracks.map((t) => {
-            const isCurrent = activeTrack.id === t.id
+            const isCurrent = currentTrack.id === t.id
             return (
               <div
                 key={t.id}
-                onClick={() => selectAndPlayTrack(t, 'master')}
+                onClick={() => handlePlayTrack(t, 'master')}
                 className={`p-3 rounded-2xl border flex items-center justify-between gap-3 transition-all cursor-pointer ${
                   isCurrent
                     ? 'bg-red-950/30 border-red-700/70 shadow-md'
@@ -528,9 +494,13 @@ export function WebPlayerClient({
                   </div>
 
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-white truncate">{t.title}</p>
+                    <p className="text-xs font-bold text-white truncate">
+                      {t.title}
+                    </p>
                     <p className="text-[10px] font-mono text-neutral-400 truncate">
-                      {t.isUnlocked ? 'WAV / MP3 / Stems Desbloqueados' : 'Preview 30s'}
+                      {t.isUnlocked
+                        ? 'WAV / MP3 / Stems Desbloqueados'
+                        : 'Preview 30s'}
                     </p>
                   </div>
                 </div>
@@ -553,12 +523,12 @@ export function WebPlayerClient({
       </div>
 
       {/* Video Modal */}
-      {showVideoModal && activeTrack.videoUrl && (
+      {showVideoModal && currentTrack.videoUrl && (
         <div className="fixed inset-0 z-50 bg-neutral-950/90 backdrop-blur-xl flex items-center justify-center p-4">
           <div className="w-full max-w-3xl space-y-4 bg-neutral-900 border border-neutral-800 p-4 rounded-3xl">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-white">
-                {activeTrack.title} — Vídeo Oficial
+                {currentTrack.title} — Vídeo Oficial
               </h3>
               <button
                 type="button"
@@ -570,7 +540,7 @@ export function WebPlayerClient({
             </div>
             <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black">
               <iframe
-                src={activeTrack.videoUrl}
+                src={currentTrack.videoUrl}
                 className="w-full h-full border-0"
                 allowFullScreen
               />

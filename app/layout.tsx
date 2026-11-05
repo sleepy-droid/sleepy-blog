@@ -26,6 +26,8 @@ import { LanguageProvider } from "@/lib/i18n";
 import { CartProvider } from "@/lib/cart";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { Footer } from "@/components/Footer";
+import { GlobalPlayerProvider } from "@/lib/player-context";
+import { GlobalMiniPlayer } from "@/components/player/GlobalMiniPlayer";
 
 export default function RootLayout({
   children,
@@ -37,16 +39,19 @@ export default function RootLayout({
       lang="es"
       className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", geist.variable)}
     >
-      <body className="min-h-full flex flex-col pt-20 bg-neutral-950 text-neutral-100">
+      <body className="min-h-full flex flex-col pt-20 pb-24 bg-neutral-950 text-neutral-100">
         <LanguageProvider>
           <CartProvider>
-            <Navbar
-              authDesktop={<AuthNav />}
-              authMobile={<AuthNav mobile />}
-            />
-            <div className="flex-1">{children}</div>
-            <CartDrawer />
-            <Footer />
+            <GlobalPlayerProvider>
+              <Navbar
+                authDesktop={<AuthNav />}
+                authMobile={<AuthNav mobile />}
+              />
+              <div className="flex-1">{children}</div>
+              <CartDrawer />
+              <GlobalMiniPlayer />
+              <Footer />
+            </GlobalPlayerProvider>
           </CartProvider>
         </LanguageProvider>
       </body>

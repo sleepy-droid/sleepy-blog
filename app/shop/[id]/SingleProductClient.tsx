@@ -1,15 +1,16 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { Play, Pause, ShoppingBag, ShieldCheck, Sparkles, Music, Package, Maximize2, X, Volume2, VolumeX, Tag, Zap } from 'lucide-react'
+import { Play, Pause, ShoppingBag, ShieldCheck, Sparkles, Music, Package, Maximize2, X, Volume2, VolumeX, Tag, Zap, PictureInPicture2, Minimize2 } from 'lucide-react'
 import { formatPrice, type Product } from '@/lib/types'
 import { normalizeMediaUrl } from '@/lib/utils'
 import { useCart } from '@/lib/cart'
 import { useLanguage } from '@/lib/i18n'
 import { toggleVote, getMyVoteState } from '@/app/votes/actions'
 import { GuestLoginModal } from '@/components/auth/GuestLoginModal'
+import { useGlobalPlayer, productToPlayerTracks } from '@/lib/player-context'
 
 type SingleProductClientProps = {
   product: Product
@@ -53,15 +54,27 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
     }
   }, [product.id])
 
-  // Audio Player State (SoundCloud style)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(product.duration_seconds || 0)
-  const [isMuted, setIsMuted] = useState(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  
+  // Global Audio Player & Picture-in-Picture integration
+  const {
+    activeTrack,
+    isPlaying: globalIsPlaying,
+    currentTime: globalCurrentTime,
+    duration: globalDuration,
+    isMuted,
+    isMinimized,
+    isPiPActive,
+    selectAndPlayTrack,
+    seek,
+    toggleMute,
+    setIsMinimized,
+    togglePiP,
+  } = useGlobalPlayer()
+
   // Lightbox modal state for Amazon-style image viewing
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+
+  const productTracks = useMemo(() => productToPlayerTracks(product, false), [product])
+  const [selectedTrackIdx, setSelectedTrackIdx] = useState<number>(0)
 
   const wavAlbumTracks = (product.folder_stats?.files || []).filter(
     (f) =>
@@ -87,17 +100,28 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
         mp3AlbumTracks[0]?.publicUrl ||
         ''
     )
-  const [selectedPreviewUrl, setSelectedPreviewUrl] = useState<string>(defaultPreviewUrl)
-  const [selectedTrackTitle, setSelectedTrackTitle] = useState<string>(
-    albumTracks.length > 0 ? albumTracks[0].title || albumTracks[0].name : product.name
-  )
+
+  const currentProductTrack = productTracks[selectedTrackIdx] || productTracks[0] || null
+  const isThisProductActive = productTracks.some((t) => t.id === activeTrack?.id)
+  const isPlaying = isThisProductActive && globalIsPlaying
+  const currentTime = isThisProductActive ? globalCurrentTime : 0
+  const duration = isThisProductActive
+    ? globalDuration || 30
+    : product.duration_seconds || 30
+
+  const selectedTrackTitle =
+    isThisProductActive && activeTrack
+      ? activeTrack.title
+      : albumTracks.length > 0
+      ? albumTracks[selectedTrackIdx]?.title || albumTracks[selectedTrackIdx]?.name || product.name
+      : product.name
 
   const isMusic =
     product.category === 'music' ||
     product.fulfillment === 'digital' ||
     !!defaultPreviewUrl ||
     albumTracks.length > 0
-  const previewUrl = normalizeMediaUrl(selectedPreviewUrl || defaultPreviewUrl)
+  const previewUrl = normalizeMediaUrl(defaultPreviewUrl)
 
   const handleVote = async (val: 1 | -1) => {
     if (isVoting) return
@@ -127,66 +151,24 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
     router.push('/checkout')
   }
 
-  // Audio Time Update Handlers
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    const updateTime = () => setCurrentTime(audio.currentTime)
-    const updateDuration = () => {
-      if (audio.duration && !isNaN(audio.duration)) {
-        setDuration(audio.duration)
-      }
-    }
-    const handleEnded = () => setIsPlaying(false)
-
-    audio.addEventListener('timeupdate', updateTime)
-    audio.addEventListener('loadedmetadata', updateDuration)
-    audio.addEventListener('ended', handleEnded)
-
-    return () => {
-      audio.removeEventListener('timeupdate', updateTime)
-      audio.removeEventListener('loadedmetadata', updateDuration)
-      audio.removeEventListener('ended', handleEnded)
-    }
-  }, [])
-
   const togglePlay = () => {
-    if (!audioRef.current) return
-    if (isPlaying) {
-      audioRef.current.pause()
-      setIsPlaying(false)
-    } else {
-      audioRef.current.play()
-      setIsPlaying(true)
-      fetch('/api/telemetry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventType: 'song_play',
-          targetType: 'product',
-          targetId: product.id,
-          metadata: { slug: product.slug, name: product.name, source: 'shop_preview' },
-        }),
-      }).catch(() => {})
-    }
+    const targetTrack =
+      isThisProductActive && activeTrack
+        ? activeTrack
+        : currentProductTrack
+    if (!targetTrack) return
+    selectAndPlayTrack(targetTrack, 'master', productTracks)
   }
 
   const handleScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = Number(e.target.value)
-    setCurrentTime(time)
-    if (audioRef.current) {
-      audioRef.current.currentTime = time
+    if (isThisProductActive) {
+      seek(time)
     }
   }
 
-  const toggleMute = () => {
-    if (!audioRef.current) return
-    audioRef.current.muted = !isMuted
-    setIsMuted(!isMuted)
-  }
-
   const formatTime = (secs: number) => {
+    if (!Number.isFinite(secs) || secs < 0) return '0:00'
     const m = Math.floor(secs / 60)
     const s = Math.floor(secs % 60)
     return `${m}:${s < 10 ? '0' : ''}${s}`
@@ -194,10 +176,6 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      {/* Hidden HTML5 Audio Element */}
-      {isMusic && (
-        <audio ref={audioRef} src={previewUrl} preload="metadata" />
-      )}
 
       {/* LEFT COLUMN: Amazon-style Thumbnail Viewer with Smooth Zoom */}
       <div className="lg:col-span-6 space-y-4">
@@ -271,42 +249,77 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
           {product.description}
         </p>
 
-        {/* SoundCloud Style Audio Preview Player */}
+        {/* SoundCloud Style Audio Preview Player with Picture-in-Picture & Persistent Mini-Tab */}
         {isMusic && previewUrl && (
           <div className="bg-gradient-to-r from-red-950/60 via-neutral-950 to-neutral-900 border border-red-900/50 rounded-2xl p-4 sm:p-5 space-y-3 shadow-xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-3 min-w-0">
                 <button
                   type="button"
                   onClick={togglePlay}
                   aria-label={isPlaying ? 'Pausar previsualización' : 'Reproducir previsualización'}
-                  className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 active:scale-95 text-white flex items-center justify-center shadow-lg shadow-red-900/50 transition-all cursor-pointer"
+                  className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 active:scale-95 text-white flex items-center justify-center shadow-lg shadow-red-900/50 transition-all cursor-pointer shrink-0"
                 >
                   {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
                 </button>
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-1.5 text-xs text-red-400 font-semibold uppercase tracking-wider">
-                    <Music className="w-3.5 h-3.5" />
-                    <span>
+                    <Music className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">
                       {albumTracks.length > 1
                         ? `Reproductor Álbum (${albumTracks.length} pistas)`
-                        : 'Reproductor Preview'}
+                        : 'Reproductor Web & PiP'}
                     </span>
                   </div>
-                  <p className="text-sm font-semibold text-white truncate max-w-[200px] sm:max-w-[280px]">
+                  <p className="text-sm font-semibold text-white truncate max-w-[200px] sm:max-w-[260px]">
                     {selectedTrackTitle || product.name}
                   </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={toggleMute}
-                className="p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800/60 transition-colors"
-                title={isMuted ? 'Desactivar silencio' : 'Silenciar'}
-              >
-                {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isThisProductActive && currentProductTrack) {
+                      selectAndPlayTrack(currentProductTrack, 'master', productTracks)
+                    }
+                    togglePiP()
+                  }}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
+                    isPiPActive
+                      ? 'bg-red-700 text-white border-red-400 shadow-md'
+                      : 'bg-red-950/70 text-red-300 border-red-800/70 hover:bg-red-900/60 hover:text-white'
+                  }`}
+                  title="Modo Picture-in-Picture (sigue reproduciendo en ventana flotante aunque cambies de ventana o pestaña)"
+                >
+                  <PictureInPicture2 className="w-3.5 h-3.5" />
+                  <span>{isPiPActive ? 'PiP Activo' : 'Modo PiP'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isThisProductActive && currentProductTrack) {
+                      selectAndPlayTrack(currentProductTrack, 'master', productTracks)
+                    }
+                    setIsMinimized(!isMinimized)
+                  }}
+                  className="p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800/60 transition-colors cursor-pointer"
+                  title="Minimizar reproductor en pestaña flotante"
+                >
+                  <Minimize2 className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={toggleMute}
+                  className="p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800/60 transition-colors cursor-pointer"
+                  title={isMuted ? 'Desactivar silencio' : 'Silenciar'}
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             {/* Audio Timeline Scrubber & Equalizer Bars Effect */}
@@ -315,7 +328,8 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
                 <input
                   type="range"
                   min={0}
-                  max={duration || 100}
+                  max={duration || 30}
+                  step={0.1}
                   value={currentTime}
                   onChange={handleScrub}
                   className="w-full h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-red-500 focus:outline-none"
@@ -344,23 +358,17 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
                 </span>
                 <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
                   {albumTracks.map((track, idx) => {
-                    const trackUrl = track.publicUrl || defaultPreviewUrl
-                    const isTrackActive = previewUrl === trackUrl
+                    const trackObj = productTracks[idx] || productTracks[0]
+                    const isTrackActive = activeTrack?.id === trackObj?.id
                     return (
                       <button
                         key={track.name}
                         type="button"
                         onClick={() => {
-                          setSelectedPreviewUrl(trackUrl)
-                          setSelectedTrackTitle(`${idx + 1}. ${track.title || track.name}`)
-                          setCurrentTime(0)
-                          setIsPlaying(true)
-                          setTimeout(() => {
-                            audioRef.current
-                              ?.play()
-                              .then(() => setIsPlaying(true))
-                              .catch(() => setIsPlaying(false))
-                          }, 60)
+                          setSelectedTrackIdx(idx)
+                          if (trackObj) {
+                            selectAndPlayTrack(trackObj, 'master', productTracks)
+                          }
                         }}
                         className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl text-xs font-mono transition-all cursor-pointer ${
                           isTrackActive
