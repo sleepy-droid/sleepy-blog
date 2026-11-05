@@ -99,17 +99,17 @@ export async function GET(request: NextRequest) {
   if (!targetUrl) {
     switch (asset) {
       case 'mp3':
-        targetUrl = product.mp3_url || product.audio_preview_url || product.wav_url
+        targetUrl = product.mp3_url || product.audio_preview_url || product.wav_url || null
         break
       case 'acapella':
-        targetUrl = product.acapella_url
+        targetUrl = product.acapella_url || null
         break
       case 'instrumental':
-        targetUrl = product.instrumental_url
+        targetUrl = product.instrumental_url || null
         break
       case 'wav':
       default:
-        targetUrl = product.wav_url || product.mp3_url || product.audio_preview_url
+        targetUrl = product.wav_url || product.mp3_url || product.audio_preview_url || null
         break
     }
   }

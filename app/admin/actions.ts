@@ -454,7 +454,7 @@ export async function createProduct(
     is_published: true,
     is_featured: true,
     created_at: new Date().toISOString(),
-  })
+  } as Product)
 
   const thumbnail_url = hydratedDraft.thumbnail_url
   const mp3_url = hydratedDraft.mp3_url
@@ -632,7 +632,7 @@ export async function updateProduct(
     is_published: true,
     is_featured: true,
     created_at: new Date().toISOString(),
-  })
+  } as Product)
 
   const thumbnail_url = hydratedDraft.thumbnail_url
   const mp3_url = hydratedDraft.mp3_url

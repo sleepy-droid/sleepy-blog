@@ -441,7 +441,9 @@ export function hydrateProductWithFolderAssets(product: Product): Product {
   const instrumental_url = normalizeMediaUrl(product.instrumental_url) || null
 
   if (files.length > 0) {
-    const fileUrlsLower = new Set(files.map((f) => f.publicUrl.toLowerCase()))
+    const fileUrlsLower = new Set(
+      files.map((f) => (f.publicUrl || '').toLowerCase()).filter(Boolean)
+    )
     const isMissingLocalFile = (url: string | null) => {
       if (!url) return true
       if (/^(https?:|\/\/|data:)/i.test(url)) return false
@@ -463,13 +465,13 @@ export function hydrateProductWithFolderAssets(product: Product): Product {
     const mp3Files = files.filter((f) => f.extension === '.mp3')
 
     if (coverFiles.length > 0 && isMissingLocalFile(thumbnail_url)) {
-      thumbnail_url = coverFiles[0].publicUrl
+      thumbnail_url = coverFiles[0].publicUrl || null
     }
     if (wavFiles.length > 0 && isMissingLocalFile(wav_url)) {
-      wav_url = wavFiles[0].publicUrl
+      wav_url = wavFiles[0].publicUrl || null
     }
     if (mp3Files.length > 0 && isMissingLocalFile(mp3_url)) {
-      mp3_url = mp3Files[0].publicUrl
+      mp3_url = mp3Files[0].publicUrl || null
     }
     if (isMissingLocalFile(audio_preview_url)) {
       audio_preview_url =
@@ -477,7 +479,8 @@ export function hydrateProductWithFolderAssets(product: Product): Product {
         (wav_url && !isMissingLocalFile(wav_url) ? wav_url : null) ||
         mp3Files[0]?.publicUrl ||
         wavFiles[0]?.publicUrl ||
-        audio_preview_url
+        audio_preview_url ||
+        null
     }
   } else {
     if (!audio_preview_url) {
@@ -510,7 +513,9 @@ export function hydratePostWithFolderAssets(post: Post, linkedProduct?: Product 
 
   if (hydratedProduct) {
     const prodFiles = hydratedProduct.folder_stats?.files || []
-    const fileUrlsLower = new Set(prodFiles.map((f) => f.publicUrl.toLowerCase()))
+    const fileUrlsLower = new Set(
+      prodFiles.map((f) => (f.publicUrl || '').toLowerCase()).filter(Boolean)
+    )
     const isStaleSongUrl = (url: string | null) => {
       if (!url) return true
       if (
