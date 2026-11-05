@@ -81,6 +81,18 @@ export default async function SingleProductPage({ params }: ProductPageProps) {
   // 2. Fetch User session
   const currentUser = await getCurrentUser()
 
+  // Check if user has unlocked this product (Admin or in library_items)
+  let isProductUnlocked = Boolean(currentUser?.isAdmin)
+  if (currentUser && !isProductUnlocked) {
+    const { data: libEntry } = await supabase
+      .from('library_items')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .eq('product_id', product.id)
+      .maybeSingle()
+    if (libEntry) isProductUnlocked = true
+  }
+
   // 3. Fetch Comments (hydrated with author profiles) & User Vote state for this product
   const [comments, userProductVote] = await Promise.all([
     fetchCommentsWithProfiles({ supabase, targetId: product.id }),
@@ -126,7 +138,11 @@ export default async function SingleProductPage({ params }: ProductPageProps) {
 
       {/* Main Single Product Display: Interactive Client View */}
       <article className="border border-neutral-800/90 rounded-3xl p-6 md:p-10 bg-neutral-900/40 backdrop-blur-xl shadow-2xl shadow-black/80 space-y-10">
-        <SingleProductClient product={product} initialUserVote={userProductVote} />
+        <SingleProductClient
+          product={product}
+          initialUserVote={userProductVote}
+          isUnlocked={isProductUnlocked}
+        />
       </article>
 
       {/* Recommended Section: "Más como esto" / "You'd also like" */}

@@ -54,7 +54,12 @@ function DocumentPiPPortalContent() {
 
   if (!activeTrack) return null
 
-  const maxDur = duration || 30
+  const maxDur = duration > 0 ? duration : activeTrack.isUnlocked ? 180 : 30
+  const displayMaxDur = activeTrack.isUnlocked
+    ? duration > 0
+      ? formatTime(duration)
+      : '--:--'
+    : formatTime(duration || 30)
 
   const changeStem = (mode: StemMode) => {
     selectAndPlayTrack(activeTrack, mode)
@@ -258,7 +263,7 @@ function DocumentPiPPortalContent() {
           }}
         >
           <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(maxDur)}</span>
+          <span>{displayMaxDur}</span>
         </div>
       </div>
 
@@ -381,7 +386,12 @@ export function GlobalMiniPlayer() {
   if (!activeTrack) return null
 
   const isOnDedicatedPlayerPage = pathname === '/player'
-  const maxDur = duration || 30
+  const maxDur = duration > 0 ? duration : activeTrack.isUnlocked ? 180 : 30
+  const displayMaxDur = activeTrack.isUnlocked
+    ? duration > 0
+      ? formatTime(duration)
+      : '--:--'
+    : formatTime(duration || 30)
   const progressPct = Math.min(100, Math.max(0, (currentTime / maxDur) * 100))
 
   return (
@@ -556,7 +566,7 @@ export function GlobalMiniPlayer() {
                   className="flex-1 h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-red-600"
                 />
                 <span className="w-9 text-neutral-400">
-                  {formatTime(maxDur)}
+                  {displayMaxDur}
                 </span>
               </div>
 

@@ -10,6 +10,7 @@ import React, {
 } from 'react'
 import type { Product } from '@/lib/types'
 import { normalizeMediaUrl } from '@/lib/utils'
+import { createClient } from '@/utils/supabase/client'
 
 export type PlayerTrack = {
   id: string
@@ -123,19 +124,11 @@ export function productToPlayerTracks(
         description:
           prod.description || `Pista #${idx + 1} del álbum ${prod.name}`,
         thumbnailUrl,
-        wavUrl: isUnlocked
-          ? file.extension === '.wav'
-            ? fileUrl
-            : normalizeMediaUrl(prod.wav_url) || null
-          : null,
-        mp3Url: isUnlocked ? matchingMp3 || fileUrl : null,
+        wavUrl: file.extension === '.wav' ? fileUrl : normalizeMediaUrl(prod.wav_url) || null,
+        mp3Url: matchingMp3 || fileUrl,
         previewUrl: matchingMp3 || fileUrl,
-        acapellaUrl: isUnlocked
-          ? normalizeMediaUrl(prod.acapella_url) || null
-          : null,
-        instrumentalUrl: isUnlocked
-          ? normalizeMediaUrl(prod.instrumental_url) || null
-          : null,
+        acapellaUrl: normalizeMediaUrl(prod.acapella_url) || null,
+        instrumentalUrl: normalizeMediaUrl(prod.instrumental_url) || null,
         videoUrl: prod.video_url || null,
         isUnlocked,
         priceCents: prod.price_cents || 0,
@@ -162,15 +155,11 @@ export function productToPlayerTracks(
       artist: 'sleepyred999',
       description: prod.description || 'Máster Digital Oficial',
       thumbnailUrl,
-      wavUrl: isUnlocked ? singleWav : null,
-      mp3Url: isUnlocked ? singleMp3 || singlePreview : null,
+      wavUrl: singleWav,
+      mp3Url: singleMp3 || singlePreview,
       previewUrl: singlePreview,
-      acapellaUrl: isUnlocked
-        ? normalizeMediaUrl(prod.acapella_url) || null
-        : null,
-      instrumentalUrl: isUnlocked
-        ? normalizeMediaUrl(prod.instrumental_url) || null
-        : null,
+      acapellaUrl: normalizeMediaUrl(prod.acapella_url) || null,
+      instrumentalUrl: normalizeMediaUrl(prod.instrumental_url) || null,
       videoUrl: prod.video_url || null,
       isUnlocked,
       priceCents: prod.price_cents || 0,
@@ -239,29 +228,120 @@ export function GlobalPlayerProvider({
   const pipVideoRef = useRef<HTMLVideoElement | null>(null)
   const coverImageRef = useRef<HTMLImageElement | null>(null)
   const loadedSrcRef = useRef<string>('')
+  const playRequestIdRef = useRef<number>(0)
 
   const activeTrackRef = useRef<PlayerTrack | null>(null)
   const tracksRef = useRef<PlayerTrack[]>([])
   const stemModeRef = useRef<StemMode>('master')
   const isPlayingRef = useRef<boolean>(false)
+  const isAdminUserRef = useRef<boolean>(false)
+  const unlockedKeysRef = useRef<Set<string>>(new Set())
 
+  const enrichTrackUnlockStatus = useCallback((t: PlayerTrack): PlayerTrack => {
+    const pid = t.productId || t.id
+    const isUnlocked =
+      t.isUnlocked ||
+      isAdminUserRef.current ||
+      unlockedKeysRef.current.has(t.id) ||
+      unlockedKeysRef.current.has(pid) ||
+      (Boolean(t.slug) && unlockedKeysRef.current.has(t.slug))
+
+    if (isUnlocked) {
+      unlockedKeysRef.current.add(t.id)
+      if (t.productId) unlockedKeysRef.current.add(t.productId)
+      if (t.slug) unlockedKeysRef.current.add(t.slug)
+    }
+
+    const fallbackAudio = t.wavUrl || t.mp3Url || t.previewUrl || null
+    return {
+      ...t,
+      isUnlocked,
+      wavUrl: isUnlocked ? t.wavUrl || fallbackAudio : t.wavUrl,
+      mp3Url: isUnlocked ? t.mp3Url || fallbackAudio : t.mp3Url,
+    }
+  }, [])
+
+  // Sync user's unlocked library items & admin status so playing from /shop or /shop/[id] always knows if unlocked
   useEffect(() => {
-    activeTrackRef.current = activeTrack
-  }, [activeTrack])
+    const supabase = createClient()
+    let mounted = true
 
-  useEffect(() => {
-    tracksRef.current = tracks
-  }, [tracks])
+    const syncUnlockedEntitlements = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!mounted || !user) return
 
-  useEffect(() => {
-    stemModeRef.current = stemMode
-  }, [stemMode])
+        const isOwnerEmail =
+          user.email?.toLowerCase() === 'angel.ivan34@gmail.com'
+        const isMetaAdmin =
+          user.user_metadata?.role === 'admin' ||
+          user.app_metadata?.role === 'admin'
 
-  useEffect(() => {
-    isPlayingRef.current = isPlaying
-  }, [isPlaying])
+        let isAdmin = isOwnerEmail || isMetaAdmin
+        if (!isAdmin) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle()
+          if (prof?.role === 'admin') isAdmin = true
+        }
 
-  const currentAudioUrl = resolveTrackAudioSource(activeTrack, stemMode)
+        if (isAdmin) {
+          isAdminUserRef.current = true
+        }
+
+        const { data: libRows } = await supabase
+          .from('library_items')
+          .select('product_id')
+          .eq('user_id', user.id)
+
+        if (libRows) {
+          for (const row of libRows) {
+            if (row.product_id) unlockedKeysRef.current.add(row.product_id)
+          }
+        }
+
+        if (!mounted) return
+
+        // Upgrade any already-loaded tracks and activeTrack in state
+        setTracks((prev) => prev.map((tr) => enrichTrackUnlockStatus(tr)))
+        setActiveTrack((curr) => {
+          if (!curr) return null
+          const upgraded = enrichTrackUnlockStatus(curr)
+          activeTrackRef.current = upgraded
+          // If audio is already loaded and was previously capped at 30s, restore full duration
+          const audio = audioRef.current
+          if (
+            upgraded.isUnlocked &&
+            audio &&
+            Number.isFinite(audio.duration) &&
+            audio.duration > 0
+          ) {
+            setDuration(audio.duration)
+          }
+          return upgraded
+        })
+      } catch {
+        // Ignore auth check errors for guests
+      }
+    }
+
+    syncUnlockedEntitlements()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      syncUnlockedEntitlements()
+    })
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
+  }, [enrichTrackUnlockStatus])
 
   // Load cover artwork image for Canvas fallback PiP
   useEffect(() => {
@@ -291,7 +371,6 @@ export function GlobalPlayerProvider({
     const h = canvas.height
     const track = activeTrackRef.current
 
-    // Studio background gradient
     const grad = ctx.createLinearGradient(0, 0, w, h)
     grad.addColorStop(0, '#0a0a0a')
     grad.addColorStop(0.6, '#170909')
@@ -299,7 +378,6 @@ export function GlobalPlayerProvider({
     ctx.fillStyle = grad
     ctx.fillRect(0, 0, w, h)
 
-    // Cover image or vinyl fallback
     const img = coverImageRef.current
     const artSize = 230
     const artX = (w - artSize) / 2
@@ -326,7 +404,6 @@ export function GlobalPlayerProvider({
     }
     ctx.restore()
 
-    // Border around cover art
     ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)'
     ctx.lineWidth = 2
     ctx.beginPath()
@@ -335,21 +412,18 @@ export function GlobalPlayerProvider({
 
     if (!track) return
 
-    // Stem badge
     ctx.fillStyle = '#ef4444'
     ctx.font = 'bold 14px monospace'
     ctx.textAlign = 'center'
     const badgeText = `SLEEPYRED999 • ${stemModeRef.current.toUpperCase()}`
     ctx.fillText(badgeText, w / 2, 294)
 
-    // Track title
     ctx.fillStyle = '#ffffff'
     ctx.font = 'bold 22px sans-serif'
     const title =
       track.title.length > 30 ? track.title.slice(0, 29) + '…' : track.title
     ctx.fillText(title, w / 2, 326)
 
-    // Progress bar
     const barX = 48
     const barY = 352
     const barW = w - 96
@@ -359,14 +433,13 @@ export function GlobalPlayerProvider({
     ctx.roundRect(barX, barY, barW, barH, 4)
     ctx.fill()
 
-    const dur = duration || 30
+    const dur = duration > 0 ? duration : track.isUnlocked ? 180 : 30
     const pct = Math.min(1, Math.max(0, currentTime / dur))
     ctx.fillStyle = '#dc2626'
     ctx.beginPath()
     ctx.roundRect(barX, barY, Math.max(8, barW * pct), barH, 4)
     ctx.fill()
 
-    // Timestamps
     const fmt = (s: number) => {
       if (!Number.isFinite(s) || s < 0) return '0:00'
       const m = Math.floor(s / 60)
@@ -378,151 +451,225 @@ export function GlobalPlayerProvider({
     ctx.textAlign = 'left'
     ctx.fillText(fmt(currentTime), barX, 380)
     ctx.textAlign = 'right'
-    ctx.fillText(fmt(dur), barX + barW, 380)
+    ctx.fillText(duration > 0 ? fmt(duration) : '--:--', barX + barW, 380)
   }, [currentTime, duration])
 
   useEffect(() => {
     drawCanvasFrame()
   }, [drawCanvasFrame, activeTrack, stemMode, isPlaying])
 
+  /**
+   * Core imperative audio loader & player.
+   * Prevents double-loads and handles instant playback even when switching between large WAV files.
+   */
+  const playAudioElement = useCallback((url: string, resetTime = false) => {
+    const audio = audioRef.current
+    if (!audio || !url) return
+
+    const reqId = ++playRequestIdRef.current
+    const needsSrcUpdate = loadedSrcRef.current !== url
+
+    // Optimistically update UI state immediately so button never requires a double press
+    isPlayingRef.current = true
+    setIsPlaying(true)
+
+    const startPlayback = () => {
+      if (playRequestIdRef.current !== reqId) return
+      const playPromise = audio.play()
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            if (playRequestIdRef.current !== reqId) return
+            isPlayingRef.current = true
+            setIsPlaying(true)
+            if (pipVideoRef.current && pipVideoRef.current.srcObject) {
+              pipVideoRef.current.play().catch(() => {})
+            }
+          })
+          .catch((err) => {
+            if (playRequestIdRef.current !== reqId) return
+            if (err?.name === 'AbortError') {
+              // Wait for canplay if stream is still opening
+              const onCanPlayRetry = () => {
+                audio.removeEventListener('canplay', onCanPlayRetry)
+                if (playRequestIdRef.current === reqId && isPlayingRef.current) {
+                  audio.play().catch(() => {
+                    isPlayingRef.current = false
+                    setIsPlaying(false)
+                  })
+                }
+              }
+              audio.addEventListener('canplay', onCanPlayRetry, { once: true })
+              return
+            }
+            isPlayingRef.current = false
+            setIsPlaying(false)
+          })
+      }
+    }
+
+    if (needsSrcUpdate) {
+      loadedSrcRef.current = url
+      setCurrentTime(0)
+      setDuration(0)
+      audio.src = url
+      audio.load()
+      startPlayback()
+    } else {
+      if (resetTime) {
+        audio.currentTime = 0
+        setCurrentTime(0)
+      }
+      startPlayback()
+    }
+  }, [])
+
+  const preloadTrackSilently = useCallback((track: PlayerTrack, mode: StemMode) => {
+    const audio = audioRef.current
+    if (!audio) return
+    const url = resolveTrackAudioSource(track, mode)
+    if (!url || loadedSrcRef.current === url) return
+    loadedSrcRef.current = url
+    audio.src = url
+    audio.load()
+  }, [])
+
   const setQueue = useCallback(
     (newTracks: PlayerTrack[], initialTrackId?: string | null) => {
-      setTracks((prev) => {
-        // Merge unlocked statuses so an already unlocked track stays unlocked
-        const unlockedIds = new Set(
-          prev.filter((t) => t.isUnlocked).map((t) => t.id)
-        )
-        const merged = newTracks.map((t) =>
-          unlockedIds.has(t.id) ? { ...t, isUnlocked: true } : t
-        )
-        return merged
-      })
+      const enrichedList = newTracks.map((t) => enrichTrackUnlockStatus(t))
+      tracksRef.current = enrichedList
+      setTracks(enrichedList)
 
       if (initialTrackId) {
-        const requested = newTracks.find(
+        const requested = enrichedList.find(
           (t) =>
             t.id === initialTrackId ||
             t.productId === initialTrackId ||
             t.slug === initialTrackId
         )
         if (requested && activeTrackRef.current?.id !== requested.id) {
+          activeTrackRef.current = requested
+          stemModeRef.current = 'master'
           setActiveTrack(requested)
           setStemMode('master')
-          setCurrentTime(0)
+          if (!isPlayingRef.current) {
+            setCurrentTime(0)
+            setDuration(0)
+            preloadTrackSilently(requested, 'master')
+          }
+          return
         }
-      } else if (!activeTrackRef.current && newTracks.length > 0) {
-        const def = newTracks.find((t) => t.isUnlocked) || newTracks[0]
+      }
+
+      if (!activeTrackRef.current && enrichedList.length > 0) {
+        const def = enrichedList.find((t) => t.isUnlocked) || enrichedList[0]
+        activeTrackRef.current = def
+        stemModeRef.current = 'master'
         setActiveTrack(def)
+        setStemMode('master')
+        preloadTrackSilently(def, 'master')
       } else if (activeTrackRef.current) {
-        // Refresh activeTrack metadata if updated in newTracks
-        const updated = newTracks.find(
-          (t) => t.id === activeTrackRef.current?.id
+        const updated = enrichedList.find(
+          (t) =>
+            t.id === activeTrackRef.current?.id ||
+            (t.productId && t.productId === activeTrackRef.current?.productId)
         )
         if (updated) {
-          setActiveTrack((curr) =>
-            curr
-              ? {
-                  ...updated,
-                  isUnlocked: curr.isUnlocked || updated.isUnlocked,
-                }
-              : updated
-          )
+          const merged = enrichTrackUnlockStatus({
+            ...updated,
+            isUnlocked:
+              activeTrackRef.current.isUnlocked || updated.isUnlocked,
+          })
+          activeTrackRef.current = merged
+          setActiveTrack(merged)
         }
       }
     },
-    []
+    [enrichTrackUnlockStatus, preloadTrackSilently]
   )
-
-  const playAudioElement = useCallback((url: string, resetTime = false) => {
-    const audio = audioRef.current
-    if (!audio || !url) return
-
-    const needsSrcUpdate = loadedSrcRef.current !== url
-    if (needsSrcUpdate) {
-      loadedSrcRef.current = url
-      audio.src = url
-      audio.load()
-    }
-    if (resetTime) {
-      audio.currentTime = 0
-      setCurrentTime(0)
-    }
-
-    const playPromise = audio.play()
-    if (playPromise !== undefined) {
-      playPromise
-        .then(() => {
-          setIsPlaying(true)
-          // Keep hidden PiP video playing if Video PiP is used
-          if (pipVideoRef.current && pipVideoRef.current.srcObject) {
-            pipVideoRef.current.play().catch(() => {})
-          }
-        })
-        .catch((err) => {
-          if (err?.name === 'AbortError') {
-            // Interrupted by rapid track switch; onCanPlay will handle if needed
-            return
-          }
-          setIsPlaying(false)
-        })
-    }
-  }, [])
 
   const selectAndPlayTrack = useCallback(
     (
-      track: PlayerTrack,
+      rawTrack: PlayerTrack,
       newStem: StemMode = 'master',
       queueIfMissing?: PlayerTrack[]
     ) => {
+      const track = enrichTrackUnlockStatus(rawTrack)
+
       if (queueIfMissing && queueIfMissing.length > 0) {
-        setTracks((prev) => {
-          const map = new Map<string, PlayerTrack>()
-          for (const item of prev) map.set(item.id, item)
-          for (const item of queueIfMissing) {
-            const existing = map.get(item.id)
-            map.set(
-              item.id,
-              existing
-                ? { ...item, isUnlocked: existing.isUnlocked || item.isUnlocked }
-                : item
-            )
-          }
-          return Array.from(map.values())
-        })
+        const map = new Map<string, PlayerTrack>()
+        for (const item of tracksRef.current) {
+          map.set(item.id, enrichTrackUnlockStatus(item))
+        }
+        for (const item of queueIfMissing) {
+          const enrichedItem = enrichTrackUnlockStatus(item)
+          const existing = map.get(enrichedItem.id)
+          map.set(
+            enrichedItem.id,
+            existing
+              ? enrichTrackUnlockStatus({
+                  ...enrichedItem,
+                  isUnlocked: existing.isUnlocked || enrichedItem.isUnlocked,
+                })
+              : enrichedItem
+          )
+        }
+        const mergedQueue = Array.from(map.values())
+        tracksRef.current = mergedQueue
+        setTracks(mergedQueue)
       } else {
-        setTracks((prev) => {
-          const exists = prev.some((t) => t.id === track.id)
-          if (exists) {
-            return prev.map((t) =>
+        const exists = tracksRef.current.some((t) => t.id === track.id)
+        const nextQueue = exists
+          ? tracksRef.current.map((t) =>
               t.id === track.id
-                ? { ...track, isUnlocked: t.isUnlocked || track.isUnlocked }
+                ? enrichTrackUnlockStatus({
+                    ...track,
+                    isUnlocked: t.isUnlocked || track.isUnlocked,
+                  })
                 : t
             )
-          }
-          return [track, ...prev]
-        })
+          : [track, ...tracksRef.current]
+        tracksRef.current = nextQueue
+        setTracks(nextQueue)
       }
 
+      // Check if existing queue has unlocked version of this track
+      const queueMatch = tracksRef.current.find((t) => t.id === track.id)
+      const finalTrack = queueMatch
+        ? enrichTrackUnlockStatus({
+            ...track,
+            isUnlocked: track.isUnlocked || queueMatch.isUnlocked,
+          })
+        : track
+
       const isSameTrackAndStem =
-        activeTrackRef.current?.id === track.id &&
+        activeTrackRef.current?.id === finalTrack.id &&
         stemModeRef.current === newStem
 
       if (isSameTrackAndStem) {
         const audio = audioRef.current
         if (!audio) return
-        if (isPlayingRef.current) {
+        if (isPlayingRef.current && !audio.paused) {
+          playRequestIdRef.current += 1
           audio.pause()
+          isPlayingRef.current = false
           setIsPlaying(false)
         } else {
-          const url = resolveTrackAudioSource(track, newStem)
+          activeTrackRef.current = finalTrack
+          setActiveTrack(finalTrack)
+          const url = resolveTrackAudioSource(finalTrack, newStem)
           playAudioElement(url, false)
         }
         return
       }
 
-      setActiveTrack(track)
+      // Synchronously update refs BEFORE starting audio so metadata events see the exact track
+      activeTrackRef.current = finalTrack
+      stemModeRef.current = newStem
+      setActiveTrack(finalTrack)
       setStemMode(newStem)
-      const nextUrl = resolveTrackAudioSource(track, newStem)
+
+      const nextUrl = resolveTrackAudioSource(finalTrack, newStem)
       playAudioElement(nextUrl, true)
 
       fetch('/api/telemetry', {
@@ -531,17 +678,17 @@ export function GlobalPlayerProvider({
         body: JSON.stringify({
           eventType: 'song_play',
           targetType: 'product',
-          targetId: track.productId || track.id,
+          targetId: finalTrack.productId || finalTrack.id,
           metadata: {
-            slug: track.slug,
-            name: track.title,
+            slug: finalTrack.slug,
+            name: finalTrack.title,
             stem: newStem,
             source: 'global_web_player',
           },
         }),
       }).catch(() => {})
     },
-    [playAudioElement]
+    [enrichTrackUnlockStatus, playAudioElement]
   )
 
   const togglePlay = useCallback(() => {
@@ -550,8 +697,10 @@ export function GlobalPlayerProvider({
     const audio = audioRef.current
     if (!audio) return
 
-    if (isPlayingRef.current) {
+    if (isPlayingRef.current && !audio.paused) {
+      playRequestIdRef.current += 1
       audio.pause()
+      isPlayingRef.current = false
       setIsPlaying(false)
     } else {
       const url = resolveTrackAudioSource(track, stemModeRef.current)
@@ -560,7 +709,9 @@ export function GlobalPlayerProvider({
   }, [playAudioElement])
 
   const pause = useCallback(() => {
+    playRequestIdRef.current += 1
     audioRef.current?.pause()
+    isPlayingRef.current = false
     setIsPlaying(false)
   }, [])
 
@@ -605,13 +756,16 @@ export function GlobalPlayerProvider({
   }, [])
 
   const closePlayer = useCallback(() => {
+    playRequestIdRef.current += 1
     audioRef.current?.pause()
+    isPlayingRef.current = false
     setIsPlaying(false)
     if (pipWindow) {
       try {
         pipWindow.close()
       } catch {}
     }
+    activeTrackRef.current = null
     setActiveTrack(null)
   }, [pipWindow])
 
@@ -620,33 +774,50 @@ export function GlobalPlayerProvider({
     const audio = audioRef.current
     if (!audio) return
 
+    const syncDurationFromAudio = () => {
+      const track = activeTrackRef.current
+      const rawDur = audio.duration
+      if (Number.isFinite(rawDur) && rawDur > 0) {
+        setDuration(
+          track && !track.isUnlocked ? Math.min(rawDur, 30) : rawDur
+        )
+      } else if (track && !track.isUnlocked) {
+        setDuration(30)
+      }
+    }
+
     const onTimeUpdate = () => {
       const track = activeTrackRef.current
-      // If track is not unlocked, limit preview to 30 seconds
       if (track && !track.isUnlocked && audio.currentTime >= 30) {
         audio.pause()
         audio.currentTime = 0
+        isPlayingRef.current = false
         setIsPlaying(false)
         setCurrentTime(0)
         return
       }
       setCurrentTime(audio.currentTime)
-    }
-
-    const onLoadedMetadata = () => {
-      const track = activeTrackRef.current
-      const rawDur = audio.duration || 0
-      if (Number.isFinite(rawDur) && rawDur > 0) {
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
         setDuration(
-          track && !track.isUnlocked ? Math.min(rawDur, 30) : rawDur
+          track && !track.isUnlocked
+            ? Math.min(audio.duration, 30)
+            : audio.duration
         )
-      } else {
-        setDuration(30)
       }
     }
 
-    const onPlay = () => setIsPlaying(true)
-    const onPause = () => setIsPlaying(false)
+    const onPlay = () => {
+      isPlayingRef.current = true
+      setIsPlaying(true)
+    }
+
+    const onPause = () => {
+      // Do not flip isPlaying to false if pause was just triggered by src replacement during a track switch
+      if (audio.ended) return
+      isPlayingRef.current = false
+      setIsPlaying(false)
+    }
+
     const onEnded = () => {
       const list = tracksRef.current
       const curr = activeTrackRef.current
@@ -657,21 +828,24 @@ export function GlobalPlayerProvider({
           return
         }
       }
+      isPlayingRef.current = false
       setIsPlaying(false)
       setCurrentTime(0)
     }
 
     audio.addEventListener('timeupdate', onTimeUpdate)
-    audio.addEventListener('loadedmetadata', onLoadedMetadata)
-    audio.addEventListener('durationchange', onLoadedMetadata)
+    audio.addEventListener('loadedmetadata', syncDurationFromAudio)
+    audio.addEventListener('durationchange', syncDurationFromAudio)
+    audio.addEventListener('canplay', syncDurationFromAudio)
     audio.addEventListener('play', onPlay)
     audio.addEventListener('pause', onPause)
     audio.addEventListener('ended', onEnded)
 
     return () => {
       audio.removeEventListener('timeupdate', onTimeUpdate)
-      audio.removeEventListener('loadedmetadata', onLoadedMetadata)
-      audio.removeEventListener('durationchange', onLoadedMetadata)
+      audio.removeEventListener('loadedmetadata', syncDurationFromAudio)
+      audio.removeEventListener('durationchange', syncDurationFromAudio)
+      audio.removeEventListener('canplay', syncDurationFromAudio)
       audio.removeEventListener('play', onPlay)
       audio.removeEventListener('pause', onPause)
       audio.removeEventListener('ended', onEnded)
@@ -719,7 +893,6 @@ export function GlobalPlayerProvider({
   const togglePiP = useCallback(async () => {
     if (typeof window === 'undefined') return
 
-    // 1. Close if already open in Document PiP
     if (pipWindow) {
       try {
         pipWindow.close()
@@ -730,7 +903,6 @@ export function GlobalPlayerProvider({
       return
     }
 
-    // 2. Close if already open in Video PiP
     if (document.pictureInPictureElement) {
       try {
         await document.exitPictureInPicture()
@@ -739,7 +911,6 @@ export function GlobalPlayerProvider({
       return
     }
 
-    // 3. Try Document Picture-in-Picture API first (Chrome, Edge, Brave, Opera)
     const docPiP = (
       window as Window & {
         documentPictureInPicture?: {
@@ -762,7 +933,6 @@ export function GlobalPlayerProvider({
           ? `${activeTrackRef.current.title} — sleepyred999`
           : 'sleepyred999 Player'
 
-        // Inject base styles so the PiP window looks crisp immediately
         const style = win.document.createElement('style')
         style.textContent = `
           * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -809,17 +979,16 @@ export function GlobalPlayerProvider({
       }
     }
 
-    // 4. Fallback: HTML5 Video + Canvas Stream Picture-in-Picture (Safari, Mobile, etc.)
     const video = pipVideoRef.current
     const canvas = canvasRef.current
-    if (video && canvas && ' captureStream' in canvas === false) {
-      // Standard check for captureStream
-    }
     if (
       video &&
       canvas &&
-      typeof (canvas as HTMLCanvasElement & { captureStream?: (fps?: number) => MediaStream }).captureStream ===
-        'function'
+      typeof (
+        canvas as HTMLCanvasElement & {
+          captureStream?: (fps?: number) => MediaStream
+        }
+      ).captureStream === 'function'
     ) {
       try {
         drawCanvasFrame()
@@ -848,11 +1017,9 @@ export function GlobalPlayerProvider({
       }
     }
 
-    // 5. Fallback: Toggle in-app minimized floating corner tab
     setIsMinimized(true)
   }, [pipWindow, drawCanvasFrame])
 
-  // Listen for native Video PiP exit
   useEffect(() => {
     const video = pipVideoRef.current
     if (!video) return
@@ -863,7 +1030,6 @@ export function GlobalPlayerProvider({
     }
   }, [])
 
-  // Register automatic PiP handler when supported by browser MediaSession
   useEffect(() => {
     if (typeof window === 'undefined' || !('mediaSession' in navigator)) return
     try {
@@ -906,13 +1072,8 @@ export function GlobalPlayerProvider({
         closePlayer,
       }}
     >
-      {/* Persistent Singleton Audio Element */}
-      <audio
-        ref={audioRef}
-        src={currentAudioUrl || undefined}
-        preload="metadata"
-        className="hidden"
-      />
+      {/* Persistent Singleton Audio Element (src controlled imperatively to prevent React re-render reload races) */}
+      <audio ref={audioRef} preload="auto" className="hidden" />
       {/* Hidden Canvas & Video for Native Video PiP Fallback */}
       <canvas
         ref={canvasRef}

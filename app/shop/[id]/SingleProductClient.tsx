@@ -15,9 +15,14 @@ import { useGlobalPlayer, productToPlayerTracks } from '@/lib/player-context'
 type SingleProductClientProps = {
   product: Product
   initialUserVote?: 1 | -1 | 0
+  isUnlocked?: boolean
 }
 
-export function SingleProductClient({ product, initialUserVote = 0 }: SingleProductClientProps) {
+export function SingleProductClient({
+  product,
+  initialUserVote = 0,
+  isUnlocked = false,
+}: SingleProductClientProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { addToCart } = useCart()
@@ -73,7 +78,10 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
   // Lightbox modal state for Amazon-style image viewing
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
 
-  const productTracks = useMemo(() => productToPlayerTracks(product, false), [product])
+  const productTracks = useMemo(
+    () => productToPlayerTracks(product, isUnlocked),
+    [product, isUnlocked]
+  )
   const [selectedTrackIdx, setSelectedTrackIdx] = useState<number>(0)
 
   const wavAlbumTracks = (product.folder_stats?.files || []).filter(
@@ -103,11 +111,14 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
 
   const currentProductTrack = productTracks[selectedTrackIdx] || productTracks[0] || null
   const isThisProductActive = productTracks.some((t) => t.id === activeTrack?.id)
+  const effectiveUnlocked = Boolean(
+    isUnlocked || (isThisProductActive && activeTrack?.isUnlocked)
+  )
   const isPlaying = isThisProductActive && globalIsPlaying
   const currentTime = isThisProductActive ? globalCurrentTime : 0
   const duration = isThisProductActive
-    ? globalDuration || 30
-    : product.duration_seconds || 30
+    ? globalDuration
+    : product.duration_seconds || (effectiveUnlocked ? 0 : 30)
 
   const selectedTrackTitle =
     isThisProductActive && activeTrack
@@ -291,7 +302,7 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
                 <input
                   type="range"
                   min={0}
-                  max={duration || 30}
+                  max={duration > 0 ? duration : effectiveUnlocked ? 180 : 30}
                   step={0.1}
                   value={currentTime}
                   onChange={handleScrub}
@@ -309,7 +320,13 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
                     />
                   ))}
                 </div>
-                <span>{formatTime(duration)}</span>
+                <span>
+                  {effectiveUnlocked
+                    ? duration > 0
+                      ? formatTime(duration)
+                      : '--:--'
+                    : formatTime(duration || 30)}
+                </span>
               </div>
             </div>
 

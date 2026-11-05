@@ -277,7 +277,7 @@ export function WebPlayerClient({
             <input
               type="range"
               min={0}
-              max={duration || 30}
+              max={duration > 0 ? duration : currentTrack.isUnlocked ? 180 : 30}
               step={0.1}
               value={currentTime}
               onChange={(e) => seek(Number(e.target.value))}
@@ -287,7 +287,9 @@ export function WebPlayerClient({
               <span>{formatTime(currentTime)}</span>
               <span>
                 {currentTrack.isUnlocked
-                  ? formatTime(duration)
+                  ? duration > 0
+                    ? formatTime(duration)
+                    : '--:--'
                   : `${formatTime(duration || 30)} (Snippet)`}
               </span>
             </div>
