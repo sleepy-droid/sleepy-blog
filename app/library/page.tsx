@@ -13,8 +13,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { getProductFolderStats } from '@/lib/product-files'
 import { LibraryClient, type PhysicalOrderType } from './LibraryClient'
-import { Award, ShieldCheck, Headphones, Package } from 'lucide-react'
+import { Library, ShieldCheck, Headphones, Package } from 'lucide-react'
 import type { Product } from '@/lib/types'
 
 export default async function LibraryPage() {
@@ -36,14 +37,17 @@ export default async function LibraryPage() {
   let digitalItems = (libraryData || [])
     .filter((item) => Boolean(item.products))
     .map((item) => {
-      const prod = Array.isArray(item.products) ? item.products[0] : item.products
+      const prod = (Array.isArray(item.products) ? item.products[0] : item.products) as Product
       return {
         id: item.id,
         user_id: item.user_id,
         product_id: item.product_id,
         source: (item.source || 'purchase') as 'purchase' | 'admin_grant' | 'membership' | 'gift',
         created_at: item.created_at,
-        product: prod as Product,
+        product: {
+          ...prod,
+          folder_stats: getProductFolderStats(prod),
+        } as Product,
       }
     })
 
@@ -56,14 +60,20 @@ export default async function LibraryPage() {
       .order('created_at', { ascending: false })
 
     if (adminCatalog && adminCatalog.length > 0) {
-      digitalItems = adminCatalog.map((p) => ({
-        id: `admin-cat-${p.id}`,
-        user_id: currentUser.id,
-        product_id: p.id,
-        source: 'admin_grant' as const,
-        created_at: p.created_at,
-        product: p as Product,
-      }))
+      digitalItems = adminCatalog.map((p) => {
+        const prod = p as Product
+        return {
+          id: `admin-cat-${p.id}`,
+          user_id: currentUser.id,
+          product_id: p.id,
+          source: 'admin_grant' as const,
+          created_at: p.created_at,
+          product: {
+            ...prod,
+            folder_stats: getProductFolderStats(prod),
+          } as Product,
+        }
+      })
     }
   }
 
@@ -107,15 +117,15 @@ export default async function LibraryPage() {
     <main className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 space-y-10 font-sans">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-neutral-800/80 pb-6">
         <div className="space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-950/60 border border-amber-700/40 text-amber-300">
-            <Award className="w-3.5 h-3.5" />
-            <span>Vitrina de Trofeos & Colección Personal</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-950/60 border border-red-900/40 text-red-400">
+            <Library className="w-3.5 h-3.5" />
+            <span>Biblioteca Personal & Colección Oficial</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-            Mi Biblioteca & Trofeos
+            Mi Biblioteca
           </h1>
           <p className="text-sm text-neutral-400 max-w-2xl leading-relaxed">
-            Tu vitrina de lanzamientos desbloqueados y coleccionables oficiales. Escucha tus pistas en el Reproductor Web dedicado o rastrea tus recibos de envío en Mis Pedidos.
+            Tu colección de lanzamientos, álbumes y coleccionables oficiales desbloqueados. Escucha tus pistas en el Reproductor Web dedicado o rastrea tus recibos de envío en Mis Pedidos.
           </p>
         </div>
 

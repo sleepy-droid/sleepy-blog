@@ -434,6 +434,25 @@ export async function createProduct(
     normalizeMediaUrl(formData.get('instrumental_url') as string) ||
     null
 
+  const specsObj: Record<string, unknown> = {
+    folder: `/${uploaded.folderRelativePath}`,
+  }
+  if (uploaded.wav_urls && uploaded.wav_urls.length > 0) {
+    specsObj.wav_urls = uploaded.wav_urls
+  }
+  if (uploaded.mp3_urls && uploaded.mp3_urls.length > 0) {
+    specsObj.mp3_urls = uploaded.mp3_urls
+  }
+  if (uploaded.cover_urls && uploaded.cover_urls.length > 0) {
+    specsObj.cover_urls = uploaded.cover_urls
+  }
+  if (uploaded.acapella_urls && uploaded.acapella_urls.length > 0) {
+    specsObj.acapella_urls = uploaded.acapella_urls
+  }
+  if (uploaded.instrumental_urls && uploaded.instrumental_urls.length > 0) {
+    specsObj.instrumental_urls = uploaded.instrumental_urls
+  }
+
   const productPayload: Record<string, unknown> = {
     slug,
     name,
@@ -450,6 +469,7 @@ export async function createProduct(
     instrumental_url,
     storage_folder_path: uploaded.folderRelativePath,
     audio_preview_url: mp3_url || wav_url,
+    specs: specsObj,
     is_published: true,
     is_featured: true,
   }
@@ -523,7 +543,7 @@ export async function updateProduct(
 
   const { data: existing } = await supabase
     .from('products')
-    .select('slug')
+    .select('slug, specs')
     .eq('id', id)
     .maybeSingle()
 
@@ -565,6 +585,30 @@ export async function updateProduct(
     normalizeMediaUrl(formData.get('instrumental_url') as string) ||
     null
 
+  const existingSpecs =
+    existing?.specs && typeof existing.specs === 'object'
+      ? (existing.specs as Record<string, unknown>)
+      : {}
+  const updatedSpecs: Record<string, unknown> = {
+    ...existingSpecs,
+    folder: `/${uploaded.folderRelativePath}`,
+  }
+  if (uploaded.wav_urls && uploaded.wav_urls.length > 0) {
+    updatedSpecs.wav_urls = uploaded.wav_urls
+  }
+  if (uploaded.mp3_urls && uploaded.mp3_urls.length > 0) {
+    updatedSpecs.mp3_urls = uploaded.mp3_urls
+  }
+  if (uploaded.cover_urls && uploaded.cover_urls.length > 0) {
+    updatedSpecs.cover_urls = uploaded.cover_urls
+  }
+  if (uploaded.acapella_urls && uploaded.acapella_urls.length > 0) {
+    updatedSpecs.acapella_urls = uploaded.acapella_urls
+  }
+  if (uploaded.instrumental_urls && uploaded.instrumental_urls.length > 0) {
+    updatedSpecs.instrumental_urls = uploaded.instrumental_urls
+  }
+
   const updatePayload: Record<string, unknown> = {
     name,
     description,
@@ -578,6 +622,7 @@ export async function updateProduct(
     acapella_url,
     instrumental_url,
     audio_preview_url: mp3_url || wav_url,
+    specs: updatedSpecs,
     updated_at: new Date().toISOString(),
   }
 

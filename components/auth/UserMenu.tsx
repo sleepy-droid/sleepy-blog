@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {
   User,
-  Trophy,
+  Library,
   Package,
   Headphones,
   Shield,
@@ -195,13 +195,13 @@ export function UserMenu({ user }: UserMenuProps) {
               onClick={() => setIsOpen(false)}
               className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-neutral-200 hover:text-white hover:bg-neutral-900 border border-transparent hover:border-neutral-800/80 transition-all group"
             >
-              <div className="w-7 h-7 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center group-hover:border-amber-900/60 group-hover:bg-amber-950/30 transition-colors">
-                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <div className="w-7 h-7 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center group-hover:border-red-900/60 group-hover:bg-red-950/30 transition-colors">
+                <Library className="w-3.5 h-3.5 text-red-400" />
               </div>
               <div className="flex flex-col">
-                <span>{t('nav_library')} (Trofeos)</span>
+                <span>{t('nav_library')}</span>
                 <span className="text-[10px] text-neutral-500 font-normal">
-                  Vitrina de adquisiciones y descargas
+                  Tus lanzamientos, másters y descargas
                 </span>
               </div>
             </Link>

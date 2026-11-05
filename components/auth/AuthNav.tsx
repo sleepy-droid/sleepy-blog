@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { LogIn, LogOut, Shield, Trophy, User, Package, Headphones } from 'lucide-react'
+import { LogIn, LogOut, Shield, Library, User, Package, Headphones } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { logout } from '@/app/auth/actions'
 import { UserMenu } from '@/components/auth/UserMenu'
@@ -104,8 +104,8 @@ export async function AuthNav({ mobile = false }: { mobile?: boolean }) {
           className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-neutral-200 bg-neutral-900/80 border border-neutral-800 rounded-lg hover:text-white"
         >
           <div className="flex items-center gap-2">
-            <Trophy className="w-3.5 h-3.5 text-amber-400" />
-            <span>Mi Biblioteca (Trofeos)</span>
+            <Library className="w-3.5 h-3.5 text-red-400" />
+            <span>Mi Biblioteca</span>
           </div>
           <span className="text-[10px] text-neutral-500">Colección & Descargas</span>
         </Link>

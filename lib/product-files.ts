@@ -38,12 +38,18 @@ export type UploadedProductMediaResult = {
   wav_url?: string
   acapella_url?: string
   instrumental_url?: string
+  cover_urls?: string[]
+  mp3_urls?: string[]
+  wav_urls?: string[]
+  acapella_urls?: string[]
+  instrumental_urls?: string[]
 }
 
 /**
  * Provisiona automáticamente el directorio del producto (en `public/songs/<slug>` o `public/merch/<slug>`
  * cuando el disco local es escribible, y en los buckets `public-media` / `private-vault` de Supabase Storage
- * para producción/CDN). Guarda todos los archivos subidos en el formulario Admin dentro de dicha carpeta.
+ * para producción/CDN). Guarda todos los archivos subidos (incluyendo álbumes con múltiples .wav / .mp3)
+ * en el formulario Admin dentro de dicha carpeta.
  */
 export async function provisionProductDirectoryAndUpload(params: {
   slug: string
@@ -55,7 +61,14 @@ export async function provisionProductDirectoryAndUpload(params: {
 }): Promise<UploadedProductMediaResult> {
   const { slug, name, category, fulfillment, formData, supabase } = params
   const folderRelativePath = getCanonicalProductFolder(slug, category, fulfillment)
-  const result: UploadedProductMediaResult = { folderRelativePath }
+  const result: UploadedProductMediaResult = {
+    folderRelativePath,
+    cover_urls: [],
+    mp3_urls: [],
+    wav_urls: [],
+    acapella_urls: [],
+    instrumental_urls: [],
+  }
 
   const publicDir = path.resolve(process.cwd(), 'public')
   const localTargetDir = path.join(/*turbopackIgnore: true*/ publicDir, ...folderRelativePath.split('/'))
@@ -63,16 +76,6 @@ export async function provisionProductDirectoryAndUpload(params: {
   let canWriteLocal = false
   try {
     fs.mkdirSync(localTargetDir, { recursive: true })
-    const manifestPath = path.join(localTargetDir, 'manifest.json')
-    const manifestData = {
-      slug,
-      name,
-      category,
-      fulfillment,
-      folder: `/${folderRelativePath}`,
-      updatedAt: new Date().toISOString(),
-    }
-    fs.writeFileSync(manifestPath, JSON.stringify(manifestData, null, 2), 'utf-8')
     canWriteLocal = true
   } catch {
     // En entornos serverless de solo lectura (ej. Vercel), continuamos con Supabase Storage CDN
@@ -81,67 +84,143 @@ export async function provisionProductDirectoryAndUpload(params: {
 
   const fileSlots: Array<{
     fieldName: string
-    resultKey: keyof Omit<UploadedProductMediaResult, 'folderRelativePath'>
+    resultKey: 'thumbnail_url' | 'mp3_url' | 'wav_url' | 'acapella_url' | 'instrumental_url'
+    listKey: 'cover_urls' | 'mp3_urls' | 'wav_urls' | 'acapella_urls' | 'instrumental_urls'
     prefix: string
     bucket: 'public-media' | 'private-vault'
   }> = [
-    { fieldName: 'cover_file', resultKey: 'thumbnail_url', prefix: 'cover', bucket: 'public-media' },
-    { fieldName: 'mp3_file', resultKey: 'mp3_url', prefix: 'preview', bucket: 'public-media' },
-    { fieldName: 'wav_file', resultKey: 'wav_url', prefix: 'master', bucket: 'private-vault' },
-    { fieldName: 'acapella_file', resultKey: 'acapella_url', prefix: 'acapella', bucket: 'private-vault' },
-    { fieldName: 'instrumental_file', resultKey: 'instrumental_url', prefix: 'instrumental', bucket: 'private-vault' },
+    {
+      fieldName: 'cover_file',
+      resultKey: 'thumbnail_url',
+      listKey: 'cover_urls',
+      prefix: 'cover',
+      bucket: 'public-media',
+    },
+    {
+      fieldName: 'mp3_file',
+      resultKey: 'mp3_url',
+      listKey: 'mp3_urls',
+      prefix: 'preview',
+      bucket: 'public-media',
+    },
+    {
+      fieldName: 'wav_file',
+      resultKey: 'wav_url',
+      listKey: 'wav_urls',
+      prefix: 'master',
+      bucket: 'private-vault',
+    },
+    {
+      fieldName: 'acapella_file',
+      resultKey: 'acapella_url',
+      listKey: 'acapella_urls',
+      prefix: 'acapella',
+      bucket: 'private-vault',
+    },
+    {
+      fieldName: 'instrumental_file',
+      resultKey: 'instrumental_url',
+      listKey: 'instrumental_urls',
+      prefix: 'instrumental',
+      bucket: 'private-vault',
+    },
   ]
 
+  const usedFilenames = new Set<string>()
+
   for (const slot of fileSlots) {
-    const entry = formData.get(slot.fieldName)
-    if (!entry || typeof entry === 'string' || !(entry instanceof File) || entry.size === 0) {
-      continue
-    }
+    const entries = formData.getAll(slot.fieldName)
+    let slotIndex = 0
 
-    const cleanName = sanitizeFilename(entry.name, slot.prefix)
-    const storageObjectKey = `${folderRelativePath}/${cleanName}`
-    const arrayBuffer = await entry.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-
-    let resolvedUrl: string | undefined
-
-    // 1. Guardar en el directorio local `public/<songs|merch>/<slug>/<archivo>` si el entorno lo permite
-    if (canWriteLocal) {
-      try {
-        const destFile = path.join(localTargetDir, cleanName)
-        fs.writeFileSync(destFile, buffer)
-        resolvedUrl = `/${folderRelativePath}/${cleanName}`
-      } catch (err) {
-        console.error(`Error writing local file ${cleanName}:`, err)
+    for (const entry of entries) {
+      if (!entry || typeof entry === 'string' || !(entry instanceof File) || entry.size === 0) {
+        continue
       }
-    }
+      slotIndex++
 
-    // 2. Sincronizar también con Supabase Storage CDN (y usar su URL si no hay disco local)
-    try {
-      const { error: uploadErr } = await supabase.storage
-        .from(slot.bucket)
-        .upload(storageObjectKey, buffer, {
-          contentType: entry.type || 'application/octet-stream',
-          upsert: true,
-        })
+      let cleanName = sanitizeFilename(
+        entry.name,
+        entries.length > 1 ? `${slot.prefix}-${slotIndex}` : slot.prefix
+      )
+      if (usedFilenames.has(cleanName)) {
+        const ext = path.extname(cleanName)
+        const base = path.basename(cleanName, ext)
+        cleanName = `${base}-${slotIndex}${ext}`
+      }
+      usedFilenames.add(cleanName)
 
-      if (!uploadErr) {
-        if (slot.bucket === 'public-media') {
-          const { data: pubData } = supabase.storage.from(slot.bucket).getPublicUrl(storageObjectKey)
-          if (!resolvedUrl && pubData?.publicUrl) {
-            resolvedUrl = pubData.publicUrl
-          }
-        } else if (!resolvedUrl) {
-          // Para archivos en private-vault en producción serverless, guardamos la ruta canónica
-          resolvedUrl = `/${storageObjectKey}`
+      const storageObjectKey = `${folderRelativePath}/${cleanName}`
+      const arrayBuffer = await entry.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+
+      let resolvedUrl: string | undefined
+
+      // 1. Guardar en el directorio local `public/<songs|merch>/<slug>/<archivo>` si el entorno lo permite
+      if (canWriteLocal) {
+        try {
+          const destFile = path.join(localTargetDir, cleanName)
+          fs.writeFileSync(destFile, buffer)
+          resolvedUrl = `/${folderRelativePath}/${cleanName}`
+        } catch (err) {
+          console.error(`Error writing local file ${cleanName}:`, err)
         }
       }
-    } catch {
-      // Si el bucket aún no ha sido creado en Supabase, el respaldo en disco local mantiene todo operativo
-    }
 
-    if (resolvedUrl) {
-      result[slot.resultKey] = resolvedUrl
+      // 2. Sincronizar también con Supabase Storage CDN (y usar su URL si no hay disco local)
+      try {
+        const { error: uploadErr } = await supabase.storage
+          .from(slot.bucket)
+          .upload(storageObjectKey, buffer, {
+            contentType: entry.type || 'application/octet-stream',
+            upsert: true,
+          })
+
+        if (!uploadErr) {
+          if (slot.bucket === 'public-media') {
+            const { data: pubData } = supabase.storage
+              .from(slot.bucket)
+              .getPublicUrl(storageObjectKey)
+            if (!resolvedUrl && pubData?.publicUrl) {
+              resolvedUrl = pubData.publicUrl
+            }
+          } else if (!resolvedUrl) {
+            // Para archivos en private-vault en producción serverless, guardamos la ruta canónica
+            resolvedUrl = `/${storageObjectKey}`
+          }
+        }
+      } catch {
+        // Si el bucket aún no ha sido creado en Supabase, el respaldo en disco local mantiene todo operativo
+      }
+
+      if (resolvedUrl) {
+        if (!result[slot.resultKey]) {
+          result[slot.resultKey] = resolvedUrl
+        }
+        result[slot.listKey]?.push(resolvedUrl)
+      }
+    }
+  }
+
+  // Escribir o actualizar manifest.json con el inventario de pistas/archivos del producto o álbum
+  if (canWriteLocal) {
+    try {
+      const manifestPath = path.join(localTargetDir, 'manifest.json')
+      const manifestData = {
+        slug,
+        name,
+        category,
+        fulfillment,
+        folder: `/${folderRelativePath}`,
+        wav_urls: result.wav_urls,
+        mp3_urls: result.mp3_urls,
+        cover_urls: result.cover_urls,
+        acapella_urls: result.acapella_urls,
+        instrumental_urls: result.instrumental_urls,
+        updatedAt: new Date().toISOString(),
+      }
+      fs.writeFileSync(manifestPath, JSON.stringify(manifestData, null, 2), 'utf-8')
+    } catch {
+      // Ignorar si no se puede escribir manifest.json
     }
   }
 
@@ -209,7 +288,10 @@ export function getProductFolderStats(product: Product): ProductFolderStats | nu
       return null
     }
 
-    const dirents = fs.readdirSync(targetDir, { withFileTypes: true })
+    const relativeFolder = path.relative(publicDir, targetDir).replace(/\\/g, '/')
+    const dirents = fs
+      .readdirSync(targetDir, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
     const files: ProductFileInfo[] = []
     let totalSizeBytes = 0
     let hasWav = false
@@ -231,9 +313,15 @@ export function getProductFolderStats(product: Product): ProductFolderStats | nu
       const stats = fs.statSync(filePath)
       const ext = path.extname(dirent.name).toLowerCase()
       const lowerName = dirent.name.toLowerCase()
+      const humanTitle = path
+        .basename(dirent.name, ext)
+        .replace(/[-_]+/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase())
 
       files.push({
         name: dirent.name,
+        title: humanTitle || dirent.name,
+        publicUrl: `/${relativeFolder}/${dirent.name}`,
         sizeBytes: stats.size,
         sizeFormatted: formatBytes(stats.size),
         extension: ext,
@@ -258,8 +346,6 @@ export function getProductFolderStats(product: Product): ProductFolderStats | nu
         coverSize += stats.size
       }
     }
-
-    const relativeFolder = path.relative(publicDir, targetDir).replace(/\\/g, '/')
 
     return {
       folderPath: relativeFolder,

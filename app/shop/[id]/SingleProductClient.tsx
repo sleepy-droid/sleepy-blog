@@ -62,8 +62,29 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
   // Lightbox modal state for Amazon-style image viewing
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
 
-  const isMusic = product.category === 'music' || product.fulfillment === 'digital' || !!product.audio_preview_url || !!product.wav_url || !!product.mp3_url
-  const previewUrl = product.audio_preview_url || product.wav_url || product.mp3_url || ''
+  const wavAlbumTracks = (product.folder_stats?.files || []).filter(
+    (f) =>
+      f.extension === '.wav' &&
+      !f.name.toLowerCase().includes('acapella') &&
+      !f.name.toLowerCase().includes('instrumental')
+  )
+  const mp3AlbumTracks = (product.folder_stats?.files || []).filter((f) => f.extension === '.mp3')
+  const albumTracks = wavAlbumTracks.length > 1 ? wavAlbumTracks : mp3AlbumTracks.length > 1 ? mp3AlbumTracks : []
+
+  const defaultPreviewUrl = product.audio_preview_url || product.wav_url || product.mp3_url || albumTracks[0]?.publicUrl || ''
+  const [selectedPreviewUrl, setSelectedPreviewUrl] = useState<string>(defaultPreviewUrl)
+  const [selectedTrackTitle, setSelectedTrackTitle] = useState<string>(
+    albumTracks.length > 0 ? albumTracks[0].title || albumTracks[0].name : product.name
+  )
+
+  const isMusic =
+    product.category === 'music' ||
+    product.fulfillment === 'digital' ||
+    !!product.audio_preview_url ||
+    !!product.wav_url ||
+    !!product.mp3_url ||
+    albumTracks.length > 0
+  const previewUrl = selectedPreviewUrl || defaultPreviewUrl
 
   const handleVote = async (val: 1 | -1) => {
     if (isVoting) return
@@ -253,10 +274,14 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
                 <div>
                   <div className="flex items-center gap-1.5 text-xs text-red-400 font-semibold uppercase tracking-wider">
                     <Music className="w-3.5 h-3.5" />
-                    <span>Reproductor Preview</span>
+                    <span>
+                      {albumTracks.length > 1
+                        ? `Reproductor Álbum (${albumTracks.length} pistas)`
+                        : 'Reproductor Preview'}
+                    </span>
                   </div>
                   <p className="text-sm font-semibold text-white truncate max-w-[200px] sm:max-w-[280px]">
-                    {product.name}
+                    {selectedTrackTitle || product.name}
                   </p>
                 </div>
               </div>
@@ -297,6 +322,51 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
                 <span>{formatTime(duration)}</span>
               </div>
             </div>
+
+            {/* Interactive Album Tracklist (when product contains multiple .wav / .mp3 tracks) */}
+            {albumTracks.length > 1 && (
+              <div className="pt-3 border-t border-red-900/40 space-y-1.5">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-red-300 font-bold block">
+                  Tracklist del Álbum ({albumTracks.length} pistas incluidas):
+                </span>
+                <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+                  {albumTracks.map((track, idx) => {
+                    const trackUrl = track.publicUrl || defaultPreviewUrl
+                    const isTrackActive = previewUrl === trackUrl
+                    return (
+                      <button
+                        key={track.name}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPreviewUrl(trackUrl)
+                          setSelectedTrackTitle(`${idx + 1}. ${track.title || track.name}`)
+                          setCurrentTime(0)
+                          setIsPlaying(true)
+                          setTimeout(() => {
+                            audioRef.current
+                              ?.play()
+                              .then(() => setIsPlaying(true))
+                              .catch(() => setIsPlaying(false))
+                          }, 60)
+                        }}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl text-xs font-mono transition-all cursor-pointer ${
+                          isTrackActive
+                            ? 'bg-red-700/80 text-white font-bold border border-red-500/60'
+                            : 'bg-neutral-900/80 text-neutral-300 hover:text-white border border-neutral-800/80'
+                        }`}
+                      >
+                        <span className="truncate">
+                          {idx + 1}. {track.title || track.name}
+                        </span>
+                        <span className="text-[10px] opacity-80 shrink-0">
+                          {track.sizeFormatted}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

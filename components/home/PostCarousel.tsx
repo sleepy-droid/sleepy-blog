@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ChevronLeft, ChevronRight, Sparkles, Play, ArrowRight, ShoppingBag } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Sparkles, ArrowRight, ShoppingBag } from 'lucide-react'
 import type { Post } from '@/lib/types'
 import { normalizeMediaUrl } from '@/lib/utils'
 import { useLanguage } from '@/lib/i18n'
@@ -16,6 +16,7 @@ export function PostCarousel({ posts }: PostCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const { t } = useLanguage()
 
+  // Límite estricto de 5 slides: las publicaciones más antiguas salen automáticamente del carrusel al subir nuevas
   const carouselPosts = posts.slice(0, 5)
 
   useEffect(() => {
@@ -36,7 +37,6 @@ export function PostCarousel({ posts }: PostCarouselProps) {
       ? '/images/releases/criss-angel.jpg'
       : '/images/logos/PNG-04.png')
   const coverImage = normalizeMediaUrl(rawCover) || '/images/logos/PNG-04.png'
-  const mediaUrl = normalizeMediaUrl(activePost.media_url)
 
   const nextSlide = () => setCurrentIndex((prev) => (prev + 1) % carouselPosts.length)
   const prevSlide = () =>
@@ -139,18 +139,6 @@ export function PostCarousel({ posts }: PostCarouselProps) {
                       : ''}
                   </span>
                 </Link>
-              )}
-
-              {mediaUrl && (
-                <a
-                  href={mediaUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-neutral-200 bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 transition-colors"
-                >
-                  <Play className="w-3 h-3 fill-current text-red-400" />
-                  <span>{t('home_listen')}</span>
-                </a>
               )}
             </div>
           </div>

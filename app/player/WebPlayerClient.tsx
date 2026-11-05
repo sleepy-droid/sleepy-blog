@@ -24,6 +24,8 @@ import { formatPrice } from '@/lib/types'
 
 export type PlayerTrack = {
   id: string
+  productId?: string
+  fileName?: string
   slug: string
   title: string
   artist: string
@@ -54,7 +56,12 @@ export function WebPlayerClient({
 }: WebPlayerClientProps) {
   const initialTrack =
     (initialTrackId
-      ? tracks.find((t) => t.id === initialTrackId || t.slug === initialTrackId)
+      ? tracks.find(
+          (t) =>
+            t.id === initialTrackId ||
+            t.productId === initialTrackId ||
+            t.slug === initialTrackId
+        )
       : null) ||
     tracks.find((t) => t.isUnlocked) ||
     tracks[0] ||
@@ -193,7 +200,8 @@ export function WebPlayerClient({
     )
   }
 
-  const pid = encodeURIComponent(activeTrack.id)
+  const pid = encodeURIComponent(activeTrack.productId || activeTrack.id)
+  const fileParam = activeTrack.fileName ? `&file=${encodeURIComponent(activeTrack.fileName)}` : ''
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -408,13 +416,13 @@ export function WebPlayerClient({
               </span>
               <div className="flex flex-wrap gap-2">
                 <a
-                  href={`/api/media/download?productId=${pid}&asset=wav`}
+                  href={`/api/media/download?productId=${pid}&asset=wav${fileParam}`}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-bold bg-red-950/70 border border-red-800/70 text-red-200 hover:bg-red-900/70 transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" /> WAV Máster
                 </a>
                 <a
-                  href={`/api/media/download?productId=${pid}&asset=mp3`}
+                  href={`/api/media/download?productId=${pid}&asset=mp3${fileParam}`}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold bg-neutral-900 border border-neutral-800 text-neutral-200 hover:text-white transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" /> MP3 320k

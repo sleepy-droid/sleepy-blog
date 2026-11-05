@@ -3,11 +3,14 @@ import path from 'path'
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { getProductFolderStats } from '@/lib/product-files'
+import type { Product } from '@/lib/types'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const productId = searchParams.get('productId')?.trim()
   const asset = (searchParams.get('asset')?.trim() || 'wav').toLowerCase()
+  const requestedFile = searchParams.get('file')?.trim() || null
 
   if (!productId) {
     return NextResponse.json({ error: 'productId es obligatorio.' }, { status: 400 })
@@ -72,21 +75,41 @@ export async function GET(request: NextRequest) {
   }
 
   // 3. Seleccionar el archivo solicitado según el tipo de pista (wav, mp3, acapella, instrumental)
+  //    o el archivo específico dentro de un álbum multi-pista (`?file=<nombre.wav>`)
   let targetUrl: string | null = null
-  switch (asset) {
-    case 'mp3':
-      targetUrl = product.mp3_url || product.audio_preview_url || product.wav_url
-      break
-    case 'acapella':
-      targetUrl = product.acapella_url
-      break
-    case 'instrumental':
-      targetUrl = product.instrumental_url
-      break
-    case 'wav':
-    default:
-      targetUrl = product.wav_url || product.mp3_url || product.audio_preview_url
-      break
+
+  if (requestedFile) {
+    const safeFileName = path.basename(requestedFile)
+    const folderStats = getProductFolderStats(product as Product)
+    const matchedLocal = folderStats?.files.find(
+      (f) => f.name.toLowerCase() === safeFileName.toLowerCase()
+    )
+    if (matchedLocal && matchedLocal.publicUrl) {
+      targetUrl = matchedLocal.publicUrl
+    } else if (product.storage_folder_path) {
+      const cleanFolder = product.storage_folder_path.replace(/^\/+|\/+$/g, '')
+      targetUrl = `/${cleanFolder}/${safeFileName}`
+    } else if (product.slug) {
+      targetUrl = `/songs/${product.slug}/${safeFileName}`
+    }
+  }
+
+  if (!targetUrl) {
+    switch (asset) {
+      case 'mp3':
+        targetUrl = product.mp3_url || product.audio_preview_url || product.wav_url
+        break
+      case 'acapella':
+        targetUrl = product.acapella_url
+        break
+      case 'instrumental':
+        targetUrl = product.instrumental_url
+        break
+      case 'wav':
+      default:
+        targetUrl = product.wav_url || product.mp3_url || product.audio_preview_url
+        break
+    }
   }
 
   if (!targetUrl) {
@@ -102,7 +125,10 @@ export async function GET(request: NextRequest) {
   if (targetUrl.startsWith('/')) {
     const storageKey = targetUrl.replace(/^\/+/, '')
     const ext = path.extname(storageKey) || (asset === 'mp3' ? '.mp3' : '.wav')
-    const downloadFilename = `${product.slug || 'sleepyred999'}-${asset}${ext}`
+    const baseFileName = requestedFile
+      ? path.basename(requestedFile, path.extname(requestedFile))
+      : `${product.slug || 'sleepyred999'}-${asset}`
+    const downloadFilename = `${baseFileName}${ext}`
 
     // Intentar primero desde el archivo local en public/ (rápido y sin latencia en dev/Docker)
     const publicDir = path.resolve(process.cwd(), 'public')

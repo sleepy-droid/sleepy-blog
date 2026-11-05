@@ -9,6 +9,7 @@ import {
   Cake,
   UserCheck,
   ExternalLink,
+  Library,
 } from 'lucide-react'
 import { ProfileEditForm } from './ProfileEditForm'
 import {
@@ -306,7 +307,8 @@ export default async function ProfilePage() {
               href="/library"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-800 hover:bg-red-700 transition-colors shadow-md"
             >
-              <span>Vitrina Trofeos</span>
+              <Library className="w-3.5 h-3.5" />
+              <span>Mi Biblioteca</span>
             </Link>
           </div>
         </div>

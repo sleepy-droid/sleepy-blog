@@ -3,11 +3,11 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Search, Flame, Clock, Play, ArrowRight, ShoppingBag } from 'lucide-react'
+import { Search, Flame, Clock, ArrowRight, ShoppingBag } from 'lucide-react'
 import { sanitizeSearch } from '@/lib/search'
 import { PostLikeButton } from './PostLikeButton'
 import type { Post } from '@/lib/types'
-import { normalizeMediaUrl, parseMediaUrls } from '@/lib/utils'
+import { parseMediaUrls } from '@/lib/utils'
 import { useLanguage } from '@/lib/i18n'
 
 type PostFeedClientProps = {
@@ -125,7 +125,6 @@ export function PostFeedClient({ posts, userVotes = {} }: PostFeedClientProps) {
           if (postImages.length === 0 && post.title?.toLowerCase().includes('criss angel')) {
             postImages.push('/images/releases/criss-angel.jpg')
           }
-          const mediaUrl = normalizeMediaUrl(post.media_url) || null
           const productHref = post.linked_product
             ? `/shop/${post.linked_product.slug || post.linked_product.id}`
             : post.linked_product_id
@@ -258,20 +257,6 @@ export function PostFeedClient({ posts, userVotes = {} }: PostFeedClientProps) {
                   {post.content}
                 </p>
               </div>
-
-              {mediaUrl && (
-                <div className="pt-1">
-                  <a 
-                    href={mediaUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-xs font-medium text-red-400 hover:text-red-300 bg-neutral-950/80 px-3.5 py-2 rounded-lg border border-neutral-800 transition-colors"
-                  >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>{t('home_listen')}</span>
-                  </a>
-                </div>
-              )}
 
               {/* Card Footer Actions: Likes & Linked Product Buy Now CTA */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-neutral-800/60 text-xs">

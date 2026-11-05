@@ -12,9 +12,10 @@ import {
   ShoppingBag,
   Mic,
   Sliders,
-  Award,
+  Library,
   Headphones,
   Receipt,
+  Disc,
 } from 'lucide-react'
 import type { LibraryItem, Product } from '@/lib/types'
 
@@ -64,13 +65,13 @@ export function LibraryClient({ digitalItems, physicalOrders }: LibraryClientPro
 
   return (
     <div className="space-y-12">
-      {/* SECTION 1: Vitrina de Trofeos Musicales Digitales */}
+      {/* SECTION 1: Biblioteca de Lanzamientos Musicales Digitales */}
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3">
           <div className="flex items-center gap-2">
-            <Award className="w-5 h-5 text-amber-400" />
+            <Library className="w-5 h-5 text-red-500" />
             <h2 className="text-xl font-bold text-white tracking-tight">
-              Trofeos Musicales & Másters Digitales ({digitalItems.length})
+              Lanzamientos Musicales, Álbumes & Másters Digitales ({digitalItems.length})
             </h2>
           </div>
 
@@ -88,10 +89,10 @@ export function LibraryClient({ digitalItems, physicalOrders }: LibraryClientPro
             <Music className="w-10 h-10 text-neutral-600 mx-auto" />
             <div className="space-y-1">
               <p className="text-sm font-bold text-white">
-                Aún no tienes trofeos digitales en tu vitrina
+                Aún no tienes lanzamientos digitales en tu biblioteca
               </p>
               <p className="text-xs text-neutral-400 max-w-md mx-auto">
-                Cuando adquieras canciones, másters WAV o paquetes de acapellas en la tienda oficial, aparecerán aquí como trofeos desbloqueados con descarga ilimitada.
+                Cuando adquieras canciones, álbumes WAV o paquetes de acapellas en la tienda oficial, aparecerán aquí en tu biblioteca con descarga ilimitada.
               </p>
             </div>
             <Link
@@ -107,15 +108,25 @@ export function LibraryClient({ digitalItems, physicalOrders }: LibraryClientPro
             {digitalItems.map((item, idx) => {
               const isMenuOpen = openDownloadId === item.id
               const pid = encodeURIComponent(item.product.id)
+              const wavFiles = (item.product.folder_stats?.files || []).filter(
+                (f) =>
+                  f.extension === '.wav' &&
+                  !f.name.toLowerCase().includes('acapella') &&
+                  !f.name.toLowerCase().includes('instrumental')
+              )
+              const mp3Files = (item.product.folder_stats?.files || []).filter(
+                (f) => f.extension === '.mp3'
+              )
+              const isAlbum = wavFiles.length > 1 || mp3Files.length > 1
 
               return (
                 <div
                   key={item.id}
-                  className="border border-amber-500/30 bg-gradient-to-br from-neutral-950 via-neutral-900/80 to-amber-950/15 hover:border-amber-500/60 rounded-2xl p-4 flex flex-col justify-between gap-4 transition-all shadow-lg"
+                  className="border border-neutral-800/90 bg-gradient-to-br from-neutral-950 via-neutral-900/80 to-red-950/15 hover:border-red-800/60 rounded-2xl p-4 flex flex-col justify-between gap-4 transition-all shadow-lg"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-neutral-900 border border-amber-500/40 shrink-0 shadow-md">
+                      <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800 shrink-0 shadow-md">
                         {item.product.thumbnail_url ? (
                           <Image
                             src={item.product.thumbnail_url}
@@ -126,16 +137,18 @@ export function LibraryClient({ digitalItems, physicalOrders }: LibraryClientPro
                             sizes="56px"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-amber-400">
-                            <Award className="w-6 h-6" />
+                          <div className="w-full h-full flex items-center justify-center text-red-400">
+                            <Library className="w-6 h-6" />
                           </div>
                         )}
                       </div>
 
                       <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-950/80 text-amber-300 border border-amber-700/50">
-                            Trofeo #{idx + 1}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-950/80 text-red-300 border border-red-800/50">
+                            {isAlbum
+                              ? `Álbum • ${Math.max(wavFiles.length, mp3Files.length)} pistas`
+                              : ` Ítem #${idx + 1}`}
                           </span>
                           <span className="text-[10px] font-mono text-neutral-400">
                             {item.source === 'admin_grant'
@@ -152,6 +165,34 @@ export function LibraryClient({ digitalItems, physicalOrders }: LibraryClientPro
                       </div>
                     </div>
                   </div>
+
+                  {isAlbum && (
+                    <div className="p-2.5 rounded-xl bg-neutral-950/80 border border-neutral-800/80 space-y-1.5">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-red-400 font-bold flex items-center gap-1">
+                        <Disc className="w-3 h-3" /> Tracklist incluido en este álbum:
+                      </span>
+                      <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
+                        {(wavFiles.length > 0 ? wavFiles : mp3Files).map((file, tIdx) => (
+                          <div
+                            key={file.name}
+                            className="flex items-center justify-between gap-2 text-[11px] font-mono text-neutral-300 bg-neutral-900/70 px-2.5 py-1 rounded-lg"
+                          >
+                            <span className="truncate">
+                              {tIdx + 1}. {file.title || file.name}
+                            </span>
+                            <a
+                              href={`/api/media/download?productId=${pid}&asset=${
+                                file.extension === '.mp3' ? 'mp3' : 'wav'
+                              }&file=${encodeURIComponent(file.name)}`}
+                              className="text-red-400 hover:text-red-300 font-bold shrink-0"
+                            >
+                              Descargar {file.extension.toUpperCase()}
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between gap-2 pt-3 border-t border-neutral-800/80">
                     <Link
@@ -176,25 +217,55 @@ export function LibraryClient({ digitalItems, physicalOrders }: LibraryClientPro
                       </button>
 
                       {isMenuOpen && (
-                        <div className="absolute right-0 mt-2 w-52 bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl p-1.5 z-20 space-y-1 text-xs font-mono">
-                          {(item.product.mp3_url || item.product.audio_preview_url) && (
-                            <a
-                              href={`/api/media/download?productId=${pid}&asset=mp3`}
-                              className="block w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-neutral-300 hover:text-white transition-colors"
-                            >
-                              🎵 Descargar MP3 320k
-                            </a>
+                        <div className="absolute right-0 mt-2 w-60 max-h-64 overflow-y-auto bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl p-1.5 z-20 space-y-1 text-xs font-mono">
+                          {wavFiles.length > 1 ? (
+                            wavFiles.map((wf, wIdx) => (
+                              <a
+                                key={wf.name}
+                                href={`/api/media/download?productId=${pid}&asset=wav&file=${encodeURIComponent(
+                                  wf.name
+                                )}`}
+                                className="block w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-red-400 hover:text-red-300 font-bold transition-colors truncate"
+                              >
+                                💿 {wIdx + 1}. {wf.title || wf.name} (WAV)
+                              </a>
+                            ))
+                          ) : (
+                            (item.product.wav_url ||
+                              item.product.mp3_url ||
+                              item.product.audio_preview_url) && (
+                              <a
+                                href={`/api/media/download?productId=${pid}&asset=wav`}
+                                className="block w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-red-400 hover:text-red-300 font-bold transition-colors"
+                              >
+                                💿 Descargar WAV Máster
+                              </a>
+                            )
                           )}
-                          {(item.product.wav_url ||
-                            item.product.mp3_url ||
-                            item.product.audio_preview_url) && (
-                            <a
-                              href={`/api/media/download?productId=${pid}&asset=wav`}
-                              className="block w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-red-400 hover:text-red-300 font-bold transition-colors"
-                            >
-                              💿 Descargar WAV Máster
-                            </a>
+
+                          {mp3Files.length > 1 ? (
+                            mp3Files.map((mf, mIdx) => (
+                              <a
+                                key={mf.name}
+                                href={`/api/media/download?productId=${pid}&asset=mp3&file=${encodeURIComponent(
+                                  mf.name
+                                )}`}
+                                className="block w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-neutral-300 hover:text-white transition-colors truncate"
+                              >
+                                🎵 {mIdx + 1}. {mf.title || mf.name} (MP3)
+                              </a>
+                            ))
+                          ) : (
+                            (item.product.mp3_url || item.product.audio_preview_url) && (
+                              <a
+                                href={`/api/media/download?productId=${pid}&asset=mp3`}
+                                className="block w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-neutral-300 hover:text-white transition-colors"
+                              >
+                                🎵 Descargar MP3 320k
+                              </a>
+                            )
                           )}
+
                           {item.product.acapella_url && (
                             <a
                               href={`/api/media/download?productId=${pid}&asset=acapella`}

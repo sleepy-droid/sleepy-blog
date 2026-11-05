@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { Package, Award, Headphones, ShoppingBag, ShieldCheck } from 'lucide-react'
+import { Package, Library, Headphones, ShoppingBag, ShieldCheck } from 'lucide-react'
 import { OrdersClient, type OrderReceipt, type OrderReceiptItem } from './OrdersClient'
 import type { Product } from '@/lib/types'
 
@@ -95,10 +95,10 @@ export default async function OrdersPage() {
         <div className="flex flex-wrap items-center gap-2.5">
           <Link
             href="/library"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-amber-300 bg-amber-950/50 border border-amber-700/50 hover:bg-amber-900/50 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-neutral-200 bg-neutral-900 border border-neutral-800 hover:text-white hover:border-red-900/50 transition-colors"
           >
-            <Award className="w-3.5 h-3.5" />
-            <span>Vitrina de Trofeos</span>
+            <Library className="w-3.5 h-3.5 text-red-400" />
+            <span>Mi Biblioteca</span>
           </Link>
           <Link
             href="/player"

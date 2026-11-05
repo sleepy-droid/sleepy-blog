@@ -8,7 +8,7 @@ import {
   MessageSquare,
   Sparkles,
   Flame,
-  Award,
+  Library,
   Send,
   Loader2,
   Play,
@@ -400,21 +400,21 @@ export function ProfileActivityFeed({
             const editable = canModifyItem(act)
             const deletable = canDeleteItem(act)
 
-            // Caso 1: Compra con Gold Hue
+            // Caso 1: Lanzamiento añadido a la Biblioteca
             if (act.type === 'purchase') {
               return (
                 <div
                   key={act.id}
-                  className="relative overflow-hidden rounded-2xl border border-amber-500/50 bg-gradient-to-r from-amber-950/40 via-neutral-900/90 to-neutral-950 p-4 shadow-xl shadow-amber-950/20 space-y-2 animate-in fade-in"
+                  className="relative overflow-hidden rounded-2xl border border-red-900/50 bg-gradient-to-r from-red-950/35 via-neutral-900/90 to-neutral-950 p-4 shadow-xl shadow-red-950/20 space-y-2 animate-in fade-in"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="p-1.5 rounded-lg bg-amber-950/90 border border-amber-500/60 text-amber-300">
-                        <Award className="w-4 h-4 text-amber-400" />
+                      <span className="p-1.5 rounded-lg bg-red-950/90 border border-red-800/60 text-red-300">
+                        <Library className="w-4 h-4 text-red-400" />
                       </span>
                       <div>
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300 bg-amber-950/80 border border-amber-600/40 px-2 py-0.5 rounded-full inline-block">
-                          Trofeo Desbloqueado
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-300 bg-red-950/80 border border-red-800/40 px-2 py-0.5 rounded-full inline-block">
+                          Lanzamiento en Biblioteca
                         </span>
                       </div>
                     </div>
@@ -424,8 +424,8 @@ export function ProfileActivityFeed({
                   </div>
 
                   <p className="text-xs sm:text-sm text-neutral-200">
-                    <span className="font-bold text-white">{displayName}</span> desbloqueó{' '}
-                    <span className="font-extrabold text-amber-300">&ldquo;{act.targetTitle}&rdquo;</span> en su vitrina.
+                    <span className="font-bold text-white">{displayName}</span> añadió{' '}
+                    <span className="font-extrabold text-red-300">&ldquo;{act.targetTitle}&rdquo;</span> a su biblioteca.
                   </p>
                 </div>
               )

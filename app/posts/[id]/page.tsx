@@ -14,9 +14,9 @@ import { getUserSingleVote, getUserVotesMap } from '@/lib/votes-server'
 import { CommentList } from '@/components/comments/CommentList'
 import { PostLikeButton } from '@/components/home/PostLikeButton'
 import type { Product } from '@/lib/types'
-import { ArrowLeft, Play, Tag, Share2, Calendar, ShoppingBag } from 'lucide-react'
+import { ArrowLeft, Tag, Share2, Calendar, ShoppingBag } from 'lucide-react'
 import type { Metadata } from 'next'
-import { normalizeMediaUrl, parseMediaUrls } from '@/lib/utils'
+import { parseMediaUrls } from '@/lib/utils'
 
 interface PostPageProps {
   params: Promise<{ id: string }>
@@ -113,7 +113,6 @@ export default async function PostPage({ params }: PostPageProps) {
   if (postImages.length === 0 && post.title?.toLowerCase().includes('criss angel')) {
     postImages.push('/images/releases/criss-angel.jpg')
   }
-  const mediaUrl = normalizeMediaUrl(post.media_url) || null
 
   const showProductModule = Boolean(linkedProduct || (post.price && post.price > 0))
   const productTargetHref = linkedProduct
@@ -213,27 +212,6 @@ export default async function PostPage({ params }: PostPageProps) {
         <div className="text-neutral-200 text-base leading-relaxed whitespace-pre-line border-l-2 border-red-900/50 pl-4 py-1">
           {post.content}
         </div>
-
-        {/* Recurso Multimedia (si existe) */}
-        {mediaUrl && (
-          <div className="pt-4">
-            <div className="bg-neutral-950/80 border border-neutral-800 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div>
-                <span className="text-xs text-neutral-400 uppercase font-medium tracking-wide">Recurso Multimedia</span>
-                <p className="text-sm font-semibold text-white mt-0.5">Escuchar o visualizar contenido adjunto</p>
-              </div>
-              <a 
-                href={mediaUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-500 active:scale-95 px-4 py-2.5 rounded-lg transition-all shadow-lg shadow-red-900/30"
-              >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Reproducir Recurso</span>
-              </a>
-            </div>
-          </div>
-        )}
 
         {/* Módulo de Venta / Producto Vinculado (con botón funcional "Comprar Ahora" hacia la página del producto) */}
         {showProductModule && (

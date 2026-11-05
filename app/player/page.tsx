@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { Headphones, Award, Package, ShoppingBag } from 'lucide-react'
+import { getProductFolderStats } from '@/lib/product-files'
+import { Headphones, Library, Package, ShoppingBag } from 'lucide-react'
 import { WebPlayerClient, type PlayerTrack } from './WebPlayerClient'
 import { SONG_PRESETS } from '@/lib/profile-presets'
 import type { Product } from '@/lib/types'
@@ -16,7 +17,69 @@ export default async function WebPlayerPage({ searchParams }: PlayerPageProps) {
   const supabase = await createClient()
 
   const unlockedProductIds = new Set<string>()
+  const addedProductIds = new Set<string>()
   const tracksMap = new Map<string, PlayerTrack>()
+
+  const addProductTracks = (prod: Product, isUnlocked: boolean) => {
+    if (addedProductIds.has(prod.id)) return
+    const folderStats = getProductFolderStats(prod)
+    const wavFiles = (folderStats?.files || []).filter(
+      (f) =>
+        f.extension === '.wav' &&
+        !f.name.toLowerCase().includes('acapella') &&
+        !f.name.toLowerCase().includes('instrumental')
+    )
+    const mp3Files = (folderStats?.files || []).filter((f) => f.extension === '.mp3')
+
+    // Si el producto es un álbum con múltiples pistas WAV o MP3 en su directorio
+    if (wavFiles.length > 1 || mp3Files.length > 1) {
+      addedProductIds.add(prod.id)
+      const primaryList = wavFiles.length > 1 ? wavFiles : mp3Files
+      primaryList.forEach((file, idx) => {
+        const trackKey = `${prod.id}::${file.name}`
+        const matchingMp3 = mp3Files[idx]?.publicUrl || prod.mp3_url || prod.audio_preview_url || null
+        const fileUrl = file.publicUrl || prod.wav_url || prod.mp3_url || null
+        tracksMap.set(trackKey, {
+          id: trackKey,
+          productId: prod.id,
+          fileName: file.name,
+          slug: prod.slug || prod.id,
+          title: `${prod.name} — ${idx + 1}. ${file.title || file.name}`,
+          artist: 'sleepyred999',
+          description: prod.description || `Pista #${idx + 1} del álbum ${prod.name}`,
+          thumbnailUrl: prod.thumbnail_url || '/images/logos/PNG-04.png',
+          wavUrl: isUnlocked ? (file.extension === '.wav' ? fileUrl : prod.wav_url || null) : null,
+          mp3Url: isUnlocked ? matchingMp3 || fileUrl : null,
+          previewUrl: matchingMp3 || fileUrl,
+          acapellaUrl: isUnlocked ? prod.acapella_url || null : null,
+          instrumentalUrl: isUnlocked ? prod.instrumental_url || null : null,
+          videoUrl: prod.video_url || null,
+          isUnlocked,
+          priceCents: prod.price_cents || 0,
+        })
+      })
+      return
+    }
+
+    addedProductIds.add(prod.id)
+    tracksMap.set(prod.id, {
+      id: prod.id,
+      productId: prod.id,
+      slug: prod.slug || prod.id,
+      title: prod.name,
+      artist: 'sleepyred999',
+      description: prod.description || 'Máster Digital Oficial',
+      thumbnailUrl: prod.thumbnail_url || '/images/logos/PNG-04.png',
+      wavUrl: isUnlocked ? prod.wav_url || null : null,
+      mp3Url: isUnlocked ? prod.mp3_url || prod.audio_preview_url || null : null,
+      previewUrl: prod.audio_preview_url || prod.mp3_url || prod.wav_url || null,
+      acapellaUrl: isUnlocked ? prod.acapella_url || null : null,
+      instrumentalUrl: isUnlocked ? prod.instrumental_url || null : null,
+      videoUrl: prod.video_url || null,
+      isUnlocked,
+      priceCents: prod.price_cents || 0,
+    })
+  }
 
   // 1. Cargar los ítems desbloqueados en la biblioteca del usuario autenticado
   if (currentUser) {
@@ -43,22 +106,7 @@ export default async function WebPlayerPage({ searchParams }: PlayerPageProps) {
       unlockedProductIds.add(prod.id)
       if (prod.slug) unlockedProductIds.add(prod.slug)
 
-      tracksMap.set(prod.id, {
-        id: prod.id,
-        slug: prod.slug || prod.id,
-        title: prod.name,
-        artist: 'sleepyred999',
-        description: prod.description || 'Máster Digital Oficial',
-        thumbnailUrl: prod.thumbnail_url || '/images/logos/PNG-04.png',
-        wavUrl: prod.wav_url || null,
-        mp3Url: prod.mp3_url || prod.audio_preview_url || null,
-        previewUrl: prod.audio_preview_url || prod.mp3_url || prod.wav_url || null,
-        acapellaUrl: prod.acapella_url || null,
-        instrumentalUrl: prod.instrumental_url || null,
-        videoUrl: prod.video_url || null,
-        isUnlocked: true,
-        priceCents: prod.price_cents || 0,
-      })
+      addProductTracks(prod, true)
     }
   }
 
@@ -71,7 +119,7 @@ export default async function WebPlayerPage({ searchParams }: PlayerPageProps) {
     .order('created_at', { ascending: false })
 
   for (const p of (catalogProducts || []) as Product[]) {
-    if (tracksMap.has(p.id)) continue
+    if (addedProductIds.has(p.id)) continue
     const anyAudio =
       p.wav_url || p.mp3_url || p.audio_preview_url || p.acapella_url || p.instrumental_url
     if (!anyAudio) continue
@@ -82,22 +130,7 @@ export default async function WebPlayerPage({ searchParams }: PlayerPageProps) {
         (p.slug && unlockedProductIds.has(p.slug))
     )
 
-    tracksMap.set(p.id, {
-      id: p.id,
-      slug: p.slug || p.id,
-      title: p.name,
-      artist: 'sleepyred999',
-      description: p.description || 'Lanzamiento Oficial sleepyred999',
-      thumbnailUrl: p.thumbnail_url || '/images/logos/PNG-04.png',
-      wavUrl: isUnlocked ? p.wav_url || null : null,
-      mp3Url: isUnlocked ? p.mp3_url || p.audio_preview_url || null : null,
-      previewUrl: p.audio_preview_url || p.mp3_url || p.wav_url || null,
-      acapellaUrl: isUnlocked ? p.acapella_url || null : null,
-      instrumentalUrl: isUnlocked ? p.instrumental_url || null : null,
-      videoUrl: p.video_url || null,
-      isUnlocked,
-      priceCents: p.price_cents || 0,
-    })
+    addProductTracks(p, isUnlocked)
   }
 
   // 3. Si la base de datos aún no tiene canciones cargadas, incluir los presets oficiales de estudio
@@ -143,10 +176,10 @@ export default async function WebPlayerPage({ searchParams }: PlayerPageProps) {
         <div className="flex flex-wrap items-center gap-2.5">
           <Link
             href="/library"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-amber-300 bg-amber-950/50 border border-amber-700/50 hover:bg-amber-900/50 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-neutral-200 bg-neutral-900 border border-neutral-800 hover:text-white hover:border-red-900/50 transition-colors"
           >
-            <Award className="w-3.5 h-3.5" />
-            <span>Vitrina de Trofeos</span>
+            <Library className="w-3.5 h-3.5 text-red-400" />
+            <span>Mi Biblioteca</span>
           </Link>
           <Link
             href="/orders"

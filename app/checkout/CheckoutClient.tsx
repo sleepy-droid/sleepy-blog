@@ -14,7 +14,7 @@ import {
   Loader2,
   MapPin,
   Package,
-  Award,
+  Library,
   Headphones,
   UserCheck,
 } from 'lucide-react'
@@ -100,7 +100,7 @@ export function CheckoutClient({ accountUser }: { accountUser: CheckoutAccountUs
           </span>
           <h1 className="text-3xl font-extrabold text-white">¡Orden Confirmada y Recibo Generado!</h1>
           <p className="text-sm text-neutral-300 max-w-md mx-auto">
-            Tu recibo fue vinculado a <strong className="text-white">{accountUser.email || accountUser.name}</strong>. Todos los artículos quedaron agrupados en <strong className="text-white">Mis Pedidos</strong>, tus trofeos en tu <strong className="text-amber-400">Biblioteca</strong> y tus pistas listas en el <strong className="text-red-400">Reproductor Web</strong>.
+            Tu recibo fue vinculado a <strong className="text-white">{accountUser.email || accountUser.name}</strong>. Todos los artículos quedaron agrupados en <strong className="text-white">Mis Pedidos</strong>, tu colección en <strong className="text-red-400">Mi Biblioteca</strong> y tus pistas listas en el <strong className="text-red-400">Reproductor Web</strong>.
           </p>
         </div>
 
@@ -114,10 +114,10 @@ export function CheckoutClient({ accountUser }: { accountUser: CheckoutAccountUs
           </Link>
           <Link
             href="/library"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-bold text-amber-300 bg-amber-950/60 border border-amber-700/60 hover:bg-amber-900/60 transition-all"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-bold text-neutral-200 bg-neutral-900 border border-neutral-800 hover:text-white hover:border-red-900/60 transition-all"
           >
-            <Award className="w-4 h-4" />
-            <span>Ver Vitrina de Trofeos</span>
+            <Library className="w-4 h-4 text-red-400" />
+            <span>Ir a Mi Biblioteca</span>
           </Link>
           <Link
             href="/player"

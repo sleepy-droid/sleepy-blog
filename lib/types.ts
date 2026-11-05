@@ -82,6 +82,8 @@ export type Product = {
 
 export type ProductFileInfo = {
   name: string
+  title?: string
+  publicUrl?: string
   sizeBytes: number
   sizeFormatted: string
   extension: string

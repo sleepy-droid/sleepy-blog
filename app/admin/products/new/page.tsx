@@ -23,6 +23,9 @@ export default function NewProductPage() {
   const [name, setName] = useState('')
   const [category, setCategory] = useState('music')
   const [fulfillment, setFulfillment] = useState('digital')
+  const [selectedWavNames, setSelectedWavNames] = useState<string[]>([])
+  const [selectedMp3Names, setSelectedMp3Names] = useState<string[]>([])
+  const [selectedCoverNames, setSelectedCoverNames] = useState<string[]>([])
 
   const computedSlug =
     name
@@ -153,14 +156,25 @@ export default function NewProductPage() {
               {/* Cover HD */}
               <div className="space-y-2 p-3.5 rounded-xl bg-neutral-950 border border-neutral-800/80">
                 <label className="block text-xs font-bold text-neutral-200 flex items-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-pink-400" /> Portada HD (JPG / PNG / WebP)
+                  <ImageIcon className="w-3.5 h-3.5 text-pink-400" /> Portada HD / Galería (JPG / PNG / WebP)
                 </label>
                 <input
                   type="file"
                   name="cover_file"
+                  multiple
                   accept="image/*"
+                  onChange={(e) =>
+                    setSelectedCoverNames(
+                      e.target.files ? Array.from(e.target.files).map((f) => f.name) : []
+                    )
+                  }
                   className="block w-full text-xs text-neutral-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-950 file:text-red-300 hover:file:bg-red-900 cursor-pointer"
                 />
+                {selectedCoverNames.length > 0 && (
+                  <p className="text-[10px] font-mono text-pink-300">
+                    {selectedCoverNames.length} imagen(es): {selectedCoverNames.join(', ')}
+                  </p>
+                )}
                 <input
                   type="text"
                   name="thumbnail_url"
@@ -172,14 +186,25 @@ export default function NewProductPage() {
               {/* Audio MP3 Preview & 320k */}
               <div className="space-y-2 p-3.5 rounded-xl bg-neutral-950 border border-neutral-800/80">
                 <label className="block text-xs font-bold text-neutral-200 flex items-center gap-1.5">
-                  <Music className="w-3.5 h-3.5 text-sky-400" /> Audio MP3 320k (Preview & Descarga)
+                  <Music className="w-3.5 h-3.5 text-sky-400" /> Audio MP3 320k (Sencillo o Álbum Multi-Pista)
                 </label>
                 <input
                   type="file"
                   name="mp3_file"
+                  multiple
                   accept=".mp3,audio/mpeg"
+                  onChange={(e) =>
+                    setSelectedMp3Names(
+                      e.target.files ? Array.from(e.target.files).map((f) => f.name) : []
+                    )
+                  }
                   className="block w-full text-xs text-neutral-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-950 file:text-red-300 hover:file:bg-red-900 cursor-pointer"
                 />
+                {selectedMp3Names.length > 0 && (
+                  <p className="text-[10px] font-mono text-sky-300">
+                    {selectedMp3Names.length} pista(s) MP3: {selectedMp3Names.join(', ')}
+                  </p>
+                )}
                 <input
                   type="text"
                   name="mp3_url"
@@ -188,17 +213,43 @@ export default function NewProductPage() {
                 />
               </div>
 
-              {/* Master WAV */}
+              {/* Master WAV (Single or Multi-file Album) */}
               <div className="space-y-2 p-3.5 rounded-xl bg-neutral-950 border border-neutral-800/80">
                 <label className="block text-xs font-bold text-neutral-200 flex items-center gap-1.5">
-                  <Music className="w-3.5 h-3.5 text-emerald-400" /> Audio Máster .WAV (Sin compresión)
+                  <Music className="w-3.5 h-3.5 text-emerald-400" /> Audio Máster .WAV (Sencillo o Álbum Multi-Archivo)
                 </label>
                 <input
                   type="file"
                   name="wav_file"
+                  multiple
                   accept=".wav,audio/wav,audio/x-wav"
+                  onChange={(e) =>
+                    setSelectedWavNames(
+                      e.target.files ? Array.from(e.target.files).map((f) => f.name) : []
+                    )
+                  }
                   className="block w-full text-xs text-neutral-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-950 file:text-red-300 hover:file:bg-red-900 cursor-pointer"
                 />
+                <p className="text-[10px] text-neutral-500">
+                  Puedes seleccionar varios archivos <code className="text-emerald-400">.wav</code> a la vez para subir un álbum completo en este mismo producto.
+                </p>
+                {selectedWavNames.length > 0 && (
+                  <div className="p-2 rounded-lg bg-emerald-950/30 border border-emerald-800/50 space-y-1">
+                    <span className="text-[10px] font-mono font-bold text-emerald-300 block">
+                      {selectedWavNames.length}{' '}
+                      {selectedWavNames.length === 1
+                        ? 'archivo .WAV seleccionado:'
+                        : 'archivos .WAV seleccionados (Álbum):'}
+                    </span>
+                    <ul className="text-[10px] font-mono text-neutral-300 space-y-0.5 max-h-24 overflow-y-auto">
+                      {selectedWavNames.map((fn, i) => (
+                        <li key={`${fn}-${i}`} className="truncate">
+                          {i + 1}. {fn}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <input
                   type="text"
                   name="wav_url"
@@ -215,6 +266,7 @@ export default function NewProductPage() {
                 <input
                   type="file"
                   name="acapella_file"
+                  multiple
                   accept=".wav,.mp3,audio/*"
                   className="block w-full text-xs text-neutral-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-950 file:text-red-300 hover:file:bg-red-900 cursor-pointer"
                 />
@@ -234,6 +286,7 @@ export default function NewProductPage() {
                 <input
                   type="file"
                   name="instrumental_file"
+                  multiple
                   accept=".wav,.mp3,audio/*"
                   className="block w-full text-xs text-neutral-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-950 file:text-red-300 hover:file:bg-red-900 cursor-pointer"
                 />

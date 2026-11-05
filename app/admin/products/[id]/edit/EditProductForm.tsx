@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useState, useActionState } from 'react'
 import { updateProduct, deleteProduct, type AdminActionState } from '@/app/admin/actions'
 import type { Product } from '@/lib/types'
 import {
@@ -18,6 +18,8 @@ const initialState: AdminActionState = {}
 
 export function EditProductForm({ product }: { product: Product }) {
   const [state, formAction, pending] = useActionState(updateProduct, initialState)
+  const [selectedWavNames, setSelectedWavNames] = useState<string[]>([])
+  const [selectedMp3Names, setSelectedMp3Names] = useState<string[]>([])
   const currentPriceDollars = (product.price_cents / 100).toFixed(2)
   const baseFolder = product.category === 'music' || product.fulfillment === 'digital' ? 'songs' : 'merch'
   const canonicalFolder = product.storage_folder_path || `${baseFolder}/${product.slug}`
@@ -115,11 +117,12 @@ export function EditProductForm({ product }: { product: Product }) {
             {/* Cover */}
             <div className="space-y-1.5 p-3 rounded-xl bg-neutral-950 border border-neutral-800">
               <label className="block text-xs font-medium text-neutral-300 flex items-center gap-1.5">
-                <ImageIcon className="w-3.5 h-3.5 text-pink-400" /> Portada HD / Imagen
+                <ImageIcon className="w-3.5 h-3.5 text-pink-400" /> Portada HD / Imágenes
               </label>
               <input
                 type="file"
                 name="cover_file"
+                multiple
                 accept="image/*"
                 className="block w-full text-xs text-neutral-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-950 file:text-red-300 hover:file:bg-red-900 cursor-pointer"
               />
@@ -135,14 +138,25 @@ export function EditProductForm({ product }: { product: Product }) {
             {/* MP3 */}
             <div className="space-y-1.5 p-3 rounded-xl bg-neutral-950 border border-neutral-800">
               <label className="block text-xs font-medium text-neutral-300 flex items-center gap-1.5">
-                <Music className="w-3.5 h-3.5 text-sky-400" /> Audio MP3 (320kbps / Preview)
+                <Music className="w-3.5 h-3.5 text-sky-400" /> Audio MP3 (Sencillo o Álbum Multi-Pista)
               </label>
               <input
                 type="file"
                 name="mp3_file"
+                multiple
                 accept=".mp3,audio/mpeg"
+                onChange={(e) =>
+                  setSelectedMp3Names(
+                    e.target.files ? Array.from(e.target.files).map((f) => f.name) : []
+                  )
+                }
                 className="block w-full text-xs text-neutral-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-950 file:text-red-300 hover:file:bg-red-900 cursor-pointer"
               />
+              {selectedMp3Names.length > 0 && (
+                <p className="text-[10px] font-mono text-sky-300">
+                  {selectedMp3Names.length} pista(s) MP3: {selectedMp3Names.join(', ')}
+                </p>
+              )}
               <input
                 type="text"
                 name="mp3_url"
@@ -155,14 +169,25 @@ export function EditProductForm({ product }: { product: Product }) {
             {/* WAV */}
             <div className="space-y-1.5 p-3 rounded-xl bg-neutral-950 border border-neutral-800">
               <label className="block text-xs font-medium text-neutral-300 flex items-center gap-1.5">
-                <Music className="w-3.5 h-3.5 text-emerald-400" /> Audio WAV Máster (24-bit)
+                <Music className="w-3.5 h-3.5 text-emerald-400" /> Audio WAV Máster (Sencillo o Álbum Multi-Archivo)
               </label>
               <input
                 type="file"
                 name="wav_file"
+                multiple
                 accept=".wav,audio/wav,audio/x-wav"
+                onChange={(e) =>
+                  setSelectedWavNames(
+                    e.target.files ? Array.from(e.target.files).map((f) => f.name) : []
+                  )
+                }
                 className="block w-full text-xs text-neutral-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-950 file:text-red-300 hover:file:bg-red-900 cursor-pointer"
               />
+              {selectedWavNames.length > 0 && (
+                <p className="text-[10px] font-mono text-emerald-300">
+                  {selectedWavNames.length} archivo(s) WAV: {selectedWavNames.join(', ')}
+                </p>
+              )}
               <input
                 type="text"
                 name="wav_url"
@@ -180,6 +205,7 @@ export function EditProductForm({ product }: { product: Product }) {
               <input
                 type="file"
                 name="acapella_file"
+                multiple
                 accept=".wav,.mp3,audio/*"
                 className="block w-full text-xs text-neutral-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-950 file:text-red-300 hover:file:bg-red-900 cursor-pointer"
               />
@@ -200,6 +226,7 @@ export function EditProductForm({ product }: { product: Product }) {
               <input
                 type="file"
                 name="instrumental_file"
+                multiple
                 accept=".wav,.mp3,audio/*"
                 className="block w-full text-xs text-neutral-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-950 file:text-red-300 hover:file:bg-red-900 cursor-pointer"
               />
