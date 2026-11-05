@@ -58,6 +58,13 @@ export const BANNER_PRESETS: BannerPreset[] = [
     url: '/songs/odm/odm.jpg',
     description: 'Arte visual oficial del lanzamiento O.D.M.',
   },
+  {
+    id: 'arde-fly-sessions-pt-1',
+    name: 'Arde — Fly Sessions pt. 1 (Arte Oficial)',
+    category: 'official',
+    url: '/songs/arde-fly-sessions-pt-1/flysessions1.jpg',
+    description: 'Portada oficial del lanzamiento Arde (Fly Sessions pt. 1)',
+  },
 ]
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
@@ -109,6 +116,15 @@ export const SONG_PRESETS: SongPreset[] = [
     subtitle: 'Edición especial de estudio sin compresión',
     audioPreviewUrl: '/songs/odm/ODM.wav',
     thumbnailUrl: '/songs/odm/odm.jpg',
+    durationSeconds: 30,
+  },
+  {
+    id: 'arde-fly-sessions-pt-1',
+    title: 'Arde (Fly Sessions pt. 1)',
+    artist: 'sleepyred999',
+    subtitle: 'Caminando en el parque, y no pude evitarlo...',
+    audioPreviewUrl: '/songs/arde-fly-sessions-pt-1/flysessions1.wav',
+    thumbnailUrl: '/songs/arde-fly-sessions-pt-1/flysessions1.jpg',
     durationSeconds: 30,
   },
 ]

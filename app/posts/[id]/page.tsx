@@ -13,7 +13,8 @@ import { fetchCommentsWithProfiles } from '@/lib/comments-server'
 import { getUserSingleVote, getUserVotesMap } from '@/lib/votes-server'
 import { CommentList } from '@/components/comments/CommentList'
 import { PostLikeButton } from '@/components/home/PostLikeButton'
-import type { Product } from '@/lib/types'
+import { hydrateProductWithFolderAssets, hydratePostWithFolderAssets } from '@/lib/product-files'
+import type { Post, Product } from '@/lib/types'
 import { ArrowLeft, Tag, Share2, Calendar, ShoppingBag } from 'lucide-react'
 import type { Metadata } from 'next'
 import { parseMediaUrls } from '@/lib/utils'
@@ -89,6 +90,14 @@ export default async function PostPage({ params }: PostPageProps) {
         (post.price > 0 ? (publishedProducts[0] as Product) : null)
     }
   }
+
+  if (linkedProduct) {
+    linkedProduct = hydrateProductWithFolderAssets(linkedProduct)
+  }
+  const hydratedPost = hydratePostWithFolderAssets(post as Post, linkedProduct)
+  post.image_url = hydratedPost.image_url
+  post.cover_url = hydratedPost.cover_url
+  post.media_url = hydratedPost.media_url
 
   // Cargar comentarios reales (hidratando perfiles sin depender de FK en PostgREST) y estado de like del usuario
   const [comments, userPostVote] = await Promise.all([

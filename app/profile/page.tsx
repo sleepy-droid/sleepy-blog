@@ -3,6 +3,8 @@ import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { hydrateProductWithFolderAssets } from '@/lib/product-files'
+import type { Product } from '@/lib/types'
 import {
   Sparkles,
   Edit3,
@@ -53,14 +55,16 @@ export default async function ProfilePage() {
   const productUuidToSlugMap = new Map<string, string>()
 
   if (dbMusicProducts) {
-    for (const p of dbMusicProducts) {
+    for (const rawP of dbMusicProducts) {
+      const p = hydrateProductWithFolderAssets(rawP as Product)
       const songKey = p.slug || p.id
       if (p.id && songKey) {
         productUuidToSlugMap.set(p.id, songKey)
       }
       const audioUrl = p.audio_preview_url || p.mp3_url || p.wav_url
       if (!audioUrl) continue
-      if (!availableSongs.some((s) => s.id === songKey || s.id === p.id)) {
+      const existingIdx = availableSongs.findIndex((s) => s.id === songKey || s.id === p.id)
+      if (existingIdx === -1) {
         availableSongs.push({
           id: songKey,
           title: p.name,

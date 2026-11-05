@@ -6,6 +6,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserVotesMap } from '@/lib/votes-server'
+import { hydrateProductWithFolderAssets } from '@/lib/product-files'
 import { type Product } from '@/lib/types'
 import { ShopClient } from './ShopClient'
 import { ShoppingBag, ShieldCheck } from 'lucide-react'
@@ -26,7 +27,9 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     .eq('is_published', true)
     .order('created_at', { ascending: false })
 
-  const products: Product[] = dbProducts ?? []
+  const products: Product[] = (dbProducts ?? []).map((p) =>
+    hydrateProductWithFolderAssets(p as Product)
+  )
 
   const userVotes = await getUserVotesMap({
     supabase,

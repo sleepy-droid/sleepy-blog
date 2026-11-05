@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react'
 import type { Product } from './types'
+import { normalizeMediaUrl } from './utils'
 
 export type CartItemType = {
   id: string
@@ -43,7 +44,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     try {
       const saved = localStorage.getItem('sleepy_cart')
       if (saved) {
-        setItems(JSON.parse(saved))
+        const parsed = JSON.parse(saved) as CartItemType[]
+        setItems(
+          parsed.map((item) => ({
+            ...item,
+            product: {
+              ...item.product,
+              thumbnail_url: normalizeMediaUrl(item.product.thumbnail_url) || null,
+            },
+          }))
+        )
       }
     } catch {
       // ignore JSON parse errors

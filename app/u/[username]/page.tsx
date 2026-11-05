@@ -14,9 +14,10 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { hydrateProductWithFolderAssets } from '@/lib/product-files'
 import { Calendar, ShieldCheck, Edit3, Cake, UserCheck, Sparkles } from 'lucide-react'
 import type { Metadata } from 'next'
-import type { Profile } from '@/lib/types'
+import type { Profile, Product } from '@/lib/types'
 import {
   getSongById,
   SONG_PRESETS,
@@ -123,7 +124,8 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
   const productUuidToSlugMap = new Map<string, string>()
 
   if (dbMusicProducts) {
-    for (const p of dbMusicProducts) {
+    for (const rawP of dbMusicProducts) {
+      const p = hydrateProductWithFolderAssets(rawP as Product)
       const songKey = p.slug || p.id
       if (p.id && songKey) {
         productUuidToSlugMap.set(p.id, songKey)

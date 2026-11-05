@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { Play, Pause, ShoppingBag, ShieldCheck, Sparkles, Music, Package, Maximize2, X, Volume2, VolumeX, Tag, Zap } from 'lucide-react'
 import { formatPrice, type Product } from '@/lib/types'
+import { normalizeMediaUrl } from '@/lib/utils'
 import { useCart } from '@/lib/cart'
 import { useLanguage } from '@/lib/i18n'
 import { toggleVote, getMyVoteState } from '@/app/votes/actions'
@@ -69,9 +70,23 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
       !f.name.toLowerCase().includes('instrumental')
   )
   const mp3AlbumTracks = (product.folder_stats?.files || []).filter((f) => f.extension === '.mp3')
+  const coverFiles = (product.folder_stats?.files || []).filter((f) =>
+    ['.jpg', '.jpeg', '.png', '.webp', '.avif'].includes(f.extension)
+  )
   const albumTracks = wavAlbumTracks.length > 1 ? wavAlbumTracks : mp3AlbumTracks.length > 1 ? mp3AlbumTracks : []
 
-  const defaultPreviewUrl = product.audio_preview_url || product.wav_url || product.mp3_url || albumTracks[0]?.publicUrl || ''
+  const resolvedThumbnailUrl =
+    normalizeMediaUrl(product.thumbnail_url) || coverFiles[0]?.publicUrl || ''
+
+  const defaultPreviewUrl =
+    normalizeMediaUrl(
+      product.audio_preview_url ||
+        product.wav_url ||
+        product.mp3_url ||
+        wavAlbumTracks[0]?.publicUrl ||
+        mp3AlbumTracks[0]?.publicUrl ||
+        ''
+    )
   const [selectedPreviewUrl, setSelectedPreviewUrl] = useState<string>(defaultPreviewUrl)
   const [selectedTrackTitle, setSelectedTrackTitle] = useState<string>(
     albumTracks.length > 0 ? albumTracks[0].title || albumTracks[0].name : product.name
@@ -80,11 +95,9 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
   const isMusic =
     product.category === 'music' ||
     product.fulfillment === 'digital' ||
-    !!product.audio_preview_url ||
-    !!product.wav_url ||
-    !!product.mp3_url ||
+    !!defaultPreviewUrl ||
     albumTracks.length > 0
-  const previewUrl = selectedPreviewUrl || defaultPreviewUrl
+  const previewUrl = normalizeMediaUrl(selectedPreviewUrl || defaultPreviewUrl)
 
   const handleVote = async (val: 1 | -1) => {
     if (isVoting) return
@@ -192,9 +205,9 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
           onClick={() => setIsLightboxOpen(true)}
           className="group relative w-full aspect-square rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 shadow-2xl shadow-black cursor-zoom-in transition-all duration-300"
         >
-          {product.thumbnail_url ? (
+          {resolvedThumbnailUrl ? (
             <Image
-              src={product.thumbnail_url}
+              src={resolvedThumbnailUrl}
               alt={product.name}
               fill
               priority
@@ -588,9 +601,9 @@ export function SingleProductClient({ product, initialUserVote = 0 }: SingleProd
           </button>
           
           <div className="relative w-full max-w-4xl aspect-square max-h-[85vh] rounded-2xl overflow-hidden border border-neutral-800 shadow-2xl">
-            {product.thumbnail_url && (
+            {resolvedThumbnailUrl && (
               <Image
-                src={product.thumbnail_url}
+                src={resolvedThumbnailUrl}
                 alt={product.name}
                 fill
                 sizes="1000px"

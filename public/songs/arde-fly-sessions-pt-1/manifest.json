@@ -4,5 +4,14 @@
   "category": "music",
   "fulfillment": "digital",
   "folder": "/songs/arde-fly-sessions-pt-1",
-  "updatedAt": "2026-10-29T00:57:36.622Z"
+  "cover_urls": [
+    "/songs/arde-fly-sessions-pt-1/flysessions1.jpg"
+  ],
+  "wav_urls": [
+    "/songs/arde-fly-sessions-pt-1/flysessions1.wav"
+  ],
+  "mp3_urls": [],
+  "acapella_urls": [],
+  "instrumental_urls": [],
+  "updatedAt": "2026-11-04T19:20:00.000Z"
 }

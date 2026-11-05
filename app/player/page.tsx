@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { getProductFolderStats } from '@/lib/product-files'
+import { hydrateProductWithFolderAssets } from '@/lib/product-files'
 import { Headphones, Library, Package, ShoppingBag } from 'lucide-react'
 import { WebPlayerClient, type PlayerTrack } from './WebPlayerClient'
 import { SONG_PRESETS } from '@/lib/profile-presets'
@@ -20,9 +20,10 @@ export default async function WebPlayerPage({ searchParams }: PlayerPageProps) {
   const addedProductIds = new Set<string>()
   const tracksMap = new Map<string, PlayerTrack>()
 
-  const addProductTracks = (prod: Product, isUnlocked: boolean) => {
+  const addProductTracks = (rawProd: Product, isUnlocked: boolean) => {
+    const prod = hydrateProductWithFolderAssets(rawProd)
     if (addedProductIds.has(prod.id)) return
-    const folderStats = getProductFolderStats(prod)
+    const folderStats = prod.folder_stats
     const wavFiles = (folderStats?.files || []).filter(
       (f) =>
         f.extension === '.wav' &&

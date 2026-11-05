@@ -5,7 +5,8 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { normalizeMediaUrl } from '@/lib/utils'
-import { provisionProductDirectoryAndUpload } from '@/lib/product-files'
+import { provisionProductDirectoryAndUpload, hydrateProductWithFolderAssets } from '@/lib/product-files'
+import type { Product } from '@/lib/types'
 
 export type AdminActionState = {
   error?: string
@@ -412,27 +413,54 @@ export async function createProduct(
     supabase,
   })
 
-  const thumbnail_url =
+  const rawThumbnailUrl =
     uploaded.thumbnail_url ||
     normalizeMediaUrl(formData.get('thumbnail_url') as string) ||
     null
-  const mp3_url =
+  const rawMp3Url =
     uploaded.mp3_url ||
     normalizeMediaUrl(formData.get('mp3_url') as string) ||
     null
-  const wav_url =
+  const rawWavUrl =
     uploaded.wav_url ||
     normalizeMediaUrl(formData.get('wav_url') as string) ||
     null
   const video_url = String(formData.get('video_url') ?? '').trim() || null
-  const acapella_url =
+  const rawAcapellaUrl =
     uploaded.acapella_url ||
     normalizeMediaUrl(formData.get('acapella_url') as string) ||
     null
-  const instrumental_url =
+  const rawInstrumentalUrl =
     uploaded.instrumental_url ||
     normalizeMediaUrl(formData.get('instrumental_url') as string) ||
     null
+
+  const hydratedDraft = hydrateProductWithFolderAssets({
+    id: slug,
+    slug,
+    name,
+    description,
+    category: category as Product['category'],
+    fulfillment: fulfillment as Product['fulfillment'],
+    price_cents,
+    currency: 'USD',
+    thumbnail_url: rawThumbnailUrl,
+    mp3_url: rawMp3Url,
+    wav_url: rawWavUrl,
+    audio_preview_url: rawMp3Url || rawWavUrl,
+    acapella_url: rawAcapellaUrl,
+    instrumental_url: rawInstrumentalUrl,
+    storage_folder_path: uploaded.folderRelativePath,
+    is_published: true,
+    is_featured: true,
+    created_at: new Date().toISOString(),
+  })
+
+  const thumbnail_url = hydratedDraft.thumbnail_url
+  const mp3_url = hydratedDraft.mp3_url
+  const wav_url = hydratedDraft.wav_url
+  const acapella_url = hydratedDraft.acapella_url
+  const instrumental_url = hydratedDraft.instrumental_url
 
   const specsObj: Record<string, unknown> = {
     folder: `/${uploaded.folderRelativePath}`,
@@ -563,27 +591,54 @@ export async function updateProduct(
     supabase,
   })
 
-  const thumbnail_url =
+  const rawThumbnailUrl =
     uploaded.thumbnail_url ||
     normalizeMediaUrl(formData.get('thumbnail_url') as string) ||
     null
-  const mp3_url =
+  const rawMp3Url =
     uploaded.mp3_url ||
     normalizeMediaUrl(formData.get('mp3_url') as string) ||
     null
-  const wav_url =
+  const rawWavUrl =
     uploaded.wav_url ||
     normalizeMediaUrl(formData.get('wav_url') as string) ||
     null
   const video_url = String(formData.get('video_url') ?? '').trim() || null
-  const acapella_url =
+  const rawAcapellaUrl =
     uploaded.acapella_url ||
     normalizeMediaUrl(formData.get('acapella_url') as string) ||
     null
-  const instrumental_url =
+  const rawInstrumentalUrl =
     uploaded.instrumental_url ||
     normalizeMediaUrl(formData.get('instrumental_url') as string) ||
     null
+
+  const hydratedDraft = hydrateProductWithFolderAssets({
+    id: slug,
+    slug,
+    name,
+    description,
+    category: category as Product['category'],
+    fulfillment: fulfillment as Product['fulfillment'],
+    price_cents,
+    currency: 'USD',
+    thumbnail_url: rawThumbnailUrl,
+    mp3_url: rawMp3Url,
+    wav_url: rawWavUrl,
+    audio_preview_url: rawMp3Url || rawWavUrl,
+    acapella_url: rawAcapellaUrl,
+    instrumental_url: rawInstrumentalUrl,
+    storage_folder_path: uploaded.folderRelativePath,
+    is_published: true,
+    is_featured: true,
+    created_at: new Date().toISOString(),
+  })
+
+  const thumbnail_url = hydratedDraft.thumbnail_url
+  const mp3_url = hydratedDraft.mp3_url
+  const wav_url = hydratedDraft.wav_url
+  const acapella_url = hydratedDraft.acapella_url
+  const instrumental_url = hydratedDraft.instrumental_url
 
   const existingSpecs =
     existing?.specs && typeof existing.specs === 'object'

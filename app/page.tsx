@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserVotesMap } from '@/lib/votes-server'
+import { hydrateProductWithFolderAssets, hydratePostWithFolderAssets } from '@/lib/product-files'
 import { PostCarousel } from '@/components/home/PostCarousel'
 import { PostFeedClient } from '@/components/home/PostFeedClient'
 import { Sparkles, PlusCircle, MessageSquare, ArrowRight, Disc, Clock } from 'lucide-react'
@@ -23,7 +24,9 @@ export default async function Home() {
       .eq('is_published', true),
   ])
 
-  const productList = (dbProducts ?? []) as Product[]
+  const productList = ((dbProducts ?? []) as Product[]).map((p) =>
+    hydrateProductWithFolderAssets(p)
+  )
   const productById = new Map<string, Product>()
   for (const p of productList) {
     productById.set(p.id, p)
@@ -43,11 +46,46 @@ export default async function Home() {
             lowerTitle.includes(p.slug.replace(/-/g, ' '))
         ) || null
     }
-    return {
-      ...post,
-      linked_product: linked,
-    }
+    return hydratePostWithFolderAssets(post, linked)
   })
+
+  // Auto-reparar filas en Supabase cuando el administrador navega y un archivo de public/songs fue renombrado
+  if (currentUser?.isAdmin) {
+    for (const rawP of (dbProducts ?? []) as Product[]) {
+      const hydrated = productById.get(rawP.id)
+      if (
+        hydrated &&
+        (hydrated.thumbnail_url !== rawP.thumbnail_url ||
+          hydrated.audio_preview_url !== rawP.audio_preview_url ||
+          hydrated.wav_url !== rawP.wav_url)
+      ) {
+        await supabase
+          .from('products')
+          .update({
+            thumbnail_url: hydrated.thumbnail_url,
+            audio_preview_url: hydrated.audio_preview_url,
+            wav_url: hydrated.wav_url,
+          })
+          .eq('id', rawP.id)
+      }
+    }
+    for (const rawPost of (dbPosts ?? []) as Post[]) {
+      const hydratedPost = posts.find((p) => p.id === rawPost.id)
+      if (
+        hydratedPost &&
+        (hydratedPost.image_url !== rawPost.image_url ||
+          hydratedPost.cover_url !== rawPost.cover_url)
+      ) {
+        await supabase
+          .from('posts')
+          .update({
+            image_url: hydratedPost.image_url,
+            cover_url: hydratedPost.cover_url,
+          })
+          .eq('id', rawPost.id)
+      }
+    }
+  }
 
   const userVotes = await getUserVotesMap({
     supabase,

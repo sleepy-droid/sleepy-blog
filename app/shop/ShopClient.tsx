@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import { Search, Music, Package, Sparkles, SlidersHorizontal, ArrowUpRight, Heart } from 'lucide-react'
 import { sanitizeSearch } from '@/lib/search'
 import { formatPrice, type Product } from '@/lib/types'
+import { normalizeMediaUrl } from '@/lib/utils'
 import { useLanguage } from '@/lib/i18n'
 import { toggleVote, getMyVoteState } from '@/app/votes/actions'
 import { GuestLoginModal } from '@/components/auth/GuestLoginModal'
@@ -308,9 +309,9 @@ function ProductCard({
           aria-label={`Ver producto ${product.name}`}
           className="block relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800/80 group-hover:border-red-900/40 transition-colors"
         >
-          {product.thumbnail_url ? (
+          {normalizeMediaUrl(product.thumbnail_url) ? (
             <Image
-              src={product.thumbnail_url}
+              src={normalizeMediaUrl(product.thumbnail_url)}
               alt={product.name}
               fill
               sizes="(max-width: 768px) 100vw, 380px"

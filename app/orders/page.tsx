@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { hydrateProductWithFolderAssets } from '@/lib/product-files'
 import { Package, Library, Headphones, ShoppingBag, ShieldCheck } from 'lucide-react'
 import { OrdersClient, type OrderReceipt, type OrderReceiptItem } from './OrdersClient'
 import type { Product } from '@/lib/types'
@@ -45,7 +46,7 @@ export default async function OrdersPage() {
         .in('id', productIds)
 
       for (const p of (prods || []) as Product[]) {
-        productsMap.set(p.id, p)
+        productsMap.set(p.id, hydrateProductWithFolderAssets(p))
       }
     }
 

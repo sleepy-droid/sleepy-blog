@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { ArrowLeft, ShoppingBag } from 'lucide-react'
 import { EditProductForm } from './EditProductForm'
+import { hydrateProductWithFolderAssets } from '@/lib/product-files'
 import type { Product } from '@/lib/types'
 
 interface EditProductPageProps {
@@ -48,7 +49,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
           </p>
         </div>
 
-        <EditProductForm product={product as Product} />
+        <EditProductForm product={hydrateProductWithFolderAssets(product as Product)} />
       </div>
     </main>
   )

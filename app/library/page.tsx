@@ -13,7 +13,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { getProductFolderStats } from '@/lib/product-files'
+import { hydrateProductWithFolderAssets } from '@/lib/product-files'
 import { LibraryClient, type PhysicalOrderType } from './LibraryClient'
 import { Library, ShieldCheck, Headphones, Package } from 'lucide-react'
 import type { Product } from '@/lib/types'
@@ -44,10 +44,7 @@ export default async function LibraryPage() {
         product_id: item.product_id,
         source: (item.source || 'purchase') as 'purchase' | 'admin_grant' | 'membership' | 'gift',
         created_at: item.created_at,
-        product: {
-          ...prod,
-          folder_stats: getProductFolderStats(prod),
-        } as Product,
+        product: hydrateProductWithFolderAssets(prod),
       }
     })
 
@@ -68,10 +65,7 @@ export default async function LibraryPage() {
           product_id: p.id,
           source: 'admin_grant' as const,
           created_at: p.created_at,
-          product: {
-            ...prod,
-            folder_stats: getProductFolderStats(prod),
-          } as Product,
+          product: hydrateProductWithFolderAssets(prod),
         }
       })
     }

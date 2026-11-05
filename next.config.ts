@@ -35,6 +35,22 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/songs/arde-fly-sessions-pt-1/3000x3000bb-flysessions1.jpg',
+        destination: '/songs/arde-fly-sessions-pt-1/flysessions1.jpg',
+      },
+      {
+        source: '/songs/arde-fly-sessions-pt-1/7flysessionsifminor.wav',
+        destination: '/songs/arde-fly-sessions-pt-1/flysessions1.wav',
+      },
+      {
+        source: '/songs/odm/odm.wav',
+        destination: '/songs/odm/ODM.wav',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

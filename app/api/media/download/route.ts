@@ -3,7 +3,8 @@ import path from 'path'
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { getProductFolderStats } from '@/lib/product-files'
+import { hydrateProductWithFolderAssets } from '@/lib/product-files'
+import { normalizeMediaUrl } from '@/lib/utils'
 import type { Product } from '@/lib/types'
 
 export async function GET(request: NextRequest) {
@@ -35,10 +36,11 @@ export async function GET(request: NextRequest) {
     productQuery = productQuery.eq('slug', productId)
   }
 
-  const { data: product } = await productQuery.maybeSingle()
-  if (!product) {
+  const { data: rawProduct } = await productQuery.maybeSingle()
+  if (!rawProduct) {
     return NextResponse.json({ error: 'Producto no encontrado.' }, { status: 404 })
   }
+  const product = hydrateProductWithFolderAssets(rawProduct as Product)
 
   // 2. Verificar titularidad (Entitlement Check): Admin o propietario en library_items / orders
   let isEntitled = currentUser.isAdmin
@@ -80,7 +82,7 @@ export async function GET(request: NextRequest) {
 
   if (requestedFile) {
     const safeFileName = path.basename(requestedFile)
-    const folderStats = getProductFolderStats(product as Product)
+    const folderStats = product.folder_stats
     const matchedLocal = folderStats?.files.find(
       (f) => f.name.toLowerCase() === safeFileName.toLowerCase()
     )
@@ -111,6 +113,8 @@ export async function GET(request: NextRequest) {
         break
     }
   }
+
+  targetUrl = normalizeMediaUrl(targetUrl) || null
 
   if (!targetUrl) {
     return NextResponse.json(

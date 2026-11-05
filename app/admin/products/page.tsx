@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { ShoppingBag, PlusCircle, ArrowLeft, ExternalLink, FolderOpen, HardDrive } from 'lucide-react'
 import { formatPrice, type Product } from '@/lib/types'
-import { getProductFolderStats } from '@/lib/product-files'
+import { hydrateProductWithFolderAssets } from '@/lib/product-files'
 
 export const metadata = {
   title: 'Gestión de Catálogo | Panel Admin sleepyred999 v1.0',
@@ -19,10 +19,9 @@ export default async function AdminProductsPage() {
     .select('*')
     .order('created_at', { ascending: false })
 
-  const products: Product[] = (dbProducts || []).map((p) => ({
-    ...p,
-    folder_stats: getProductFolderStats(p),
-  }))
+  const products: Product[] = (dbProducts || []).map((p) =>
+    hydrateProductWithFolderAssets(p as Product)
+  )
 
   return (
     <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8 font-sans">

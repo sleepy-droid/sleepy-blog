@@ -14,7 +14,7 @@ import { getUserSingleVote, getUserVotesMap } from '@/lib/votes-server'
 import { CommentList } from '@/components/comments/CommentList'
 import { formatPrice, type Product } from '@/lib/types'
 import { SingleProductClient } from './SingleProductClient'
-import { getProductFolderStats } from '@/lib/product-files'
+import { hydrateProductWithFolderAssets } from '@/lib/product-files'
 import { ArrowLeft, Sparkles, ArrowRight } from 'lucide-react'
 import type { Metadata } from 'next'
 
@@ -43,13 +43,15 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     return { title: 'Producto no encontrado | sleepyred999' }
   }
 
+  const hydratedMeta = hydrateProductWithFolderAssets(product as Product)
+
   return {
-    title: `${product.name} | sleepyred999 Store`,
-    description: product.description.slice(0, 160),
+    title: `${hydratedMeta.name} | sleepyred999 Store`,
+    description: hydratedMeta.description.slice(0, 160),
     openGraph: {
-      title: product.name,
-      description: product.description.slice(0, 160),
-      images: product.thumbnail_url ? [product.thumbnail_url] : [],
+      title: hydratedMeta.name,
+      description: hydratedMeta.description.slice(0, 160),
+      images: hydratedMeta.thumbnail_url ? [hydratedMeta.thumbnail_url] : [],
     }
   }
 }
@@ -73,12 +75,8 @@ export default async function SingleProductPage({ params }: ProductPageProps) {
     notFound()
   }
 
-  // Calculate live dynamic folder stats from public/songs/ or public/merch/
-  const folderStats = getProductFolderStats(dbProduct)
-  const product: Product = {
-    ...dbProduct,
-    folder_stats: folderStats,
-  }
+  // Hydrate media URLs and calculate live dynamic folder stats from public/songs/ or public/merch/
+  const product: Product = hydrateProductWithFolderAssets(dbProduct as Product)
 
   // 2. Fetch User session
   const currentUser = await getCurrentUser()
@@ -109,7 +107,9 @@ export default async function SingleProductPage({ params }: ProductPageProps) {
     .eq('is_published', true)
     .limit(3)
 
-  const relatedProducts: Product[] = relatedDb ?? []
+  const relatedProducts: Product[] = (relatedDb ?? []).map((p) =>
+    hydrateProductWithFolderAssets(p as Product)
+  )
 
   return (
     <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-12 font-sans">
