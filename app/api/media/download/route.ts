@@ -144,8 +144,8 @@ export async function GET(request: NextRequest) {
         ext.toLowerCase() === '.mp3'
           ? 'audio/mpeg'
           : ext.toLowerCase() === '.wav'
-          ? 'audio/wav'
-          : 'application/octet-stream'
+            ? 'audio/wav'
+            : 'application/octet-stream'
 
       return new NextResponse(fileBuffer, {
         status: 200,
@@ -159,16 +159,25 @@ export async function GET(request: NextRequest) {
     }
 
     // Si no está en disco local (ej. producción en Vercel), firmar URL temporal en Supabase Storage
-    const bucket = asset === 'mp3' ? 'public-media' : 'private-vault'
-    const { data: signedData } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(storageKey, 3600, { download: downloadFilename })
+    for (const bucket of ['public-media', 'private-vault'] as const) {
+      const { data: signedData } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(storageKey, 3600, { download: downloadFilename })
 
-    if (signedData?.signedUrl) {
-      return NextResponse.redirect(signedData.signedUrl)
+        if (signedData?.signedUrl) {
+          return NextResponse.redirect(signedData.signedUrl)
+        }
+      }
     }
-  }
 
-  // Si es una URL externa completa
-  return NextResponse.redirect(new URL(targetUrl, request.url))
-}
+    // Si es una URL externa completa (ej. Supabase Storage CDN https://*.supabase.co/storage/v1/object/public/...)
+    const redirectUrl = new URL(targetUrl, request.url)
+    if (redirectUrl.hostname.endsWith('.supabase.co') && !redirectUrl.searchParams.has('download')) {
+      const ext = path.extname(redirectUrl.pathname) || (asset === 'mp3' ? '.mp3' : '.wav')
+      const baseFileName = requestedFile
+        ? path.basename(requestedFile, path.extname(requestedFile))
+        : `${product.slug || 'sleepyred999'}-${asset}`
+      redirectUrl.searchParams.set('download', `${baseFileName}${ext}`)
+    }
+    return NextResponse.redirect(redirectUrl)
+  }

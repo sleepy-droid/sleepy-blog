@@ -32,9 +32,9 @@ export async function createPost(
   const content = String(formData.get('content') ?? '').trim()
   const category = String(formData.get('category') ?? '').trim() || 'General'
   const linked_product_id = String(formData.get('linked_product_id') ?? '').trim() || null
-  const image_url = normalizeMediaUrl(formData.get('image_url') as string) || null
-  const media_url = normalizeMediaUrl(formData.get('media_url') as string) || null
-  const price = parsePrice(formData.get('price'))
+  let image_url = normalizeMediaUrl(formData.get('image_url') as string) || null
+  let media_url = normalizeMediaUrl(formData.get('media_url') as string) || null
+  let price = parsePrice(formData.get('price'))
 
   if (!title || title.length < 2) {
     return { error: 'El título es obligatorio (mín. 2 caracteres).' }
@@ -44,6 +44,27 @@ export async function createPost(
   }
 
   const supabase = await createClient()
+
+  if (linked_product_id && (!image_url || !media_url || !price)) {
+    const { data: linkedProd } = await supabase
+      .from('products')
+      .select('thumbnail_url, mp3_url, wav_url, audio_preview_url, price_cents')
+      .eq('id', linked_product_id)
+      .maybeSingle()
+
+    if (linkedProd) {
+      if (!image_url && linkedProd.thumbnail_url) {
+        image_url = normalizeMediaUrl(linkedProd.thumbnail_url) || null
+      }
+      if (!media_url) {
+        const prodAudio = linkedProd.audio_preview_url || linkedProd.mp3_url || linkedProd.wav_url
+        if (prodAudio) media_url = normalizeMediaUrl(prodAudio) || null
+      }
+      if (!price && typeof linkedProd.price_cents === 'number' && linkedProd.price_cents > 0) {
+        price = Number((linkedProd.price_cents / 100).toFixed(2))
+      }
+    }
+  }
 
   const postPayload: Record<string, unknown> = {
     title,
@@ -104,9 +125,9 @@ export async function updatePost(
   const content = String(formData.get('content') ?? '').trim()
   const category = String(formData.get('category') ?? '').trim() || 'General'
   const linked_product_id = String(formData.get('linked_product_id') ?? '').trim() || null
-  const image_url = normalizeMediaUrl(formData.get('image_url') as string) || null
-  const media_url = normalizeMediaUrl(formData.get('media_url') as string) || null
-  const price = parsePrice(formData.get('price'))
+  let image_url = normalizeMediaUrl(formData.get('image_url') as string) || null
+  let media_url = normalizeMediaUrl(formData.get('media_url') as string) || null
+  let price = parsePrice(formData.get('price'))
 
   if (!id) return { error: 'ID de publicación inválido.' }
   if (!title || !content) {
@@ -114,6 +135,27 @@ export async function updatePost(
   }
 
   const supabase = await createClient()
+
+  if (linked_product_id && (!image_url || !media_url || !price)) {
+    const { data: linkedProd } = await supabase
+      .from('products')
+      .select('thumbnail_url, mp3_url, wav_url, audio_preview_url, price_cents')
+      .eq('id', linked_product_id)
+      .maybeSingle()
+
+    if (linkedProd) {
+      if (!image_url && linkedProd.thumbnail_url) {
+        image_url = normalizeMediaUrl(linkedProd.thumbnail_url) || null
+      }
+      if (!media_url) {
+        const prodAudio = linkedProd.audio_preview_url || linkedProd.mp3_url || linkedProd.wav_url
+        if (prodAudio) media_url = normalizeMediaUrl(prodAudio) || null
+      }
+      if (!price && typeof linkedProd.price_cents === 'number' && linkedProd.price_cents > 0) {
+        price = Number((linkedProd.price_cents / 100).toFixed(2))
+      }
+    }
+  }
 
   const updatePayload: Record<string, unknown> = {
     title,
@@ -435,35 +477,11 @@ export async function createProduct(
     normalizeMediaUrl(formData.get('instrumental_url') as string) ||
     null
 
-  const hydratedDraft = hydrateProductWithFolderAssets({
-    id: slug,
-    slug,
-    name,
-    description,
-    category: category as Product['category'],
-    fulfillment: fulfillment as Product['fulfillment'],
-    price_cents,
-    currency: 'USD',
-    thumbnail_url: rawThumbnailUrl,
-    mp3_url: rawMp3Url,
-    wav_url: rawWavUrl,
-    audio_preview_url: rawMp3Url || rawWavUrl,
-    acapella_url: rawAcapellaUrl,
-    instrumental_url: rawInstrumentalUrl,
-    storage_folder_path: uploaded.folderRelativePath,
-    is_published: true,
-    is_featured: true,
-    created_at: new Date().toISOString(),
-  } as Product)
-
-  const thumbnail_url = hydratedDraft.thumbnail_url
-  const mp3_url = hydratedDraft.mp3_url
-  const wav_url = hydratedDraft.wav_url
-  const acapella_url = hydratedDraft.acapella_url
-  const instrumental_url = hydratedDraft.instrumental_url
-
   const specsObj: Record<string, unknown> = {
     folder: `/${uploaded.folderRelativePath}`,
+  }
+  if (uploaded.files && uploaded.files.length > 0) {
+    specsObj.files = uploaded.files
   }
   if (uploaded.wav_urls && uploaded.wav_urls.length > 0) {
     specsObj.wav_urls = uploaded.wav_urls
@@ -480,6 +498,34 @@ export async function createProduct(
   if (uploaded.instrumental_urls && uploaded.instrumental_urls.length > 0) {
     specsObj.instrumental_urls = uploaded.instrumental_urls
   }
+
+  const hydratedDraft = hydrateProductWithFolderAssets({
+    id: slug,
+    slug,
+    name,
+    description,
+    category: category as Product['category'],
+    fulfillment: fulfillment as Product['fulfillment'],
+    price_cents,
+    currency: 'USD',
+    thumbnail_url: rawThumbnailUrl,
+    mp3_url: rawMp3Url,
+    wav_url: rawWavUrl,
+    audio_preview_url: rawMp3Url || rawWavUrl,
+    acapella_url: rawAcapellaUrl,
+    instrumental_url: rawInstrumentalUrl,
+    storage_folder_path: uploaded.folderRelativePath,
+    specs: specsObj,
+    is_published: true,
+    is_featured: true,
+    created_at: new Date().toISOString(),
+  } as Product)
+
+  const thumbnail_url = hydratedDraft.thumbnail_url
+  const mp3_url = hydratedDraft.mp3_url
+  const wav_url = hydratedDraft.wav_url
+  const acapella_url = hydratedDraft.acapella_url
+  const instrumental_url = hydratedDraft.instrumental_url
 
   const productPayload: Record<string, unknown> = {
     slug,
@@ -613,33 +659,6 @@ export async function updateProduct(
     normalizeMediaUrl(formData.get('instrumental_url') as string) ||
     null
 
-  const hydratedDraft = hydrateProductWithFolderAssets({
-    id: slug,
-    slug,
-    name,
-    description,
-    category: category as Product['category'],
-    fulfillment: fulfillment as Product['fulfillment'],
-    price_cents,
-    currency: 'USD',
-    thumbnail_url: rawThumbnailUrl,
-    mp3_url: rawMp3Url,
-    wav_url: rawWavUrl,
-    audio_preview_url: rawMp3Url || rawWavUrl,
-    acapella_url: rawAcapellaUrl,
-    instrumental_url: rawInstrumentalUrl,
-    storage_folder_path: uploaded.folderRelativePath,
-    is_published: true,
-    is_featured: true,
-    created_at: new Date().toISOString(),
-  } as Product)
-
-  const thumbnail_url = hydratedDraft.thumbnail_url
-  const mp3_url = hydratedDraft.mp3_url
-  const wav_url = hydratedDraft.wav_url
-  const acapella_url = hydratedDraft.acapella_url
-  const instrumental_url = hydratedDraft.instrumental_url
-
   const existingSpecs =
     existing?.specs && typeof existing.specs === 'object'
       ? (existing.specs as Record<string, unknown>)
@@ -647,6 +666,16 @@ export async function updateProduct(
   const updatedSpecs: Record<string, unknown> = {
     ...existingSpecs,
     folder: `/${uploaded.folderRelativePath}`,
+  }
+  if (uploaded.files && uploaded.files.length > 0) {
+    const prevFiles = Array.isArray(existingSpecs.files) ? existingSpecs.files : []
+    const uploadedNames = new Set(uploaded.files.map((f) => f.name.toLowerCase()))
+    updatedSpecs.files = [
+      ...prevFiles.filter(
+        (pf: { name?: string }) => !pf?.name || !uploadedNames.has(pf.name.toLowerCase())
+      ),
+      ...uploaded.files,
+    ]
   }
   if (uploaded.wav_urls && uploaded.wav_urls.length > 0) {
     updatedSpecs.wav_urls = uploaded.wav_urls
@@ -663,6 +692,34 @@ export async function updateProduct(
   if (uploaded.instrumental_urls && uploaded.instrumental_urls.length > 0) {
     updatedSpecs.instrumental_urls = uploaded.instrumental_urls
   }
+
+  const hydratedDraft = hydrateProductWithFolderAssets({
+    id,
+    slug,
+    name,
+    description,
+    category: category as Product['category'],
+    fulfillment: fulfillment as Product['fulfillment'],
+    price_cents,
+    currency: 'USD',
+    thumbnail_url: rawThumbnailUrl,
+    mp3_url: rawMp3Url,
+    wav_url: rawWavUrl,
+    audio_preview_url: rawMp3Url || rawWavUrl,
+    acapella_url: rawAcapellaUrl,
+    instrumental_url: rawInstrumentalUrl,
+    storage_folder_path: uploaded.folderRelativePath,
+    specs: updatedSpecs,
+    is_published: true,
+    is_featured: true,
+    created_at: new Date().toISOString(),
+  } as Product)
+
+  const thumbnail_url = hydratedDraft.thumbnail_url
+  const mp3_url = hydratedDraft.mp3_url
+  const wav_url = hydratedDraft.wav_url
+  const acapella_url = hydratedDraft.acapella_url
+  const instrumental_url = hydratedDraft.instrumental_url
 
   const updatePayload: Record<string, unknown> = {
     name,
