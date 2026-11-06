@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { Play, Pause, Music } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SongPreset } from '@/lib/profile-presets'
+import { useGlobalPlayer, type PlayerTrack } from '@/lib/player-context'
 
 type FavoriteSongSnippetPlayerProps = {
   song: SongPreset
@@ -15,52 +15,55 @@ export function FavoriteSongSnippetPlayer({
   song,
   className,
 }: FavoriteSongSnippetPlayerProps) {
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
+  const {
+    activeTrack,
+    isPlaying: globalIsPlaying,
+    currentTime: globalCurrentTime,
+    duration: globalDuration,
+    selectAndPlayTrack,
+    togglePlay: globalTogglePlay,
+    seek,
+  } = useGlobalPlayer()
 
-  const togglePlay = () => {
-    if (!audioRef.current) return
+  const isThisSongActive =
+    activeTrack?.id === song.id ||
+    activeTrack?.slug === song.id ||
+    activeTrack?.title === song.title
 
-    if (isPlaying) {
-      audioRef.current.pause()
-      setIsPlaying(false)
-    } else {
-      audioRef.current.play().then(() => {
-        setIsPlaying(true)
-      }).catch(() => {
-        setIsPlaying(false)
-      })
+  const isPlaying = isThisSongActive && globalIsPlaying
+  const currentTime = isThisSongActive ? globalCurrentTime : 0
+  const duration = isThisSongActive && globalDuration > 0 ? globalDuration : 0
+
+  const handleTogglePlay = () => {
+    if (isThisSongActive) {
+      globalTogglePlay()
+      return
     }
-  }
 
-  const handleTimeUpdate = () => {
-    if (!audioRef.current) return
-    setCurrentTime(audioRef.current.currentTime)
-    if (
-      Number.isFinite(audioRef.current.duration) &&
-      audioRef.current.duration > 0
-    ) {
-      setDuration(audioRef.current.duration)
+    const trackPayload: PlayerTrack = {
+      id: song.id,
+      productId: song.id,
+      slug: song.id,
+      title: song.title,
+      artist: song.artist || 'sleepyred999',
+      description: song.subtitle || 'Himno Oficial de Perfil',
+      thumbnailUrl: song.thumbnailUrl || '/images/logos/PNG-04.png',
+      wavUrl: song.audioPreviewUrl,
+      mp3Url: song.audioPreviewUrl,
+      previewUrl: song.audioPreviewUrl,
+      acapellaUrl: null,
+      instrumentalUrl: null,
+      videoUrl: null,
+      isUnlocked: false,
+      priceCents: 1500,
     }
-  }
-
-  const handleLoadedMetadata = () => {
-    if (
-      audioRef.current &&
-      Number.isFinite(audioRef.current.duration) &&
-      audioRef.current.duration > 0
-    ) {
-      setDuration(audioRef.current.duration)
-    }
+    selectAndPlayTrack(trackPayload, 'master')
   }
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value)
-    if (audioRef.current) {
-      audioRef.current.currentTime = val
-      setCurrentTime(val)
+    if (isThisSongActive) {
+      seek(val)
     }
   }
 
@@ -71,16 +74,6 @@ export function FavoriteSongSnippetPlayer({
     return `${m}:${s < 10 ? '0' : ''}${s}`
   }
 
-  // Cleanup al desmontar
-  useEffect(() => {
-    const audio = audioRef.current
-    return () => {
-      if (audio) {
-        audio.pause()
-      }
-    }
-  }, [])
-
   return (
     <div
       className={cn(
@@ -88,19 +81,6 @@ export function FavoriteSongSnippetPlayer({
         className
       )}
     >
-      <audio
-        ref={audioRef}
-        src={song.audioPreviewUrl}
-        preload="metadata"
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onDurationChange={handleLoadedMetadata}
-        onEnded={() => {
-          setIsPlaying(false)
-          setCurrentTime(0)
-        }}
-      />
-
       <div className="flex items-center gap-3.5">
         {/* Cover Art con Overlay de Play */}
         <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-red-950/80 bg-neutral-900 shrink-0 shadow-md">
@@ -108,6 +88,7 @@ export function FavoriteSongSnippetPlayer({
             src={song.thumbnailUrl}
             alt={song.title}
             fill
+            unoptimized={song.thumbnailUrl.endsWith('.svg')}
             className={cn(
               'object-cover transition-transform duration-500',
               isPlaying && 'scale-105'
@@ -145,7 +126,7 @@ export function FavoriteSongSnippetPlayer({
             {/* Botón Circular de Reproducir */}
             <button
               type="button"
-              onClick={togglePlay}
+              onClick={handleTogglePlay}
               aria-label={isPlaying ? 'Pausar canción' : 'Reproducir canción'}
               className="relative w-9 h-9 rounded-full bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white flex items-center justify-center shadow-lg shadow-red-950/60 transition-transform active:scale-95 cursor-pointer shrink-0"
             >

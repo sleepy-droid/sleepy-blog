@@ -115,3 +115,18 @@
   transform: translateZ(0);
   backface-visibility: hidden;
 }
+
+/* View Transitions for Global Player Morphing (pill <-> bar <-> widget) */
+::view-transition-old(global-player-art),
+::view-transition-new(global-player-art) {
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

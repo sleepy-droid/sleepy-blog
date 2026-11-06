@@ -1,8 +1,6 @@
-import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { hydrateProductWithFolderAssets } from '@/lib/product-files'
-import { Headphones, Library, Package, ShoppingBag } from 'lucide-react'
 import { WebPlayerClient, type PlayerTrack } from './WebPlayerClient'
 import { SONG_PRESETS } from '@/lib/profile-presets'
 import type { Product } from '@/lib/types'
@@ -159,46 +157,7 @@ export default async function WebPlayerPage({ searchParams }: PlayerPageProps) {
   const tracks = Array.from(tracksMap.values())
 
   return (
-    <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8 font-sans">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-neutral-800/80 pb-6">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-950/60 border border-red-900/40 text-red-400">
-            <Headphones className="w-3.5 h-3.5" />
-            <span>Consola & Reproductor Web Dedicado</span>
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-            Reproductor Web Digital
-          </h1>
-          <p className="text-sm text-neutral-400 max-w-2xl leading-relaxed">
-            Reproduce tus másters WAV sin compresión, alterna entre pistas Vocales Acapella e Instrumentales y descarga tus activos verificados.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Link
-            href="/library"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-neutral-200 bg-neutral-900 border border-neutral-800 hover:text-white hover:border-red-900/50 transition-colors"
-          >
-            <Library className="w-3.5 h-3.5 text-red-400" />
-            <span>Mi Biblioteca</span>
-          </Link>
-          <Link
-            href="/orders"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-neutral-200 bg-neutral-900 border border-neutral-800 hover:text-white hover:border-red-900/50 transition-colors"
-          >
-            <Package className="w-3.5 h-3.5 text-red-400" />
-            <span>Mis Pedidos & Recibos</span>
-          </Link>
-          <Link
-            href="/shop"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 transition-colors shadow-md"
-          >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            <span>Tienda</span>
-          </Link>
-        </div>
-      </header>
-
+    <main className="max-w-6xl mx-auto px-3 sm:px-6 pt-2 pb-8 font-sans">
       <WebPlayerClient
         tracks={tracks}
         initialTrackId={requestedTrackId || null}

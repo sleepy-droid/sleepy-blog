@@ -33,6 +33,7 @@ export type PlayerTrack = {
 
 export type StemMode = 'master' | 'mp3' | 'acapella' | 'instrumental'
 export type LoopMode = 'all' | 'one'
+export type PlayerViewMode = 'pill' | 'bar' | 'widget'
 
 const QUEUE_ORDER_STORAGE_KEY = 'sleepy_player_queue_order_v1'
 
@@ -47,6 +48,7 @@ type GlobalPlayerContextValue = {
   isMuted: boolean
   volume: number
   isMinimized: boolean
+  playerViewMode: PlayerViewMode
   isPiPActive: boolean
   pipWindow: Window | null
   pipContainer: HTMLElement | null
@@ -70,6 +72,9 @@ type GlobalPlayerContextValue = {
   toggleMute: () => void
   setVolume: (val: number) => void
   setIsMinimized: (val: boolean) => void
+  setPlayerViewMode: (mode: PlayerViewMode) => void
+  openExpandedWidget: () => void
+  collapseFromWidget: () => void
   togglePiP: () => Promise<void>
   closePlayer: () => void
 }
@@ -226,10 +231,81 @@ export function GlobalPlayerProvider({
   const [duration, setDuration] = useState(0)
   const [isMuted, setIsMuted] = useState(false)
   const [volume, setVolumeState] = useState(1)
-  const [isMinimized, setIsMinimized] = useState(false)
+  const [playerViewMode, setPlayerViewModeState] =
+    useState<PlayerViewMode>('bar')
+  const lastCompactModeRef = useRef<'pill' | 'bar'>('bar')
   const [isPiPActive, setIsPiPActive] = useState(false)
   const [pipWindow, setPipWindow] = useState<Window | null>(null)
   const [pipContainer, setPipContainer] = useState<HTMLElement | null>(null)
+
+  const isMinimized = playerViewMode === 'pill'
+
+  const runWithViewTransition = useCallback((fn: () => void) => {
+    if (
+      typeof document !== 'undefined' &&
+      'startViewTransition' in document &&
+      typeof (
+        document as Document & {
+          startViewTransition?: (cb: () => void) => { finished: Promise<void> }
+        }
+      ).startViewTransition === 'function'
+    ) {
+      try {
+        ;(
+          document as Document & {
+            startViewTransition: (cb: () => void) => { finished: Promise<void> }
+          }
+        ).startViewTransition(() => {
+          fn()
+        })
+        return
+      } catch {
+        // Fallback to direct update
+      }
+    }
+    fn()
+  }, [])
+
+  const setPlayerViewMode = useCallback(
+    (mode: PlayerViewMode) => {
+      if (mode === 'pill' || mode === 'bar') {
+        lastCompactModeRef.current = mode
+      }
+      runWithViewTransition(() => {
+        setPlayerViewModeState(mode)
+      })
+    },
+    [runWithViewTransition]
+  )
+
+  const setIsMinimized = useCallback(
+    (val: boolean) => {
+      const target: PlayerViewMode = val ? 'pill' : 'bar'
+      lastCompactModeRef.current = target
+      runWithViewTransition(() => {
+        setPlayerViewModeState(target)
+      })
+    },
+    [runWithViewTransition]
+  )
+
+  const openExpandedWidget = useCallback(() => {
+    runWithViewTransition(() => {
+      setPlayerViewModeState((curr) => {
+        if (curr === 'pill' || curr === 'bar') {
+          lastCompactModeRef.current = curr
+        }
+        return 'widget'
+      })
+    })
+  }, [runWithViewTransition])
+
+  const collapseFromWidget = useCallback(() => {
+    const target = lastCompactModeRef.current || 'bar'
+    runWithViewTransition(() => {
+      setPlayerViewModeState(target)
+    })
+  }, [runWithViewTransition])
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -868,13 +944,34 @@ export function GlobalPlayerProvider({
     audioRef.current?.pause()
     isPlayingRef.current = false
     setIsPlaying(false)
+    if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'paused'
+      } catch {}
+    }
   }, [])
 
   const seek = useCallback((time: number) => {
     const clamped = Math.max(0, time)
     setCurrentTime(clamped)
-    if (audioRef.current) {
-      audioRef.current.currentTime = clamped
+    const audio = audioRef.current
+    if (audio) {
+      audio.currentTime = clamped
+      if (
+        typeof window !== 'undefined' &&
+        'mediaSession' in navigator &&
+        typeof navigator.mediaSession.setPositionState === 'function' &&
+        Number.isFinite(audio.duration) &&
+        audio.duration > 0
+      ) {
+        try {
+          navigator.mediaSession.setPositionState({
+            duration: audio.duration,
+            playbackRate: audio.playbackRate || 1,
+            position: Math.min(audio.duration, Math.max(0, clamped)),
+          })
+        } catch {}
+      }
     }
   }, [])
 
@@ -915,6 +1012,11 @@ export function GlobalPlayerProvider({
     audioRef.current?.pause()
     isPlayingRef.current = false
     setIsPlaying(false)
+    if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none'
+      } catch {}
+    }
     if (pipWindow) {
       try {
         pipWindow.close()
@@ -923,6 +1025,97 @@ export function GlobalPlayerProvider({
     activeTrackRef.current = null
     setActiveTrack(null)
   }, [pipWindow])
+
+  // Build iOS / Android Lock Screen & Notification Bar compatible raster artwork array with absolute URLs
+  const syncMediaSessionAll = useCallback(() => {
+    if (typeof window === 'undefined' || !('mediaSession' in navigator)) return
+    const track = activeTrackRef.current
+    if (!track) return
+
+    try {
+      const rawThumb = normalizeMediaUrl(track.thumbnailUrl) || '/images/logos/PNG-04.png'
+      // iOS SpringBoard / Lock Screen requires raster images (PNG/JPEG/WebP), not SVG, and requires absolute URLs
+      const rasterPath = rawThumb.toLowerCase().endsWith('.svg')
+        ? '/images/logos/PNG-04.png'
+        : rawThumb
+      const absoluteArtUrl = new URL(rasterPath, window.location.origin).href
+      const lowerUrl = absoluteArtUrl.toLowerCase()
+      const mimeType = lowerUrl.endsWith('.png')
+        ? 'image/png'
+        : lowerUrl.endsWith('.webp')
+          ? 'image/webp'
+          : 'image/jpeg'
+
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.title,
+        artist: track.artist || 'sleepyred999',
+        album: `sleepyred999 • ${stemModeRef.current.toUpperCase()}`,
+        artwork: [
+          { src: absoluteArtUrl, sizes: '96x96', type: mimeType },
+          { src: absoluteArtUrl, sizes: '128x128', type: mimeType },
+          { src: absoluteArtUrl, sizes: '192x192', type: mimeType },
+          { src: absoluteArtUrl, sizes: '256x256', type: mimeType },
+          { src: absoluteArtUrl, sizes: '384x384', type: mimeType },
+          { src: absoluteArtUrl, sizes: '512x512', type: mimeType },
+        ],
+      })
+
+      navigator.mediaSession.playbackState = isPlayingRef.current
+        ? 'playing'
+        : 'paused'
+
+      const audio = audioRef.current
+      if (
+        audio &&
+        typeof navigator.mediaSession.setPositionState === 'function' &&
+        Number.isFinite(audio.duration) &&
+        audio.duration > 0
+      ) {
+        navigator.mediaSession.setPositionState({
+          duration: audio.duration,
+          playbackRate: audio.playbackRate || 1,
+          position: Math.min(
+            audio.duration,
+            Math.max(0, audio.currentTime || 0)
+          ),
+        })
+      }
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        const curr = activeTrackRef.current
+        if (!curr) return
+        const url = resolveTrackAudioSource(curr, stemModeRef.current)
+        playAudioElement(url, false)
+      })
+      navigator.mediaSession.setActionHandler('pause', () => {
+        pause()
+      })
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        stepTrack(-1)
+      })
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        stepTrack(1)
+      })
+      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+        const offset = details.seekOffset || 10
+        const nextTime = Math.max(0, (audioRef.current?.currentTime || 0) - offset)
+        seek(nextTime)
+      })
+      navigator.mediaSession.setActionHandler('seekforward', (details) => {
+        const offset = details.seekOffset || 10
+        const dur = audioRef.current?.duration || Infinity
+        const nextTime = Math.min(dur, (audioRef.current?.currentTime || 0) + offset)
+        seek(nextTime)
+      })
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (typeof details.seekTime === 'number') {
+          seek(details.seekTime)
+        }
+      })
+    } catch {
+      // Ignore unsupported MediaSession actions
+    }
+  }, [playAudioElement, pause, stepTrack, seek])
 
   // Audio Element Event Listeners
   useEffect(() => {
@@ -934,6 +1127,7 @@ export function GlobalPlayerProvider({
       if (Number.isFinite(rawDur) && rawDur > 0) {
         setDuration(rawDur)
       }
+      syncMediaSessionAll()
     }
 
     const onTimeUpdate = () => {
@@ -946,6 +1140,7 @@ export function GlobalPlayerProvider({
     const onPlay = () => {
       isPlayingRef.current = true
       setIsPlaying(true)
+      syncMediaSessionAll()
     }
 
     const onPause = () => {
@@ -953,6 +1148,11 @@ export function GlobalPlayerProvider({
       if (audio.ended) return
       isPlayingRef.current = false
       setIsPlaying(false)
+      if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.playbackState = 'paused'
+        } catch {}
+      }
     }
 
     const onEnded = () => {
@@ -974,6 +1174,11 @@ export function GlobalPlayerProvider({
       isPlayingRef.current = false
       setIsPlaying(false)
       setCurrentTime(0)
+      if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.playbackState = 'paused'
+        } catch {}
+      }
     }
 
     audio.addEventListener('timeupdate', onTimeUpdate)
@@ -981,6 +1186,7 @@ export function GlobalPlayerProvider({
     audio.addEventListener('durationchange', syncDurationFromAudio)
     audio.addEventListener('canplay', syncDurationFromAudio)
     audio.addEventListener('play', onPlay)
+    audio.addEventListener('playing', onPlay)
     audio.addEventListener('pause', onPause)
     audio.addEventListener('ended', onEnded)
 
@@ -990,49 +1196,18 @@ export function GlobalPlayerProvider({
       audio.removeEventListener('durationchange', syncDurationFromAudio)
       audio.removeEventListener('canplay', syncDurationFromAudio)
       audio.removeEventListener('play', onPlay)
+      audio.removeEventListener('playing', onPlay)
       audio.removeEventListener('pause', onPause)
       audio.removeEventListener('ended', onEnded)
     }
-  }, [selectAndPlayTrack])
+  }, [selectAndPlayTrack, playAudioElement, syncMediaSessionAll])
 
-  // Keep MediaSession API synchronized for OS Media Keys & Video PiP Window Controls
+  // Keep MediaSession API synchronized when track, stem, or playback state changes
   useEffect(() => {
-    if (typeof window === 'undefined' || !('mediaSession' in navigator)) return
-    if (!activeTrack) return
+    syncMediaSessionAll()
+  }, [activeTrack, stemMode, isPlaying, syncMediaSessionAll])
 
-    try {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: activeTrack.title,
-        artist: `${activeTrack.artist} • ${stemMode.toUpperCase()}`,
-        album: 'sleepyred999 Digital Vault',
-        artwork: activeTrack.thumbnailUrl
-          ? [
-              {
-                src: activeTrack.thumbnailUrl,
-                sizes: '512x512',
-                type: 'image/jpeg',
-              },
-            ]
-          : [],
-      })
-
-      navigator.mediaSession.setActionHandler('play', () => togglePlay())
-      navigator.mediaSession.setActionHandler('pause', () => pause())
-      navigator.mediaSession.setActionHandler('previoustrack', () =>
-        stepTrack(-1)
-      )
-      navigator.mediaSession.setActionHandler('nexttrack', () => stepTrack(1))
-      navigator.mediaSession.setActionHandler('seekto', (details) => {
-        if (typeof details.seekTime === 'number') {
-          seek(details.seekTime)
-        }
-      })
-    } catch {
-      // Ignore unsupported MediaSession actions
-    }
-  }, [activeTrack, stemMode, togglePlay, pause, stepTrack, seek])
-
-  // Picture-in-Picture (Document PiP primary + Canvas Video PiP fallback)
+  // Picture-in-Picture (Document PiP primary + lazy Canvas Video PiP fallback on desktop)
   const togglePiP = useCallback(async () => {
     if (typeof window === 'undefined') return
 
@@ -1122,10 +1297,8 @@ export function GlobalPlayerProvider({
       }
     }
 
-    const video = pipVideoRef.current
     const canvas = canvasRef.current
     if (
-      video &&
       canvas &&
       typeof (
         canvas as HTMLCanvasElement & {
@@ -1134,6 +1307,22 @@ export function GlobalPlayerProvider({
       ).captureStream === 'function'
     ) {
       try {
+        if (!pipVideoRef.current) {
+          const v = document.createElement('video')
+          v.muted = true
+          v.playsInline = true
+          v.style.position = 'fixed'
+          v.style.width = '1px'
+          v.style.height = '1px'
+          v.style.opacity = '0'
+          v.style.pointerEvents = 'none'
+          v.addEventListener('leavepictureinpicture', () => {
+            setIsPiPActive(false)
+          })
+          document.body.appendChild(v)
+          pipVideoRef.current = v
+        }
+        const video = pipVideoRef.current
         drawCanvasFrame()
         if (!video.srcObject) {
           const stream = (
@@ -1161,31 +1350,7 @@ export function GlobalPlayerProvider({
     }
 
     setIsMinimized(true)
-  }, [pipWindow, drawCanvasFrame])
-
-  useEffect(() => {
-    const video = pipVideoRef.current
-    if (!video) return
-    const onLeave = () => setIsPiPActive(false)
-    video.addEventListener('leavepictureinpicture', onLeave)
-    return () => {
-      video.removeEventListener('leavepictureinpicture', onLeave)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('mediaSession' in navigator)) return
-    try {
-      navigator.mediaSession.setActionHandler(
-        'enterpictureinpicture' as MediaSessionAction,
-        () => {
-          togglePiP()
-        }
-      )
-    } catch {
-      // Not supported in all browsers
-    }
-  }, [togglePiP])
+  }, [pipWindow, drawCanvasFrame, setIsMinimized])
 
   return (
     <GlobalPlayerContext.Provider
@@ -1200,6 +1365,7 @@ export function GlobalPlayerProvider({
         isMuted,
         volume,
         isMinimized,
+        playerViewMode,
         isPiPActive,
         pipWindow,
         pipContainer,
@@ -1219,24 +1385,21 @@ export function GlobalPlayerProvider({
         toggleMute,
         setVolume,
         setIsMinimized,
+        setPlayerViewMode,
+        openExpandedWidget,
+        collapseFromWidget,
         togglePiP,
         closePlayer,
       }}
     >
-      {/* Persistent Singleton Audio Element (src controlled imperatively to prevent React re-render reload races) */}
-      <audio ref={audioRef} preload="auto" className="hidden" />
-      {/* Hidden Canvas & Video for Native Video PiP Fallback */}
+      {/* Persistent Singleton Audio Element (sr-only so iOS Safari Now Playing treats it as active primary media) */}
+      <audio ref={audioRef} playsInline preload="metadata" className="sr-only" />
+      {/* Hidden Canvas for Native Video PiP Fallback */}
       <canvas
         ref={canvasRef}
         width={420}
         height={420}
         className="hidden pointer-events-none"
-      />
-      <video
-        ref={pipVideoRef}
-        muted
-        playsInline
-        className="hidden pointer-events-none w-0 h-0"
       />
       {children}
     </GlobalPlayerContext.Provider>

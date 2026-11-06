@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import {
   Play,
   Pause,
@@ -32,6 +33,7 @@ import {
   ListMusic,
   CornerDownRight,
   ImageDown,
+  Library,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/types'
 import {
@@ -53,6 +55,7 @@ export function WebPlayerClient({
   initialTrackId,
   isLoggedIn,
 }: WebPlayerClientProps) {
+  const router = useRouter()
   const {
     tracks: globalTracks,
     activeTrack,
@@ -70,6 +73,7 @@ export function WebPlayerClient({
     stepTrack,
     toggleMute,
     setIsMinimized,
+    setPlayerViewMode,
     togglePiP,
     moveTrackInQueue,
     moveTrackById,
@@ -167,39 +171,48 @@ export function WebPlayerClient({
     setQueue(tracks, currentTrack.id)
   }
 
+  // Minimize back to the previous page with the mini-bar active (YouTube style)
+  const handleMinimizeAndReturn = (targetMode: 'bar' | 'pill' = 'bar') => {
+    if (!activeTrack && currentTrack) {
+      selectAndPlayTrack(currentTrack, stemMode, allTracks)
+    }
+    setPlayerViewMode(targetMode)
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back()
+    } else {
+      router.push('/library')
+    }
+  }
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       {/* Columna Izquierda: Consola Maestra de Reproducción */}
       <div
         ref={deckRef}
-        className="lg:col-span-7 rounded-3xl border border-red-900/50 bg-gradient-to-br from-neutral-950 via-neutral-900/95 to-neutral-950 p-6 sm:p-8 shadow-2xl space-y-6 scroll-mt-24"
+        className="lg:col-span-7 rounded-3xl border border-red-900/50 bg-gradient-to-br from-neutral-950 via-neutral-900/95 to-neutral-950 p-5 sm:p-7 shadow-2xl space-y-5 scroll-mt-16"
       >
-        {/* Cabecera de Estado del Deck + Controles Picture-in-Picture y Minimizar */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* Cabecera de Estado del Deck + Controles Picture-in-Picture, Minimizar y Accesos Rápidos */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800/80 pb-3.5">
           <div className="flex items-center gap-2">
             <Disc
               className={`w-4 h-4 text-red-500 ${
                 isPlaying ? 'animate-spin' : ''
               }`}
             />
-            <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
-              sleepyred999 Studio Deck • {stemMode.toUpperCase()}
+            <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-300 font-bold">
+              sleepyred999 Deck • {stemMode.toUpperCase()}
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
-              onClick={togglePiP}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold border transition-all cursor-pointer ${
-                isPiPActive
-                  ? 'bg-red-700 text-white border-red-400 shadow-lg shadow-red-950/60'
-                  : 'bg-red-950/70 text-red-300 border-red-800/70 hover:bg-red-900/60 hover:text-white'
-              }`}
-              title="Abrir reproductor en ventana flotante Picture-in-Picture (se mantiene visible aunque cambies de ventana o programa)"
+              onClick={() => handleMinimizeAndReturn('bar')}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-neutral-900 text-neutral-200 border border-neutral-700 hover:border-red-500 hover:text-white transition-all cursor-pointer"
+              title="Minimizar reproductor en barra inferior y volver a la página anterior"
             >
-              <PictureInPicture2 className="w-3.5 h-3.5" />
-              <span>{isPiPActive ? 'PiP Flotante Activo' : 'Modo PiP Flotante'}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-red-400" />
+              <span>Minimizar y Volver</span>
             </button>
 
             <button
@@ -207,24 +220,37 @@ export function WebPlayerClient({
               onClick={() => setIsMinimized(!isMinimized)}
               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold border transition-all cursor-pointer ${
                 isMinimized
-                  ? 'bg-neutral-800 text-white border-neutral-600'
+                  ? 'bg-red-950/90 text-red-200 border-red-700'
                   : 'bg-neutral-900 text-neutral-300 border-neutral-800 hover:text-white'
               }`}
-              title="Mostrar pestaña minimizada flotante en la esquina"
+              title="Mostrar Mini-Mini reproductor flotante en la esquina"
             >
-              <Minimize2 className="w-3 h-3" />
-              <span>{isMinimized ? 'Pestaña Activa' : 'Minimizar'}</span>
+              <Minimize2 className="w-3 h-3 text-red-400" />
+              <span>{isMinimized ? 'Mini-Mini Activo' : 'Mini-Mini'}</span>
             </button>
 
-            {currentTrack.isUnlocked ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
-                <Unlock className="w-3 h-3" /> En tu Biblioteca (Descargable)
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-red-950/80 text-red-300 border border-red-700/60">
-                <Music className="w-3 h-3" /> Streaming Completo
-              </span>
-            )}
+            <button
+              type="button"
+              onClick={togglePiP}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-bold border transition-all cursor-pointer ${
+                isPiPActive
+                  ? 'bg-red-700 text-white border-red-400 shadow-lg shadow-red-950/60'
+                  : 'bg-red-950/70 text-red-300 border-red-800/70 hover:bg-red-900/60 hover:text-white'
+              }`}
+              title="Abrir reproductor en ventana flotante Picture-in-Picture"
+            >
+              <PictureInPicture2 className="w-3.5 h-3.5" />
+              <span>{isPiPActive ? 'PiP Activo' : 'PiP'}</span>
+            </button>
+
+            <Link
+              href="/library"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-neutral-900 text-neutral-300 border border-neutral-800 hover:text-white transition-colors"
+              title="Ir a Mi Biblioteca"
+            >
+              <Library className="w-3 h-3 text-red-400" />
+              <span>Biblioteca</span>
+            </Link>
           </div>
         </div>
 
