@@ -1,7 +1,7 @@
 export type BannerPreset = {
   id: string
   name: string
-  category: 'studio' | 'official' | 'minimal'
+  category: 'studio' | 'official' | 'minimal' | 'unlocked'
   url: string
   description: string
 }
@@ -10,6 +10,7 @@ export type AvatarPreset = {
   id: string
   name: string
   url: string
+  isUnlockedCover?: boolean
 }
 
 export type SongPreset = {
@@ -21,6 +22,109 @@ export type SongPreset = {
   thumbnailUrl: string
   durationSeconds: number
 }
+
+export type StickerPreset = {
+  id: string
+  name: string
+  emoji: string
+  label: string
+  rarity: 'holo' | 'foil' | 'gold' | 'studio'
+  bgGradient: string
+  borderClass: string
+  textClass: string
+  description: string
+}
+
+export const STICKER_PRESETS: StickerPreset[] = [
+  {
+    id: '999-flame-holo',
+    name: '999 Ignición Holográfica',
+    emoji: '🔥',
+    label: '999 HOLO',
+    rarity: 'holo',
+    bgGradient: 'from-red-600/35 via-orange-500/25 to-rose-700/35',
+    borderClass: 'border-red-500/70 shadow-red-900/50',
+    textClass: 'text-red-200',
+    description: 'Sticker holográfico oficial de la comunidad sleepyred999',
+  },
+  {
+    id: 'studio-master-gold',
+    name: '24-Bit Studio Crown',
+    emoji: '👑',
+    label: '24-BIT MASTER',
+    rarity: 'gold',
+    bgGradient: 'from-amber-500/35 via-yellow-500/20 to-amber-800/35',
+    borderClass: 'border-amber-400/70 shadow-amber-900/50',
+    textClass: 'text-amber-200',
+    description: 'Insignia dorada de oyente de másters sin compresión',
+  },
+  {
+    id: 'vinyl-press-foil',
+    name: 'Direct-To-Vinyl Foil',
+    emoji: '💿',
+    label: 'VINYL FOIL',
+    rarity: 'foil',
+    bgGradient: 'from-fuchsia-600/30 via-purple-600/20 to-red-700/30',
+    borderClass: 'border-fuchsia-400/70 shadow-fuchsia-900/40',
+    textClass: 'text-fuchsia-200',
+    description: 'Edición prensado directo de estudio',
+  },
+  {
+    id: 'fly-sessions-wing',
+    name: 'Fly Sessions pt. 1 Holo',
+    emoji: '🕊️',
+    label: 'FLY SESSIONS',
+    rarity: 'holo',
+    bgGradient: 'from-sky-500/30 via-emerald-500/20 to-cyan-800/35',
+    borderClass: 'border-sky-400/70 shadow-sky-900/40',
+    textClass: 'text-sky-200',
+    description: 'Sticker conmemorativo de Arde (Fly Sessions pt. 1)',
+  },
+  {
+    id: 'criss-angel-sigil',
+    name: 'Criss Angel Levitate',
+    emoji: '🪄',
+    label: 'LEVITATE',
+    rarity: 'foil',
+    bgGradient: 'from-rose-600/35 via-red-700/25 to-neutral-900/60',
+    borderClass: 'border-rose-500/70 shadow-rose-950/50',
+    textClass: 'text-rose-200',
+    description: 'Sello del lanzamiento oficial Criss Angel',
+  },
+  {
+    id: 'odm-club-gold',
+    name: 'O.D.M. Midnight Gold',
+    emoji: '⚡',
+    label: 'O.D.M. VIP',
+    rarity: 'gold',
+    bgGradient: 'from-yellow-500/30 via-red-600/25 to-neutral-950/60',
+    borderClass: 'border-yellow-500/70 shadow-yellow-950/50',
+    textClass: 'text-yellow-200',
+    description: 'Insignia nocturna del corte O.D.M.',
+  },
+  {
+    id: 'red-rec-studio',
+    name: 'Red Recordings Engineer',
+    emoji: '🎚️',
+    label: 'RED REC',
+    rarity: 'studio',
+    bgGradient: 'from-red-800/40 via-neutral-800/40 to-red-950/50',
+    borderClass: 'border-red-600/70 shadow-red-950/50',
+    textClass: 'text-red-300',
+    description: 'Consola de ingeniería Red Recordings',
+  },
+  {
+    id: 'sub-bass-architect',
+    name: '808 Sub-Bass Architect',
+    emoji: '🔊',
+    label: '808 SUB',
+    rarity: 'holo',
+    bgGradient: 'from-emerald-500/30 via-teal-600/20 to-neutral-900/50',
+    borderClass: 'border-emerald-400/70 shadow-emerald-950/40',
+    textClass: 'text-emerald-200',
+    description: 'Frecuencias sub-graves calibradas a 0 dBFS',
+  },
+]
 
 export const BANNER_PRESETS: BannerPreset[] = [
   {
@@ -140,15 +244,19 @@ export function getSongById(id?: string | null, customList?: SongPreset[]): Song
 }
 
 const FAV_SONG_MARKER = ' ||fav:'
+const STICKERS_MARKER = ' ||stickers:'
 
 /**
- * Extrae el texto limpio de status_update sin el marcador interno de canción favorita preset.
+ * Extrae el texto limpio de status_update sin los marcadores internos de canción favorita o stickers.
  */
 export function extractProfileStatus(rawStatus?: string | null): string {
   if (!rawStatus) return ''
-  const idx = rawStatus.indexOf(FAV_SONG_MARKER)
-  if (idx === -1) return rawStatus.trim()
-  return rawStatus.slice(0, idx).trim()
+  let clean = rawStatus
+  const sIdx = clean.indexOf(STICKERS_MARKER)
+  if (sIdx !== -1) clean = clean.slice(0, sIdx)
+  const fIdx = clean.indexOf(FAV_SONG_MARKER)
+  if (fIdx !== -1) clean = clean.slice(0, fIdx)
+  return clean.trim()
 }
 
 /**
@@ -163,7 +271,10 @@ export function extractProfileFavSongId(profile?: {
   if (profile.status_update) {
     const idx = profile.status_update.indexOf(FAV_SONG_MARKER)
     if (idx !== -1) {
-      const markerVal = profile.status_update.slice(idx + FAV_SONG_MARKER.length).trim()
+      let rest = profile.status_update.slice(idx + FAV_SONG_MARKER.length)
+      const sIdx = rest.indexOf(STICKERS_MARKER)
+      if (sIdx !== -1) rest = rest.slice(0, sIdx)
+      const markerVal = rest.trim()
       if (markerVal) return markerVal
     }
   }
@@ -171,17 +282,55 @@ export function extractProfileFavSongId(profile?: {
 }
 
 /**
- * Combina el status_update visible con un identificador de canción preset cuando
- * la canción elegida no es un UUID en `public.products`.
+ * Extrae los IDs de stickers equipados en la vitrina del perfil (estilo Steam / Dota 2).
+ */
+export function extractProfileStickers(rawStatus?: string | null): string[] {
+  const defaultStickers = [
+    '999-flame-holo',
+    'studio-master-gold',
+    'fly-sessions-wing',
+  ]
+  if (!rawStatus) return defaultStickers
+  const idx = rawStatus.indexOf(STICKERS_MARKER)
+  if (idx === -1) return defaultStickers
+  let rest = rawStatus.slice(idx + STICKERS_MARKER.length)
+  const fIdx = rest.indexOf(FAV_SONG_MARKER)
+  if (fIdx !== -1) rest = rest.slice(0, fIdx)
+  const rawList = rest.trim()
+  if (rawList === 'none') return []
+  const ids = rawList
+    .split(',')
+    .map((s) => s.trim())
+    .filter((id) => STICKER_PRESETS.some((p) => p.id === id))
+    .slice(0, 4)
+  return ids.length > 0 ? ids : defaultStickers
+}
+
+export function getStickersByIds(ids: string[]): StickerPreset[] {
+  return ids
+    .map((id) => STICKER_PRESETS.find((s) => s.id === id))
+    .filter((s): s is StickerPreset => Boolean(s))
+}
+
+/**
+ * Combina el status_update visible con el identificador de canción preset y los stickers equipados.
  */
 export function encodeProfileStatusWithFavSong(
   cleanStatus: string,
-  favSongPresetSlug?: string | null
+  favSongPresetSlug?: string | null,
+  stickerIds?: string[] | null
 ): string | null {
-  const trimmed = cleanStatus.trim()
-  if (!favSongPresetSlug) {
-    return trimmed || null
+  let result = cleanStatus.trim()
+  if (favSongPresetSlug) {
+    result += `${FAV_SONG_MARKER}${favSongPresetSlug}`
   }
-  return `${trimmed}${FAV_SONG_MARKER}${favSongPresetSlug}`
+  if (stickerIds) {
+    const cleanIds = stickerIds
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 4)
+    result += `${STICKERS_MARKER}${cleanIds.length > 0 ? cleanIds.join(',') : 'none'}`
+  }
+  return result || null
 }
 

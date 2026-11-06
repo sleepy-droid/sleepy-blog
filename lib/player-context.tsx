@@ -184,34 +184,30 @@ export function resolveTrackAudioSource(
 ): string {
   if (!track) return ''
   let raw = ''
-  if (!track.isUnlocked) {
-    raw = track.previewUrl || track.mp3Url || track.wavUrl || ''
-  } else {
-    switch (mode) {
-      case 'acapella':
-        raw =
-          track.acapellaUrl ||
-          track.wavUrl ||
-          track.mp3Url ||
-          track.previewUrl ||
-          ''
-        break
-      case 'instrumental':
-        raw =
-          track.instrumentalUrl ||
-          track.wavUrl ||
-          track.mp3Url ||
-          track.previewUrl ||
-          ''
-        break
-      case 'mp3':
-        raw = track.mp3Url || track.previewUrl || track.wavUrl || ''
-        break
-      case 'master':
-      default:
-        raw = track.wavUrl || track.mp3Url || track.previewUrl || ''
-        break
-    }
+  switch (mode) {
+    case 'acapella':
+      raw =
+        track.acapellaUrl ||
+        track.wavUrl ||
+        track.mp3Url ||
+        track.previewUrl ||
+        ''
+      break
+    case 'instrumental':
+      raw =
+        track.instrumentalUrl ||
+        track.wavUrl ||
+        track.mp3Url ||
+        track.previewUrl ||
+        ''
+      break
+    case 'mp3':
+      raw = track.mp3Url || track.previewUrl || track.wavUrl || ''
+      break
+    case 'master':
+    default:
+      raw = track.wavUrl || track.mp3Url || track.previewUrl || ''
+      break
   }
   return normalizeMediaUrl(raw) || raw
 }
@@ -476,7 +472,7 @@ export function GlobalPlayerProvider({
     ctx.roundRect(barX, barY, barW, barH, 4)
     ctx.fill()
 
-    const dur = duration > 0 ? duration : track.isUnlocked ? 180 : 30
+    const dur = duration > 0 ? duration : 180
     const pct = Math.min(1, Math.max(0, currentTime / dur))
     ctx.fillStyle = '#dc2626'
     ctx.beginPath()
@@ -934,34 +930,16 @@ export function GlobalPlayerProvider({
     if (!audio) return
 
     const syncDurationFromAudio = () => {
-      const track = activeTrackRef.current
       const rawDur = audio.duration
       if (Number.isFinite(rawDur) && rawDur > 0) {
-        setDuration(
-          track && !track.isUnlocked ? Math.min(rawDur, 30) : rawDur
-        )
-      } else if (track && !track.isUnlocked) {
-        setDuration(30)
+        setDuration(rawDur)
       }
     }
 
     const onTimeUpdate = () => {
-      const track = activeTrackRef.current
-      if (track && !track.isUnlocked && audio.currentTime >= 30) {
-        audio.pause()
-        audio.currentTime = 0
-        isPlayingRef.current = false
-        setIsPlaying(false)
-        setCurrentTime(0)
-        return
-      }
       setCurrentTime(audio.currentTime)
       if (Number.isFinite(audio.duration) && audio.duration > 0) {
-        setDuration(
-          track && !track.isUnlocked
-            ? Math.min(audio.duration, 30)
-            : audio.duration
-        )
+        setDuration(audio.duration)
       }
     }
 

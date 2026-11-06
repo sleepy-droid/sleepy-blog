@@ -66,12 +66,8 @@ function DocumentPiPPortalContent({
 
   if (!activeTrack) return null
 
-  const maxDur = duration > 0 ? duration : activeTrack.isUnlocked ? 180 : 30
-  const displayMaxDur = activeTrack.isUnlocked
-    ? duration > 0
-      ? formatTime(duration)
-      : '--:--'
-    : formatTime(duration || 30)
+  const maxDur = duration > 0 ? duration : 180
+  const displayMaxDur = duration > 0 ? formatTime(duration) : '--:--'
 
   const changeStem = (mode: StemMode) => {
     selectAndPlayTrack(activeTrack, mode)
@@ -202,7 +198,7 @@ function DocumentPiPPortalContent({
               }}
             >
               {activeTrack.artist}{' '}
-              {activeTrack.isUnlocked ? '• MÁSTER' : '• PREVIEW 30S'} ↗
+              {activeTrack.isUnlocked ? '• EN BIBLIOTECA' : '• STREAM COMPLETO'} ↗
             </div>
             <div
               style={{
@@ -444,12 +440,8 @@ export function GlobalMiniPlayer() {
   if (!activeTrack) return null
 
   const isOnDedicatedPlayerPage = pathname === '/player'
-  const maxDur = duration > 0 ? duration : activeTrack.isUnlocked ? 180 : 30
-  const displayMaxDur = activeTrack.isUnlocked
-    ? duration > 0
-      ? formatTime(duration)
-      : '--:--'
-    : formatTime(duration || 30)
+  const maxDur = duration > 0 ? duration : 180
+  const displayMaxDur = duration > 0 ? formatTime(duration) : '--:--'
   const progressPct = Math.min(100, Math.max(0, (currentTime / maxDur) * 100))
 
   // Sprawl back to the full Web Player console when clicking the song cover or title
@@ -727,7 +719,9 @@ export function GlobalMiniPlayer() {
                                 </p>
                                 <p className="text-[10px] font-mono text-neutral-400 truncate">
                                   {track.artist} •{' '}
-                                  {track.isUnlocked ? 'Máster' : 'Preview 30s'}
+                                  {track.isUnlocked
+                                    ? 'En Biblioteca (WAV/MP3)'
+                                    : 'Stream Completo'}
                                 </p>
                               </div>
                             </button>
@@ -799,11 +793,11 @@ export function GlobalMiniPlayer() {
                       </span>
                       {activeTrack.isUnlocked ? (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-800/60">
-                          <Unlock className="w-2.5 h-2.5" /> Máster
+                          <Unlock className="w-2.5 h-2.5" /> En Biblioteca
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-950/90 text-amber-300 border border-amber-800/60">
-                          <Lock className="w-2.5 h-2.5" /> Preview 30s
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-red-950/90 text-red-300 border border-red-800/60">
+                          <Headphones className="w-2.5 h-2.5" /> Stream Completo
                         </span>
                       )}
                       <span className="text-[10px] font-mono text-neutral-400 group-hover:text-red-300 inline-flex items-center gap-1 transition-colors">

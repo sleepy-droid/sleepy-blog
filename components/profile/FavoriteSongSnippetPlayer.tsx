@@ -18,7 +18,7 @@ export function FavoriteSongSnippetPlayer({
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
-  const maxDuration = 30 // Snippet acotado a 30 segundos
+  const [duration, setDuration] = useState(0)
 
   const togglePlay = () => {
     if (!audioRef.current) return
@@ -37,16 +37,22 @@ export function FavoriteSongSnippetPlayer({
 
   const handleTimeUpdate = () => {
     if (!audioRef.current) return
-    const cur = audioRef.current.currentTime
+    setCurrentTime(audioRef.current.currentTime)
+    if (
+      Number.isFinite(audioRef.current.duration) &&
+      audioRef.current.duration > 0
+    ) {
+      setDuration(audioRef.current.duration)
+    }
+  }
 
-    // Si alcanza los 30 segundos, detenemos el snippet
-    if (cur >= maxDuration) {
-      audioRef.current.pause()
-      audioRef.current.currentTime = 0
-      setIsPlaying(false)
-      setCurrentTime(0)
-    } else {
-      setCurrentTime(cur)
+  const handleLoadedMetadata = () => {
+    if (
+      audioRef.current &&
+      Number.isFinite(audioRef.current.duration) &&
+      audioRef.current.duration > 0
+    ) {
+      setDuration(audioRef.current.duration)
     }
   }
 
@@ -59,6 +65,7 @@ export function FavoriteSongSnippetPlayer({
   }
 
   const formatSeconds = (sec: number) => {
+    if (!Number.isFinite(sec) || sec < 0) return '0:00'
     const s = Math.floor(sec % 60)
     const m = Math.floor(sec / 60)
     return `${m}:${s < 10 ? '0' : ''}${s}`
@@ -84,8 +91,10 @@ export function FavoriteSongSnippetPlayer({
       <audio
         ref={audioRef}
         src={song.audioPreviewUrl}
-        preload="none"
+        preload="metadata"
         onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onDurationChange={handleLoadedMetadata}
         onEnded={() => {
           setIsPlaying(false)
           setCurrentTime(0)
@@ -122,10 +131,10 @@ export function FavoriteSongSnippetPlayer({
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-400 flex items-center gap-1">
-                  <Music className="w-3 h-3 text-red-400" /> Canción Favorita
+                  <Music className="w-3 h-3 text-red-400" /> Himno de Perfil
                 </span>
                 <span className="text-[9px] font-mono text-neutral-400 bg-neutral-900/80 border border-neutral-800 px-1.5 py-0.2 rounded">
-                  Snippet 30s
+                  Pista Completa
                 </span>
               </div>
               <h3 className="text-xs sm:text-sm font-extrabold text-white truncate group-hover:text-red-300 transition-colors">
@@ -137,7 +146,7 @@ export function FavoriteSongSnippetPlayer({
             <button
               type="button"
               onClick={togglePlay}
-              aria-label={isPlaying ? 'Pausar snippet' : 'Reproducir snippet'}
+              aria-label={isPlaying ? 'Pausar canción' : 'Reproducir canción'}
               className="relative w-9 h-9 rounded-full bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white flex items-center justify-center shadow-lg shadow-red-950/60 transition-transform active:scale-95 cursor-pointer shrink-0"
             >
               {isPlaying ? (
@@ -148,13 +157,13 @@ export function FavoriteSongSnippetPlayer({
             </button>
           </div>
 
-          {/* Scrubber / Barra de Progreso acotada a 30s */}
+          {/* Scrubber / Barra de Progreso de pista completa */}
           <div className="space-y-1">
             <div className="relative flex items-center">
               <input
                 type="range"
                 min={0}
-                max={maxDuration}
+                max={duration > 0 ? duration : 180}
                 step={0.1}
                 value={currentTime}
                 onChange={handleSeek}
@@ -164,7 +173,7 @@ export function FavoriteSongSnippetPlayer({
 
             <div className="flex items-center justify-between text-[10px] font-mono text-neutral-400">
               <span>{formatSeconds(currentTime)}</span>
-              <span>{formatSeconds(maxDuration)}</span>
+              <span>{duration > 0 ? formatSeconds(duration) : '--:--'}</span>
             </div>
           </div>
         </div>

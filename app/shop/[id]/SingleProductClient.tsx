@@ -118,7 +118,7 @@ export function SingleProductClient({
   const currentTime = isThisProductActive ? globalCurrentTime : 0
   const duration = isThisProductActive
     ? globalDuration
-    : product.duration_seconds || (effectiveUnlocked ? 0 : 30)
+    : product.duration_seconds || 0
 
   const selectedTrackTitle =
     isThisProductActive && activeTrack
@@ -302,7 +302,7 @@ export function SingleProductClient({
                 <input
                   type="range"
                   min={0}
-                  max={duration > 0 ? duration : effectiveUnlocked ? 180 : 30}
+                  max={duration > 0 ? duration : 180}
                   step={0.1}
                   value={currentTime}
                   onChange={handleScrub}
@@ -320,13 +320,7 @@ export function SingleProductClient({
                     />
                   ))}
                 </div>
-                <span>
-                  {effectiveUnlocked
-                    ? duration > 0
-                      ? formatTime(duration)
-                      : '--:--'
-                    : formatTime(duration || 30)}
-                </span>
+                <span>{duration > 0 ? formatTime(duration) : '--:--'}</span>
               </div>
             </div>
 

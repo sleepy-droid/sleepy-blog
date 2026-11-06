@@ -31,6 +31,7 @@ import {
   RotateCcw,
   ListMusic,
   CornerDownRight,
+  ImageDown,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/types'
 import {
@@ -217,11 +218,11 @@ export function WebPlayerClient({
 
             {currentTrack.isUnlocked ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
-                <Unlock className="w-3 h-3" /> Máster Desbloqueado
+                <Unlock className="w-3 h-3" /> En tu Biblioteca (Descargable)
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-amber-950/80 text-amber-300 border border-amber-700/60">
-                <Lock className="w-3 h-3" /> Preview 30s
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-red-950/80 text-red-300 border border-red-700/60">
+                <Music className="w-3 h-3" /> Streaming Completo
               </span>
             )}
           </div>
@@ -268,10 +269,10 @@ export function WebPlayerClient({
                       : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white'
                   }`}
                 >
-                  💿 {currentTrack.isUnlocked ? 'WAV Máster' : 'Preview 30s'}
+                  💿 {currentTrack.isUnlocked ? 'WAV Máster' : 'Pista Completa'}
                 </button>
 
-                {currentTrack.isUnlocked && currentTrack.mp3Url && (
+                {currentTrack.mp3Url && (
                   <button
                     type="button"
                     onClick={() => handlePlayTrack(currentTrack, 'mp3')}
@@ -323,7 +324,7 @@ export function WebPlayerClient({
             <input
               type="range"
               min={0}
-              max={duration > 0 ? duration : currentTrack.isUnlocked ? 180 : 30}
+              max={duration > 0 ? duration : 180}
               step={0.1}
               value={currentTime}
               onChange={(e) => seek(Number(e.target.value))}
@@ -331,13 +332,7 @@ export function WebPlayerClient({
             />
             <div className="flex justify-between text-[11px] font-mono text-neutral-400">
               <span>{formatTime(currentTime)}</span>
-              <span>
-                {currentTrack.isUnlocked
-                  ? duration > 0
-                    ? formatTime(duration)
-                    : '--:--'
-                  : `${formatTime(duration || 30)} (Snippet)`}
-              </span>
+              <span>{duration > 0 ? formatTime(duration) : '--:--'}</span>
             </div>
           </div>
 
@@ -418,7 +413,7 @@ export function WebPlayerClient({
           {currentTrack.isUnlocked ? (
             <div className="space-y-2">
               <span className="text-[11px] font-mono text-neutral-400 block">
-                Descargas directas de tu bóveda personal:
+                Descargas directas de tu bóveda personal (WAV / MP3 / Póster 3000×3000):
               </span>
               <div className="flex flex-wrap gap-2">
                 <a
@@ -432,6 +427,13 @@ export function WebPlayerClient({
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold bg-neutral-900 border border-neutral-800 text-neutral-200 hover:text-white transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" /> MP3 320k
+                </a>
+                <a
+                  href={`/api/media/download?productId=${pid}&asset=cover`}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-bold bg-amber-950/60 border border-amber-800/60 text-amber-300 hover:bg-amber-900/60 hover:text-white transition-colors"
+                  title="Descargar Portada Oficial en 3000x3000 para imprimir como Póster"
+                >
+                  <ImageDown className="w-3.5 h-3.5" /> Póster 3000×3000
                 </a>
                 {currentTrack.acapellaUrl && (
                   <a
@@ -454,8 +456,9 @@ export function WebPlayerClient({
           ) : (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800">
               <div className="text-xs text-neutral-300">
-                Estás escuchando el preview de 30s. Desbloquea el máster WAV
-                completo y stems en la tienda.
+                Escucha la pista completa gratis. Adquiere este lanzamiento para
+                descargar los archivos WAV Máster (24-bit), MP3 320k, Stems y el
+                Póster 3000×3000.
               </div>
               <Link
                 href={`/shop/${currentTrack.slug}`}
@@ -463,7 +466,7 @@ export function WebPlayerClient({
               >
                 <ShoppingBag className="w-3.5 h-3.5" />
                 <span>
-                  Desbloquear{' '}
+                  Obtener Archivos{' '}
                   {currentTrack.priceCents > 0
                     ? formatPrice(currentTrack.priceCents)
                     : ''}
@@ -667,15 +670,15 @@ export function WebPlayerClient({
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {t.isUnlocked ? (
                           <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
-                            MÁSTER
+                            EN BIBLIOTECA
                           </span>
                         ) : (
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-mono text-amber-300 bg-amber-950/60 border border-amber-800/50">
-                            30s
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-mono text-red-300 bg-red-950/60 border border-red-800/50">
+                            STREAM
                           </span>
                         )}
                         <span className="text-[10px] font-mono text-neutral-400 truncate">
-                          {t.isUnlocked ? 'WAV / Stems' : 'Preview'}
+                          {t.isUnlocked ? 'WAV / MP3 / Póster' : 'Pista Completa'}
                         </span>
                       </div>
                     </div>

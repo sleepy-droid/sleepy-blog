@@ -23,6 +23,8 @@ import {
   SONG_PRESETS,
   extractProfileFavSongId,
   extractProfileStatus,
+  extractProfileStickers,
+  getStickersByIds,
   type SongPreset,
 } from '@/lib/profile-presets'
 import { FavoriteSongSnippetPlayer } from '@/components/profile/FavoriteSongSnippetPlayer'
@@ -155,10 +157,11 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
     )
   }
 
-  // Canción favorita con preview de 30 segundos
+  // Canción favorita con stream completo y Stickers equipados
   const favoriteSongId = extractProfileFavSongId(userProfile)
   const favoriteSong = resolveSong(favoriteSongId)
   const cleanStatus = extractProfileStatus(userProfile.status_update)
+  const equippedStickers = getStickersByIds(extractProfileStickers(userProfile.status_update))
 
   const getGenderLabel = (g?: string | null) => {
     switch (g) {
@@ -334,6 +337,24 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
             <div className="w-full h-full bg-gradient-to-r from-red-950 via-neutral-900 to-neutral-950" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
+
+          {/* Steam / Dota 2 Equipped Sticker Showcase on Public Banner */}
+          {equippedStickers.length > 0 && (
+            <div className="absolute top-3.5 left-3.5 sm:top-4 sm:left-5 z-20 flex flex-wrap items-center gap-1.5 sm:gap-2 max-w-[78%]">
+              {equippedStickers.map((stk) => (
+                <div
+                  key={stk.id}
+                  title={`${stk.name} (${stk.rarity}) — ${stk.description}`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r ${stk.bgGradient} border ${stk.borderClass} ${stk.textClass} backdrop-blur-md shadow-lg hover:scale-105 transition-transform select-none`}
+                >
+                  <span className="text-sm leading-none drop-shadow">{stk.emoji}</span>
+                  <span className="text-[10px] font-extrabold tracking-wide uppercase">
+                    {stk.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Profile Details Container */}

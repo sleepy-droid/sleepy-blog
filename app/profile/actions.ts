@@ -5,7 +5,12 @@ import path from 'path'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { encodeProfileStatusWithFavSong, extractProfileStatus } from '@/lib/profile-presets'
+import {
+  encodeProfileStatusWithFavSong,
+  extractProfileFavSongId,
+  extractProfileStatus,
+  extractProfileStickers,
+} from '@/lib/profile-presets'
 
 export type ProfileActionState = {
   error?: string
@@ -44,7 +49,7 @@ async function saveProfileMediaAsset(params: {
     // En producción serverless (Vercel), el disco es de solo lectura; usamos el CDN de Supabase Storage
   }
 
-  // 2. Subir también al bucket `public-media` del CDN en Supabase Storage
+  // 2. Subir también al bucket `public-media` del CDN en Supabase Storage (prioritario para Vercel)
   try {
     const { error: uploadErr } = await supabase.storage
       .from('public-media')
@@ -55,7 +60,7 @@ async function saveProfileMediaAsset(params: {
 
     if (!uploadErr) {
       const { data: pubData } = supabase.storage.from('public-media').getPublicUrl(relativePath)
-      if (!resolvedUrl && pubData?.publicUrl) {
+      if (pubData?.publicUrl) {
         resolvedUrl = pubData.publicUrl
       }
     }
@@ -142,16 +147,22 @@ export async function updateProfile(
     }
   }
 
+  const rawStickers = formData.get('stickers')
+  const stickerIds =
+    rawStickers !== null
+      ? String(rawStickers)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : extractProfileStickers(user.profile?.status_update)
+
   const encodedStatus = encodeProfileStatusWithFavSong(
     cleanStatusUpdate,
-    presetSlugForMarker
+    presetSlugForMarker,
+    stickerIds
   )
 
   const nowIso = new Date().toISOString()
-
-  // NOTA: La Canción Favorita de cabecera del perfil está separada del "Song Mood del Día" del feed.
-  // Por ello, actualizar el perfil (foto, banner, cumpleaños, género o canción favorita fija)
-  // NO publica automáticamente un evento en profile_updates.
 
   const { error } = await supabase
     .from('profiles')
@@ -193,5 +204,109 @@ export async function updateProfile(
   if (username) revalidatePath(`/u/${username}`)
   revalidatePath('/community')
   revalidatePath('/')
-  return { success: 'Perfil (foto, banner, cumpleaños, género y canción favorita) actualizado correctamente.' }
+  return { success: 'Perfil actualizado al instante.' }
+}
+
+/**
+ * One-click instant profile customization (Steam / Dota 2 & Facebook style).
+ * Allows immediate saving of Banner, Avatar, Stickers, Favorite Song, Status, or Bio with a single click.
+ */
+export async function quickCustomizeProfile(patch: {
+  avatarUrl?: string
+  bannerUrl?: string
+  favoriteSongId?: string
+  stickers?: string[]
+  statusUpdate?: string
+  bio?: string
+  displayName?: string
+  username?: string
+  birthday?: string | null
+  gender?: 'male' | 'female' | 'gender_neutral' | 'unspecified'
+}): Promise<{ ok: boolean; error?: string }> {
+  const user = await getCurrentUser()
+  if (!user) {
+    return { ok: false, error: 'Debes iniciar sesión.' }
+  }
+
+  const supabase = await createClient()
+  const { data: currentProfile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const existingStatus = extractProfileStatus(currentProfile?.status_update)
+  const existingFavSong = extractProfileFavSongId(currentProfile)
+  const existingStickers = extractProfileStickers(currentProfile?.status_update)
+
+  const nextCleanStatus =
+    patch.statusUpdate !== undefined
+      ? extractProfileStatus(patch.statusUpdate)
+      : existingStatus
+  const nextFavSongId =
+    patch.favoriteSongId !== undefined ? patch.favoriteSongId : existingFavSong
+  const nextStickers =
+    patch.stickers !== undefined ? patch.stickers : existingStickers
+
+  let resolvedFavoriteUuid: string | null =
+    currentProfile?.favorite_product_id || null
+  let presetSlugForMarker: string | null = nextFavSongId || null
+
+  if (nextFavSongId && nextFavSongId !== 'none') {
+    if (UUID_REGEX.test(nextFavSongId)) {
+      resolvedFavoriteUuid = nextFavSongId
+      presetSlugForMarker = nextFavSongId
+    } else {
+      const { data: matchedProduct } = await supabase
+        .from('products')
+        .select('id, slug')
+        .eq('slug', nextFavSongId)
+        .maybeSingle()
+
+      if (matchedProduct?.id && UUID_REGEX.test(matchedProduct.id)) {
+        resolvedFavoriteUuid = matchedProduct.id
+      }
+      presetSlugForMarker = nextFavSongId
+    }
+  }
+
+  const encodedStatus = encodeProfileStatusWithFavSong(
+    nextCleanStatus,
+    presetSlugForMarker,
+    nextStickers
+  )
+
+  const updatePayload: Record<string, unknown> = {
+    status_update: encodedStatus,
+    favorite_product_id: resolvedFavoriteUuid,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (patch.avatarUrl !== undefined) updatePayload.avatar_url = patch.avatarUrl
+  if (patch.bannerUrl !== undefined) updatePayload.banner_url = patch.bannerUrl
+  if (patch.bio !== undefined) updatePayload.bio = patch.bio
+  if (patch.displayName !== undefined)
+    updatePayload.display_name = patch.displayName
+  if (patch.username !== undefined) {
+    updatePayload.username = patch.username
+      .toLowerCase()
+      .replace(/[^a-z0-9_.-]/g, '')
+  }
+  if (patch.birthday !== undefined) updatePayload.birthday = patch.birthday
+  if (patch.gender !== undefined) updatePayload.gender = patch.gender
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(updatePayload)
+    .eq('id', user.id)
+
+  if (error) {
+    return { ok: false, error: error.message }
+  }
+
+  revalidatePath('/profile')
+  const uname = (updatePayload.username as string) || currentProfile?.username
+  if (uname) revalidatePath(`/u/${uname}`)
+  revalidatePath('/community')
+  return { ok: true }
 }

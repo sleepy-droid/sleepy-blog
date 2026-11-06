@@ -20,6 +20,7 @@ import {
   Pause,
   PictureInPicture2,
   ListPlus,
+  ImageDown,
 } from 'lucide-react'
 import type { LibraryItem, Product } from '@/lib/types'
 import {
@@ -418,6 +419,17 @@ export function LibraryClient({
                         <Headphones className="w-3.5 h-3.5 text-red-400" />
                         <span className="hidden sm:inline">Consola</span>
                       </Link>
+
+                      {item.product.thumbnail_url && (
+                        <a
+                          href={`/api/media/download?productId=${pid}&asset=cover`}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-mono font-bold text-amber-300 bg-amber-950/50 border border-amber-800/60 hover:bg-amber-900/60 hover:text-white transition-all"
+                          title="Descargar Portada Oficial en 3000x3000 para imprimir como Póster"
+                        >
+                          <ImageDown className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Póster 3000×3000</span>
+                        </a>
+                      )}
                     </div>
 
                     {/* Authenticated Download Menu Dropdown via /api/media/download */}
@@ -436,7 +448,17 @@ export function LibraryClient({
                       </button>
 
                       {isMenuOpen && (
-                        <div className="absolute right-0 mt-2 w-60 max-h-64 overflow-y-auto bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl p-1.5 z-20 space-y-1 text-xs font-mono">
+                        <div className="absolute right-0 mt-2 w-64 max-h-72 overflow-y-auto bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl p-1.5 z-20 space-y-1 text-xs font-mono">
+                          {item.product.thumbnail_url && (
+                            <a
+                              href={`/api/media/download?productId=${pid}&asset=cover`}
+                              className="flex items-center gap-1.5 w-full px-3 py-2 rounded-lg hover:bg-neutral-900 text-amber-300 hover:text-amber-200 font-bold transition-colors border-b border-neutral-800/80 pb-2 mb-1"
+                            >
+                              <ImageDown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                              <span>🖼️ Póster 3000×3000 (Imprimible)</span>
+                            </a>
+                          )}
+
                           {wavFiles.length > 1 ? (
                             wavFiles.map((wf, wIdx) => (
                               <a

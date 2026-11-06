@@ -1,27 +1,14 @@
-import Link from 'next/link'
-import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { hydrateProductWithFolderAssets } from '@/lib/product-files'
 import type { Product } from '@/lib/types'
-import {
-  Sparkles,
-  Edit3,
-  Cake,
-  UserCheck,
-  ExternalLink,
-  Library,
-} from 'lucide-react'
-import { ProfileEditForm } from './ProfileEditForm'
+import { ProfileEditForm, type UnlockedArtworkOption } from './ProfileEditForm'
 import {
   getSongById,
   SONG_PRESETS,
-  extractProfileFavSongId,
-  extractProfileStatus,
   type SongPreset,
 } from '@/lib/profile-presets'
-import { FavoriteSongSnippetPlayer } from '@/components/profile/FavoriteSongSnippetPlayer'
 import {
   ProfileActivityFeed,
   type ActivityItem,
@@ -46,7 +33,7 @@ export default async function ProfilePage() {
   // Cargar canciones publicadas en la tienda para el selector de Canción Favorita
   const { data: dbMusicProducts } = await supabase
     .from('products')
-    .select('id, slug, name, description, audio_preview_url, mp3_url, wav_url, thumbnail_url')
+    .select('*')
     .eq('is_published', true)
     .or('category.eq.music,fulfillment.eq.digital')
     .order('created_at', { ascending: false })
@@ -89,30 +76,7 @@ export default async function ProfilePage() {
 
   const name = profile?.display_name || currentUser.email?.split('@')[0] || 'Miembro'
   const username = profile?.username || currentUser.email?.split('@')[0] || 'user'
-  const bannerUrl = profile?.banner_url || '/images/banners/studio-obsidian-grid.svg'
   const avatarUrl = profile?.avatar_url || '/images/avatars/emblem-obsidian-crest.svg'
-  const cleanStatus = extractProfileStatus(profile?.status_update)
-  const statusUpdate =
-    cleanStatus ||
-    'Disfrutando los lanzamientos oficiales en máster sin compresión.'
-  const birthday = profile?.birthday
-  const gender = profile?.gender
-
-  const favoriteSongId = extractProfileFavSongId(profile)
-  const favoriteSong = resolveSong(favoriteSongId)
-
-  const getGenderLabel = (g?: string | null) => {
-    switch (g) {
-      case 'male':
-        return 'Hombre ♂'
-      case 'female':
-        return 'Mujer ♀'
-      case 'gender_neutral':
-        return 'Género Neutro ⚥'
-      default:
-        return 'No especificado'
-    }
-  }
 
   // Actividades del usuario para el feed
   const activities: ActivityItem[] = []
@@ -221,19 +185,61 @@ export default async function ProfilePage() {
 
   const { data: libraryItems } = await supabase
     .from('library_items')
-    .select('id, created_at, products (id, name)')
+    .select('id, created_at, products (*)')
     .eq('user_id', currentUser.id)
-    .limit(10)
+    .order('created_at', { ascending: false })
+
+  const unlockedArtworks: UnlockedArtworkOption[] = []
+  const unlockedProductIds = new Set<string>()
+  const seenArtUrls = new Set<string>()
 
   if (libraryItems && libraryItems.length > 0) {
     for (const lib of libraryItems) {
-      const prodName = (lib.products as { name?: string } | null)?.name || 'Lanzamiento digital'
+      const rawProd = (Array.isArray(lib.products) ? lib.products[0] : lib.products) as Product | null
+      const prodName = rawProd?.name || 'Lanzamiento digital'
       activities.push({
         id: lib.id,
         type: 'purchase',
         targetTitle: prodName,
         createdAt: lib.created_at,
       })
+
+      if (rawProd) {
+        const hydrated = hydrateProductWithFolderAssets(rawProd)
+        unlockedProductIds.add(hydrated.id)
+        if (hydrated.slug) unlockedProductIds.add(hydrated.slug)
+        const coverUrl = hydrated.thumbnail_url
+        if (coverUrl && !seenArtUrls.has(coverUrl)) {
+          seenArtUrls.add(coverUrl)
+          unlockedArtworks.push({
+            id: hydrated.id,
+            title: hydrated.name,
+            url: coverUrl,
+            isUnlocked: true,
+          })
+        }
+      }
+    }
+  }
+
+  // Agregar también las portadas del catálogo publicado (desbloqueadas para Admin, o marcadas según biblioteca)
+  if (dbMusicProducts) {
+    for (const rawP of dbMusicProducts) {
+      const hydrated = hydrateProductWithFolderAssets(rawP as Product)
+      const coverUrl = hydrated.thumbnail_url
+      if (coverUrl && !seenArtUrls.has(coverUrl)) {
+        seenArtUrls.add(coverUrl)
+        const isUnlockedForUser =
+          Boolean(currentUser.isAdmin) ||
+          unlockedProductIds.has(hydrated.id) ||
+          (hydrated.slug ? unlockedProductIds.has(hydrated.slug) : false)
+        unlockedArtworks.push({
+          id: hydrated.id,
+          title: hydrated.name,
+          url: coverUrl,
+          isUnlocked: isUnlockedForUser,
+        })
+      }
     }
   }
 
@@ -243,138 +249,14 @@ export default async function ProfilePage() {
 
   return (
     <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8 font-sans">
-      {/* Banner Header */}
-      <section className="relative w-full rounded-3xl overflow-hidden border border-neutral-800/90 bg-neutral-950 shadow-2xl">
-        <div className="relative w-full h-44 sm:h-56 bg-neutral-900">
-          <Image
-            src={bannerUrl}
-            alt="Profile Banner"
-            fill
-            priority
-            unoptimized={bannerUrl.endsWith('.svg')}
-            className="object-cover opacity-85"
-            sizes="(max-width: 768px) 100vw, 896px"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/35 to-transparent" />
-        </div>
-
-        {/* Profile Avatar & Info Bar */}
-        <div className="relative px-6 pb-6 pt-0 -mt-16 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div className="flex items-end gap-4">
-            <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border-4 border-neutral-950 bg-neutral-900 shadow-2xl shrink-0 ring-2 ring-red-600/50">
-              {avatarUrl ? (
-                <Image
-                  src={avatarUrl}
-                  alt={name}
-                  fill
-                  unoptimized={avatarUrl.endsWith('.svg')}
-                  className="object-cover"
-                  sizes="112px"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-3xl font-extrabold text-red-400 bg-red-950/80">
-                  {name.charAt(0).toUpperCase()}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-1 pb-1">
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-extrabold text-white tracking-tight">{name}</h1>
-                {currentUser.isAdmin && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-red-300 bg-red-950 border border-red-900 px-2 py-0.5 rounded-full shadow-sm">
-                    Creador / Admin
-                  </span>
-                )}
-              </div>
-              <p className="text-xs font-mono text-neutral-400">@{username}</p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/u/${username}`}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-neutral-300 hover:text-white bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition-colors shadow-sm"
-            >
-              <span>Ver Perfil Público</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </Link>
-
-            <Link
-              href="/orders"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-neutral-200 hover:text-white bg-neutral-900 border border-neutral-800 hover:border-red-900/60 transition-colors shadow-sm"
-            >
-              <span>Mis Pedidos</span>
-            </Link>
-
-            <Link
-              href="/library"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-800 hover:bg-red-700 transition-colors shadow-md"
-            >
-              <Library className="w-3.5 h-3.5" />
-              <span>Mi Biblioteca</span>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Status Update Feed Banner */}
-      <section className="bg-neutral-900/60 border border-neutral-800 p-4 rounded-2xl flex items-center gap-3 backdrop-blur-md">
-        <Sparkles className="w-5 h-5 text-red-400 shrink-0" />
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <span className="text-[10px] font-mono uppercase text-red-400 font-bold block">
-            Status Update Actual
-          </span>
-          <p className="text-xs font-medium text-neutral-200 italic truncate">
-            &ldquo;{statusUpdate}&rdquo;
-          </p>
-        </div>
-      </section>
-
-      {/* Grid: Canción Favorita & Personalización */}
-      <section className="grid grid-cols-1 md:grid-cols-12 gap-6">
-        <div className="md:col-span-6 space-y-4">
-          <FavoriteSongSnippetPlayer song={favoriteSong} />
-
-          {/* Cumpleaños y Género */}
-          <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-            <div className="bg-neutral-900/50 p-3 rounded-2xl border border-neutral-800/80 space-y-1">
-              <span className="text-[10px] text-neutral-400 flex items-center gap-1">
-                <Cake className="w-3.5 h-3.5 text-pink-400" /> Cumpleaños
-              </span>
-              <span className="text-neutral-200 font-semibold block">
-                {birthday || 'No especificado'}
-              </span>
-            </div>
-
-            <div className="bg-neutral-900/50 p-3 rounded-2xl border border-neutral-800/80 space-y-1">
-              <span className="text-[10px] text-neutral-400 flex items-center gap-1">
-                <UserCheck className="w-3.5 h-3.5 text-sky-400" /> Género
-              </span>
-              <span className="text-neutral-200 font-semibold block">
-                {getGenderLabel(gender)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Biografía y Formulario de Personalización */}
-        <div className="md:col-span-6 border border-neutral-800/90 rounded-2xl p-5 bg-neutral-900/40 backdrop-blur-md space-y-4">
-          <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-            <div className="flex items-center gap-2">
-              <Edit3 className="w-4 h-4 text-red-400" />
-              <h2 className="text-sm font-bold text-white">Biografía & Personalización CDN</h2>
-            </div>
-          </div>
-
-          <p className="text-xs text-neutral-300 leading-relaxed font-sans">
-            {profile?.bio ||
-              'Miembro oficial de la comunidad sleepyred999. Apoyando producciones musicales y drops exclusivos.'}
-          </p>
-
-          <ProfileEditForm profile={profile} availableSongs={availableSongs} />
-        </div>
-      </section>
+      {/* Interactive Facebook-Style Profile Showcase & 1-Click Steam/Dota 2 Customizer */}
+      <ProfileEditForm
+        profile={profile}
+        availableSongs={availableSongs}
+        unlockedArtworks={unlockedArtworks}
+        isAdmin={Boolean(currentUser.isAdmin)}
+        fallbackEmail={currentUser.email}
+      />
 
       {/* Feed de Actividad del Usuario */}
       <ProfileActivityFeed
