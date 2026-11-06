@@ -117,7 +117,7 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
   // Cargar canciones publicadas en la tienda para resolver UUIDs y presets
   const { data: dbMusicProducts } = await supabase
     .from('products')
-    .select('id, slug, name, description, audio_preview_url, mp3_url, wav_url, thumbnail_url')
+    .select('*')
     .eq('is_published', true)
     .or('category.eq.music,fulfillment.eq.digital')
     .order('created_at', { ascending: false })
@@ -134,16 +134,25 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
       }
       const audioUrl = p.audio_preview_url || p.mp3_url || p.wav_url
       if (!audioUrl) continue
-      if (!availableSongs.some((s) => s.id === songKey || s.id === p.id)) {
-        availableSongs.push({
-          id: songKey,
-          title: p.name,
-          artist: 'sleepyred999',
-          subtitle: p.description?.slice(0, 48) || 'Lanzamiento Oficial',
-          audioPreviewUrl: audioUrl,
-          thumbnailUrl: p.thumbnail_url || '/images/logos/PNG-04.png',
-          durationSeconds: 30,
-        })
+      const existingIdx = availableSongs.findIndex((s) => s.id === songKey || s.id === p.id)
+      const hydratedSong: SongPreset = {
+        id: songKey,
+        productId: p.id,
+        title: p.name,
+        artist: 'sleepyred999',
+        subtitle: p.description?.slice(0, 48) || 'Lanzamiento Oficial',
+        audioPreviewUrl: audioUrl,
+        thumbnailUrl: p.thumbnail_url || '/images/logos/PNG-04.png',
+        durationSeconds: 30,
+        priceCents: typeof p.price_cents === 'number' && p.price_cents > 0 ? p.price_cents : 99,
+      }
+      if (existingIdx === -1) {
+        availableSongs.push(hydratedSong)
+      } else {
+        availableSongs[existingIdx] = {
+          ...availableSongs[existingIdx],
+          ...hydratedSong,
+        }
       }
     }
   }
@@ -338,7 +347,7 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
 
-          {/* Steam / Dota 2 Equipped Sticker Showcase on Public Banner */}
+          {/* Equipped Sticker Showcase on Public Banner */}
           {equippedStickers.length > 0 && (
             <div className="absolute top-3.5 left-3.5 sm:top-4 sm:left-5 z-20 flex flex-wrap items-center gap-1.5 sm:gap-2 max-w-[78%]">
               {equippedStickers.map((stk) => (

@@ -22,7 +22,6 @@ import {
   Sparkles,
   Cake,
   UserCheck,
-  ExternalLink,
   Library,
   Plus,
   X,
@@ -442,7 +441,7 @@ export function ProfileEditForm({
 
           <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/35 to-black/20" />
 
-          {/* Top-Left: Steam / Dota 2 Interactive Sticker Showcase Dock */}
+          {/* Top-Left: Interactive Sticker Showcase Dock */}
           <div className="absolute top-3.5 left-3.5 right-3.5 flex flex-wrap items-center justify-between gap-2 z-10">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               {equippedStickerObjects.map((sticker) => (
@@ -463,7 +462,7 @@ export function ProfileEditForm({
               <button
                 type="button"
                 onClick={() => openCustomizerOnTab('stickers')}
-                title="Añadir o cambiar Stickers de tu vitrina (Estilo Dota 2 / Steam)"
+                title="Añadir o cambiar Stickers de tu vitrina"
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-black/65 hover:bg-red-950/80 border border-white/15 hover:border-red-500/70 text-[10px] font-mono font-bold text-neutral-200 hover:text-white backdrop-blur-md transition-all hover:scale-105 active:scale-95 cursor-pointer"
               >
                 <Plus className="w-3 h-3 text-red-400" />
@@ -554,7 +553,7 @@ export function ProfileEditForm({
             </div>
           </div>
 
-          {/* Action Buttons: 1-Click Steam/Dota 2 Customizer + Public Profile + Library */}
+          {/* Action Buttons: 1-Click Customizer + Library */}
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -566,14 +565,6 @@ export function ProfileEditForm({
             </button>
 
             <Link
-              href={`/u/${liveUsername}`}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-neutral-300 hover:text-white bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition-colors shadow-sm"
-            >
-              <span>Perfil Público</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </Link>
-
-            <Link
               href="/library"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-red-200 hover:text-white bg-red-950/60 border border-red-800/60 hover:bg-red-900/70 transition-colors shadow-sm"
             >
@@ -583,7 +574,7 @@ export function ProfileEditForm({
           </div>
         </div>
 
-        {/* Quick 1-Click Customization Strip (Dota 2 / Steam Loadout Bar) */}
+        {/* Quick 1-Click Customization Strip */}
         <div className="px-5 sm:px-7 py-3 bg-neutral-900/60 border-t border-neutral-800/80 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 font-bold">
@@ -833,7 +824,7 @@ export function ProfileEditForm({
       </section>
 
       {/* =====================================================================
-          NATIVE <dialog closedby="any"> STEAM / DOTA 2 1-CLICK CUSTOMIZER MODAL
+          NATIVE <dialog closedby="any"> 1-CLICK CUSTOMIZER MODAL
          ===================================================================== */}
       <dialog
         ref={dialogRef}
@@ -876,7 +867,7 @@ export function ProfileEditForm({
               [
                 { id: 'avatar', label: '🖼️ Foto de Perfil' },
                 { id: 'banner', label: '🏞️ Portada / Banner' },
-                { id: 'stickers', label: '✨ Stickers (Dota 2)' },
+                { id: 'stickers', label: '✨ Stickers' },
                 { id: 'music', label: '🎵 Himno Musical' },
                 { id: 'identity', label: '👤 Identidad & Bio' },
               ] as const
@@ -1148,7 +1139,7 @@ export function ProfileEditForm({
               </div>
             )}
 
-            {/* TAB 3: STICKERS & VITRINA (Steam / Dota 2 Style) */}
+            {/* TAB 3: STICKERS & VITRINA */}
             {activeTab === 'stickers' && (
               <div className="space-y-5">
                 <div className="p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800 space-y-2">

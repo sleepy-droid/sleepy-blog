@@ -321,6 +321,7 @@ export function GlobalPlayerProvider({
   const isPlayingRef = useRef<boolean>(false)
   const isAdminUserRef = useRef<boolean>(false)
   const unlockedKeysRef = useRef<Set<string>>(new Set())
+  const productPricesRef = useRef<Map<string, number>>(new Map())
 
   const persistQueueOrder = useCallback((list: PlayerTrack[]) => {
     try {
@@ -368,54 +369,76 @@ export function GlobalPlayerProvider({
     }
 
     const fallbackAudio = t.wavUrl || t.mp3Url || t.previewUrl || null
+    const knownPrice =
+      productPricesRef.current.get(t.id) ??
+      productPricesRef.current.get(pid) ??
+      (t.slug ? productPricesRef.current.get(t.slug) : undefined) ??
+      (t.priceCents > 0 ? t.priceCents : 99)
+
     return {
       ...t,
       isUnlocked,
+      priceCents: knownPrice,
       wavUrl: isUnlocked ? t.wavUrl || fallbackAudio : t.wavUrl,
       mp3Url: isUnlocked ? t.mp3Url || fallbackAudio : t.mp3Url,
     }
   }, [])
 
-  // Sync user's unlocked library items & admin status so playing from /shop or /shop/[id] always knows if unlocked
+  // Sync user's unlocked library items, admin status & real store prices so playing from anywhere always matches the store
   useEffect(() => {
     const supabase = createClient()
     let mounted = true
 
     const syncUnlockedEntitlements = async () => {
       try {
+        const { data: prodRows } = await supabase
+          .from('products')
+          .select('id, slug, price_cents')
+          .eq('is_published', true)
+
+        if (prodRows) {
+          for (const pr of prodRows) {
+            if (typeof pr.price_cents === 'number' && pr.price_cents > 0) {
+              if (pr.id) productPricesRef.current.set(pr.id, pr.price_cents)
+              if (pr.slug) productPricesRef.current.set(pr.slug, pr.price_cents)
+            }
+          }
+        }
+
         const {
           data: { user },
         } = await supabase.auth.getUser()
-        if (!mounted || !user) return
 
-        const isOwnerEmail =
-          user.email?.toLowerCase() === 'angel.ivan34@gmail.com'
-        const isMetaAdmin =
-          user.user_metadata?.role === 'admin' ||
-          user.app_metadata?.role === 'admin'
+        if (user && mounted) {
+          const isOwnerEmail =
+            user.email?.toLowerCase() === 'angel.ivan34@gmail.com'
+          const isMetaAdmin =
+            user.user_metadata?.role === 'admin' ||
+            user.app_metadata?.role === 'admin'
 
-        let isAdmin = isOwnerEmail || isMetaAdmin
-        if (!isAdmin) {
-          const { data: prof } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .maybeSingle()
-          if (prof?.role === 'admin') isAdmin = true
-        }
+          let isAdmin = isOwnerEmail || isMetaAdmin
+          if (!isAdmin) {
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', user.id)
+              .maybeSingle()
+            if (prof?.role === 'admin') isAdmin = true
+          }
 
-        if (isAdmin) {
-          isAdminUserRef.current = true
-        }
+          if (isAdmin) {
+            isAdminUserRef.current = true
+          }
 
-        const { data: libRows } = await supabase
-          .from('library_items')
-          .select('product_id')
-          .eq('user_id', user.id)
+          const { data: libRows } = await supabase
+            .from('library_items')
+            .select('product_id')
+            .eq('user_id', user.id)
 
-        if (libRows) {
-          for (const row of libRows) {
-            if (row.product_id) unlockedKeysRef.current.add(row.product_id)
+          if (libRows) {
+            for (const row of libRows) {
+              if (row.product_id) unlockedKeysRef.current.add(row.product_id)
+            }
           }
         }
 

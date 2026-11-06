@@ -42,7 +42,7 @@ export function FavoriteSongSnippetPlayer({
 
     const trackPayload: PlayerTrack = {
       id: song.id,
-      productId: song.id,
+      productId: song.productId || song.id,
       slug: song.id,
       title: song.title,
       artist: song.artist || 'sleepyred999',
@@ -55,7 +55,7 @@ export function FavoriteSongSnippetPlayer({
       instrumentalUrl: null,
       videoUrl: null,
       isUnlocked: false,
-      priceCents: 1500,
+      priceCents: typeof song.priceCents === 'number' && song.priceCents > 0 ? song.priceCents : 99,
     }
     selectAndPlayTrack(trackPayload, 'master')
   }

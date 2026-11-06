@@ -51,16 +51,24 @@ export default async function ProfilePage() {
       const audioUrl = p.audio_preview_url || p.mp3_url || p.wav_url
       if (!audioUrl) continue
       const existingIdx = availableSongs.findIndex((s) => s.id === songKey || s.id === p.id)
+      const hydratedSong: SongPreset = {
+        id: songKey,
+        productId: p.id,
+        title: p.name,
+        artist: 'sleepyred999',
+        subtitle: p.description?.slice(0, 48) || 'Lanzamiento Oficial',
+        audioPreviewUrl: audioUrl,
+        thumbnailUrl: p.thumbnail_url || '/images/logos/PNG-04.png',
+        durationSeconds: 30,
+        priceCents: typeof p.price_cents === 'number' && p.price_cents > 0 ? p.price_cents : 99,
+      }
       if (existingIdx === -1) {
-        availableSongs.push({
-          id: songKey,
-          title: p.name,
-          artist: 'sleepyred999',
-          subtitle: p.description?.slice(0, 48) || 'Lanzamiento Oficial',
-          audioPreviewUrl: audioUrl,
-          thumbnailUrl: p.thumbnail_url || '/images/logos/PNG-04.png',
-          durationSeconds: 30,
-        })
+        availableSongs.push(hydratedSong)
+      } else {
+        availableSongs[existingIdx] = {
+          ...availableSongs[existingIdx],
+          ...hydratedSong,
+        }
       }
     }
   }

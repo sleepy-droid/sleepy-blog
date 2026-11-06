@@ -149,7 +149,7 @@ export default async function WebPlayerPage({ searchParams }: PlayerPageProps) {
         instrumentalUrl: null,
         videoUrl: null,
         isUnlocked: Boolean(currentUser?.isAdmin),
-        priceCents: 1500,
+        priceCents: preset.priceCents ?? 99,
       })
     }
   }

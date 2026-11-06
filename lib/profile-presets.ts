@@ -15,12 +15,14 @@ export type AvatarPreset = {
 
 export type SongPreset = {
   id: string
+  productId?: string
   title: string
   artist: string
   subtitle: string
   audioPreviewUrl: string
   thumbnailUrl: string
   durationSeconds: number
+  priceCents?: number
 }
 
 export type StickerPreset = {
@@ -203,6 +205,7 @@ export const SONG_PRESETS: SongPreset[] = [
     audioPreviewUrl: '/songs/criss-angel/crissangel.mp3',
     thumbnailUrl: '/songs/criss-angel/crissangel.jpg',
     durationSeconds: 30,
+    priceCents: 99,
   },
   {
     id: 'red-recordings',
@@ -212,6 +215,7 @@ export const SONG_PRESETS: SongPreset[] = [
     audioPreviewUrl: '/songs/red-recordings/preview.mp3',
     thumbnailUrl: '/songs/red-recordings/cover.jpg',
     durationSeconds: 30,
+    priceCents: 99,
   },
   {
     id: 'odm',
@@ -221,6 +225,7 @@ export const SONG_PRESETS: SongPreset[] = [
     audioPreviewUrl: '/songs/odm/ODM.wav',
     thumbnailUrl: '/songs/odm/odm.jpg',
     durationSeconds: 30,
+    priceCents: 99,
   },
   {
     id: 'arde-fly-sessions-pt-1',
@@ -230,6 +235,7 @@ export const SONG_PRESETS: SongPreset[] = [
     audioPreviewUrl: '/songs/arde-fly-sessions-pt-1/flysessions1.wav',
     thumbnailUrl: '/songs/arde-fly-sessions-pt-1/flysessions1.jpg',
     durationSeconds: 30,
+    priceCents: 99,
   },
 ]
 
@@ -282,7 +288,7 @@ export function extractProfileFavSongId(profile?: {
 }
 
 /**
- * Extrae los IDs de stickers equipados en la vitrina del perfil (estilo Steam / Dota 2).
+ * Extrae los IDs de stickers equipados en la vitrina del perfil.
  */
 export function extractProfileStickers(rawStatus?: string | null): string[] {
   const defaultStickers = [
