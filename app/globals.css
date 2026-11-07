@@ -130,3 +130,125 @@
     animation: none !important;
   }
 }
+
+/* ============================================================================
+   BI DASHBOARD CONTAINMENT & RESPONSIVE TABLES (modern-web-guidance)
+   ============================================================================ */
+.bi-containment-panel {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px auto 520px;
+}
+
+@supports not (content-visibility: auto) {
+  .bi-containment-panel {
+    contain: layout style paint;
+  }
+}
+
+.bi-table-wrapper {
+  overflow: auto;
+  max-inline-size: 100%;
+  max-block-size: min(560px, 78vh);
+  container-type: inline-size;
+}
+
+.bi-table-wrapper table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+.bi-table-wrapper thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+}
+
+.bi-table-wrapper tbody th {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background: #0a0a0a;
+}
+
+@container (width < 600px) {
+  .bi-table-wrapper table,
+  .bi-table-wrapper thead,
+  .bi-table-wrapper tbody,
+  .bi-table-wrapper tr,
+  .bi-table-wrapper th,
+  .bi-table-wrapper td {
+    display: block;
+  }
+
+  .bi-table-wrapper thead {
+    display: none;
+  }
+
+  .bi-table-wrapper tr {
+    margin-block-end: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.85rem;
+    overflow: hidden;
+    background: #0c0c0e;
+  }
+
+  .bi-table-wrapper tbody th {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    background: #171717;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .bi-table-wrapper td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .bi-table-wrapper td:nth-child(2)::before {
+    content: var(--label-2) ": ";
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #a3a3a3;
+  }
+  .bi-table-wrapper td:nth-child(3)::before {
+    content: var(--label-3) ": ";
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #a3a3a3;
+  }
+  .bi-table-wrapper td:nth-child(4)::before {
+    content: var(--label-4) ": ";
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #a3a3a3;
+  }
+  .bi-table-wrapper td:nth-child(5)::before {
+    content: var(--label-5) ": ";
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #a3a3a3;
+  }
+  .bi-table-wrapper td:nth-child(6)::before {
+    content: var(--label-6) ": ";
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #a3a3a3;
+  }
+  .bi-table-wrapper td:nth-child(7)::before {
+    content: var(--label-7) ": ";
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #a3a3a3;
+  }
+}
+

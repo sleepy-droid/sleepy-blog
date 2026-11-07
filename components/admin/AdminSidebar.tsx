@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
+  BarChart3,
   FileText,
   ShoppingBag,
   MessageSquare,
@@ -16,6 +17,7 @@ import { cn } from '@/lib/utils'
 
 const links = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard, exact: true },
+  { href: '/admin/analytics', label: 'BI & Analítica', icon: BarChart3 },
   { href: '/admin/posts', label: 'Publicaciones', icon: FileText },
   { href: '/admin/products', label: 'Productos', icon: ShoppingBag },
   { href: '/admin/comments', label: 'Comentarios', icon: MessageSquare },

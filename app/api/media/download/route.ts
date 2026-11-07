@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { hydrateProductWithFolderAssets } from '@/lib/product-files'
 import { normalizeMediaUrl } from '@/lib/utils'
+import { recordTelemetryEvent, detectDeviceCategory } from '@/lib/telemetry'
 import type { Product } from '@/lib/types'
 
 export async function GET(request: NextRequest) {
@@ -75,6 +76,22 @@ export async function GET(request: NextRequest) {
       { status: 403 }
     )
   }
+
+  // Registrar evento en la pila BI (descarga de master WAV, MP3, Stems o Poster 3000x3000)
+  recordTelemetryEvent({
+    eventType: 'download_master',
+    targetType: 'product',
+    targetId: product.id,
+    userId: currentUser.id,
+    country: request.headers.get('x-vercel-ip-country') || 'PA',
+    metadata: {
+      asset,
+      slug: product.slug,
+      name: product.name,
+      requested_file: requestedFile,
+      device: detectDeviceCategory(request.headers.get('user-agent')),
+    },
+  }).catch(() => {})
 
   // 3. Seleccionar el archivo solicitado según el tipo de pista (wav, mp3, acapella, instrumental)
   //    o el archivo específico dentro de un álbum multi-pista (`?file=<nombre.wav>`)

@@ -11,6 +11,7 @@ import { useLanguage } from '@/lib/i18n'
 import { toggleVote, getMyVoteState } from '@/app/votes/actions'
 import { GuestLoginModal } from '@/components/auth/GuestLoginModal'
 import { useGlobalPlayer, productToPlayerTracks } from '@/lib/player-context'
+import { trackClientEvent } from '@/lib/client-telemetry'
 
 type SingleProductClientProps = {
   product: Product
@@ -43,6 +44,20 @@ export function SingleProductClient({
     setDownvotes(product.downvotes ?? 0)
     setUserVote(initialUserVote)
   }, [product.upvotes, product.downvotes, initialUserVote])
+
+  useEffect(() => {
+    trackClientEvent({
+      eventType: 'product_view',
+      targetType: 'product',
+      targetId: product.id,
+      metadata: {
+        slug: product.slug,
+        name: product.name,
+        price_cents: product.price_cents,
+        category: product.category,
+      },
+    })
+  }, [product.id, product.slug, product.name, product.price_cents, product.category])
 
   useEffect(() => {
     let active = true
@@ -154,11 +169,33 @@ export function SingleProductClient({
   const handleAddToCart = () => {
     const variant = product.fulfillment === 'physical' ? selectedSize : 'Digital Master'
     addToCart(product, variant, 1)
+    trackClientEvent({
+      eventType: 'cart_add',
+      targetType: 'product',
+      targetId: product.id,
+      metadata: {
+        slug: product.slug,
+        name: product.name,
+        price_cents: product.price_cents,
+        variant,
+      },
+    })
   }
 
   const handleBuyNow = () => {
     const variant = product.fulfillment === 'physical' ? selectedSize : 'Digital Master'
     addToCart(product, variant, 1)
+    trackClientEvent({
+      eventType: 'checkout_started',
+      targetType: 'product',
+      targetId: product.id,
+      metadata: {
+        slug: product.slug,
+        name: product.name,
+        price_cents: product.price_cents,
+        variant,
+      },
+    })
     router.push('/checkout')
   }
 

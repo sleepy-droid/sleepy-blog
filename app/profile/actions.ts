@@ -304,6 +304,20 @@ export async function quickCustomizeProfile(patch: {
     return { ok: false, error: error.message }
   }
 
+  // Registrar evento BI de personalización de identidad
+  const { recordTelemetryEvent } = await import('@/lib/telemetry')
+  recordTelemetryEvent({
+    eventType: 'profile_customized',
+    targetType: 'profile',
+    targetId: user.id,
+    userId: user.id,
+    metadata: {
+      updated_fields: Object.keys(patch),
+      stickers_count: nextStickers.length,
+      favorite_song_id: nextFavSongId || null,
+    },
+  }).catch(() => {})
+
   revalidatePath('/profile')
   const uname = (updatePayload.username as string) || currentProfile?.username
   if (uname) revalidatePath(`/u/${uname}`)

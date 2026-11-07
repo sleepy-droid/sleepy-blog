@@ -930,13 +930,14 @@ export function GlobalPlayerProvider({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          eventType: 'song_play',
+          eventType: newStem === 'master' ? 'song_play' : 'stem_switch',
           targetType: 'product',
           targetId: finalTrack.productId || finalTrack.id,
           metadata: {
             slug: finalTrack.slug,
             name: finalTrack.title,
             stem: newStem,
+            asset: newStem === 'master' ? 'wav' : newStem,
             source: 'global_web_player',
           },
         }),

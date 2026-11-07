@@ -11,6 +11,7 @@ import {
   PlusCircle,
   EyeOff,
   Trash2,
+  BarChart3,
 } from 'lucide-react'
 import { adminHideThread, adminDeleteThread } from './actions'
 
@@ -89,7 +90,14 @@ export default async function AdminDashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/analytics"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-amber-300 bg-amber-950/60 border border-amber-800/60 hover:bg-amber-900/60 transition-colors shadow-md"
+          >
+            <BarChart3 className="w-4 h-4 text-amber-400" />
+            <span>Consola BI & Modelos</span>
+          </Link>
           <Link
             href="/admin/posts/new"
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 transition-colors shadow-md"
