@@ -39,7 +39,9 @@ export type Post = {
   price?: number | null
   highlight_tag?: string | null
   linked_product_id?: string | null
+  linked_product_ids?: string[]
   linked_product?: Product | null
+  linked_products?: Product[]
   is_featured?: boolean
   is_published?: boolean
   view_count?: number

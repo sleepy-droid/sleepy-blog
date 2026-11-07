@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserVotesMap } from '@/lib/votes-server'
 import { hydrateProductWithFolderAssets, hydratePostWithFolderAssets } from '@/lib/product-files'
+import { extractPostProductIds } from '@/lib/utils'
 import { PostCarousel } from '@/components/home/PostCarousel'
 import { PostFeedClient } from '@/components/home/PostFeedClient'
 import { Sparkles, PlusCircle, MessageSquare, ArrowRight, Disc, Clock } from 'lucide-react'
@@ -30,24 +31,30 @@ export default async function Home() {
   const productById = new Map<string, Product>()
   for (const p of productList) {
     productById.set(p.id, p)
+    if (p.slug) productById.set(p.slug, p)
   }
 
   const posts: Post[] = (dbPosts ?? []).map((rawPost) => {
     const post = rawPost as Post
-    let linked: Product | null = null
-    if (post.linked_product_id && productById.has(post.linked_product_id)) {
-      linked = productById.get(post.linked_product_id) || null
-    } else if (post.title) {
-      const lowerTitle = post.title.toLowerCase()
-      linked =
-        productList.find(
-          (p) =>
-            lowerTitle.includes(p.name.toLowerCase()) ||
-            lowerTitle.includes(p.slug.replace(/-/g, ' '))
-        ) || null
-    }
-    return hydratePostWithFolderAssets(post, linked)
-  })
+      const taggedIds = extractPostProductIds(post)
+      const linkedProducts: Product[] = taggedIds
+        .map((id) => productById.get(id))
+        .filter((p): p is Product => Boolean(p))
+        .slice(0, 3)
+
+      let linked: Product | null = linkedProducts[0] || null
+      if (!linked && post.title) {
+        const lowerTitle = post.title.toLowerCase()
+        linked =
+          productList.find(
+            (p) =>
+              lowerTitle.includes(p.name.toLowerCase()) ||
+              lowerTitle.includes(p.slug.replace(/-/g, ' '))
+          ) || null
+        if (linked) linkedProducts.push(linked)
+      }
+      return hydratePostWithFolderAssets(post, linked, linkedProducts)
+    })
 
   // Auto-reparar filas en Supabase cuando el administrador navega y un archivo de public/songs fue renombrado
   if (currentUser?.isAdmin) {

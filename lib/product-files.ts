@@ -2,7 +2,11 @@ import fs from 'fs'
 import path from 'path'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Product, Post, ProductFolderStats, ProductFileInfo } from './types'
-import { normalizeMediaUrl } from './utils'
+import {
+  normalizeMediaUrl,
+  stripPostProductsMarker,
+  extractPostProductIds,
+} from './utils'
 
 /**
  * Inventario estático de respaldo de `public/songs/*` para entornos Serverless (ej. Vercel)
@@ -316,269 +320,286 @@ export async function provisionProductDirectoryAndUpload(params: {
           })
 
         if (!uploadErr) {
-            const { data: pubData } = supabase.storage
-              .from(slot.bucket)
-              .getPublicUrl(storageObjectKey)
-            if (pubData?.publicUrl) {
-              resolvedUrl = pubData.publicUrl
-            }
+          const { data: pubData } = supabase.storage
+            .from(slot.bucket)
+            .getPublicUrl(storageObjectKey)
+          if (pubData?.publicUrl) {
+            resolvedUrl = pubData.publicUrl
           }
-        } catch {
-          // Si el bucket no está accesible, usar respaldo local
         }
-
-        if (resolvedUrl) {
-          if (!result[slot.resultKey]) {
-            result[slot.resultKey] = resolvedUrl
-          }
-          result[slot.listKey]?.push(resolvedUrl)
-
-          const ext = path.extname(cleanName).toLowerCase()
-          const humanTitle = path
-            .basename(cleanName, ext)
-            .replace(/[-_]+/g, ' ')
-            .replace(/\b\w/g, (c) => c.toUpperCase())
-          result.files?.push({
-            name: cleanName,
-            title: humanTitle || cleanName,
-            publicUrl: resolvedUrl,
-            sizeBytes: buffer.byteLength,
-            sizeFormatted: formatBytes(buffer.byteLength),
-            extension: ext,
-          })
-        }
-      }
-  }
-
-    // Escribir o actualizar manifest.json con el inventario de pistas/archivos del producto o álbum
-    if (canWriteLocal) {
-      try {
-        const manifestPath = path.join(localTargetDir, 'manifest.json')
-        const manifestData = {
-          slug,
-          name,
-          category,
-          fulfillment,
-          folder: `/${folderRelativePath}`,
-          wav_urls: result.wav_urls,
-          mp3_urls: result.mp3_urls,
-          cover_urls: result.cover_urls,
-          acapella_urls: result.acapella_urls,
-          instrumental_urls: result.instrumental_urls,
-          updatedAt: new Date().toISOString(),
-        }
-        fs.writeFileSync(manifestPath, JSON.stringify(manifestData, null, 2), 'utf-8')
       } catch {
-        // Ignorar si no se puede escribir manifest.json
+        // Si el bucket no está accesible, usar respaldo local
+      }
+
+      if (resolvedUrl) {
+        if (!result[slot.resultKey]) {
+          result[slot.resultKey] = resolvedUrl
+        }
+        result[slot.listKey]?.push(resolvedUrl)
+
+        const ext = path.extname(cleanName).toLowerCase()
+        const humanTitle = path
+          .basename(cleanName, ext)
+          .replace(/[-_]+/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase())
+        result.files?.push({
+          name: cleanName,
+          title: humanTitle || cleanName,
+          publicUrl: resolvedUrl,
+          sizeBytes: buffer.byteLength,
+          sizeFormatted: formatBytes(buffer.byteLength),
+          extension: ext,
+        })
       }
     }
-
-    return result
   }
 
-  /**
-   * Escanea el sistema de archivos local en public/ (o el inventario estático en Vercel Serverless)
-   * para detectar la carpeta asociada a un producto y calcular el peso real de los másters y archivos.
-   */
-  export function getProductFolderStats(product: Product): ProductFolderStats | null {
+  // Escribir o actualizar manifest.json con el inventario de pistas/archivos del producto o álbum
+  if (canWriteLocal) {
     try {
-      // 0. Si el producto tiene metadatos de archivos subidos a Supabase Storage CDN en `specs.files`
-      if (product.specs && typeof product.specs === 'object') {
-        const specsObj = product.specs as Record<string, unknown>
-        if (Array.isArray(specsObj.files) && specsObj.files.length > 0) {
-          const folderPath =
-            product.storage_folder_path ||
-            (typeof specsObj.folder === 'string' ? specsObj.folder.replace(/^\/+/, '') : '') ||
-            getCanonicalProductFolder(
-              product.slug || product.name || 'product',
-              product.category || 'music',
-              product.fulfillment || 'digital'
-            )
-          const validFiles = (specsObj.files as ProductFileInfo[]).filter(
-            (f) => f && typeof f.name === 'string'
+      const manifestPath = path.join(localTargetDir, 'manifest.json')
+      const manifestData = {
+        slug,
+        name,
+        category,
+        fulfillment,
+        folder: `/${folderRelativePath}`,
+        wav_urls: result.wav_urls,
+        mp3_urls: result.mp3_urls,
+        cover_urls: result.cover_urls,
+        acapella_urls: result.acapella_urls,
+        instrumental_urls: result.instrumental_urls,
+        updatedAt: new Date().toISOString(),
+      }
+      fs.writeFileSync(manifestPath, JSON.stringify(manifestData, null, 2), 'utf-8')
+    } catch {
+      // Ignorar si no se puede escribir manifest.json
+    }
+  }
+
+  return result
+}
+
+/**
+ * Escanea el sistema de archivos local en public/ (o el inventario estático en Vercel Serverless)
+ * para detectar la carpeta asociada a un producto y calcular el peso real de los másters y archivos.
+ */
+export function getProductFolderStats(product: Product): ProductFolderStats | null {
+  try {
+    // 0. Si el producto tiene metadatos de archivos subidos a Supabase Storage CDN en `specs.files`
+    if (product.specs && typeof product.specs === 'object') {
+      const specsObj = product.specs as Record<string, unknown>
+      if (Array.isArray(specsObj.files) && specsObj.files.length > 0) {
+        const folderPath =
+          product.storage_folder_path ||
+          (typeof specsObj.folder === 'string' ? specsObj.folder.replace(/^\/+/, '') : '') ||
+          getCanonicalProductFolder(
+            product.slug || product.name || 'product',
+            product.category || 'music',
+            product.fulfillment || 'digital'
           )
-          if (validFiles.length > 0) {
-            return buildFolderStatsFromEntries(
-              folderPath,
-              validFiles.map((f) => ({
-                name: f.name,
-                title: f.title,
-                sizeBytes: Number(f.sizeBytes) || 0,
-                publicUrl: f.publicUrl,
-              }))
-            )
-          }
-        }
-      }
-
-      const publicDir = path.resolve(process.cwd(), 'public')
-      const relativeCandidates: string[] = []
-
-      // 0. Si tiene storage_folder_path explícito
-      if (product.storage_folder_path) {
-        const cleanFolder = product.storage_folder_path.replace(/^\/+|\/+$/g, '')
-        relativeCandidates.push(cleanFolder)
-      }
-
-      // 1. Extraer ruta desde thumbnail_url, wav_url, mp3_url, acapella_url o instrumental_url si apuntan a /songs/ o /merch/
-      const urls = [
-        product.thumbnail_url,
-        product.wav_url,
-        product.mp3_url,
-        product.audio_preview_url,
-        product.acapella_url,
-        product.instrumental_url,
-      ]
-      for (const u of urls) {
-        if (!u || typeof u !== 'string') continue
-        const match = u.match(/(?:^\/)?(songs|merch)\/([^/]+)/i)
-        if (match) {
-          relativeCandidates.push(`${match[1].toLowerCase()}/${match[2]}`)
-        }
-      }
-
-      // 2. Extraer candidato por slug o variaciones de slug
-      if (product.slug) {
-        relativeCandidates.push(`songs/${product.slug}`)
-        relativeCandidates.push(`merch/${product.slug}`)
-        const compactSlug = product.slug.replace(/[-_.]/g, '')
-        relativeCandidates.push(`songs/${compactSlug}`)
-        relativeCandidates.push(`merch/${compactSlug}`)
-      }
-
-      // 3. Extraer candidato por nombre normalizado
-      if (product.name) {
-        const cleanName = product.name.toLowerCase().replace(/[^a-z0-9]/g, '')
-        relativeCandidates.push(`songs/${cleanName}`)
-        relativeCandidates.push(`merch/${cleanName}`)
-      }
-
-      // Intentar primero en el sistema de archivos local (dev / build)
-      for (const rel of relativeCandidates) {
-        const candidate = path.join(/*turbopackIgnore: true*/ publicDir, ...rel.split('/'))
-        if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-          const relativeFolder = path.relative(publicDir, candidate).replace(/\\/g, '/')
-          const dirents = fs
-            .readdirSync(candidate, { withFileTypes: true })
-            .sort((a, b) =>
-              a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-            )
-          const entries: Array<{ name: string; sizeBytes: number }> = []
-          for (const dirent of dirents) {
-            if (!dirent.isFile()) continue
-            if (dirent.name === 'manifest.json' || dirent.name.startsWith('.')) continue
-            const filePath = path.join(candidate, dirent.name)
-            const stats = fs.statSync(filePath)
-            entries.push({ name: dirent.name, sizeBytes: stats.size })
-          }
-          if (entries.length > 0) {
-            return buildFolderStatsFromEntries(relativeFolder, entries)
-          }
-        }
-      }
-
-      // Respaldo para Vercel Serverless Runtime: consultar inventario estático de public/songs/*
-      for (const rel of relativeCandidates) {
-        const normalizedRel = rel.replace(/\\/g, '/').toLowerCase()
-        const matchedKey = Object.keys(STATIC_PUBLIC_FOLDERS).find(
-          (k) => k.toLowerCase() === normalizedRel
+        const validFiles = (specsObj.files as ProductFileInfo[]).filter(
+          (f) => f && typeof f.name === 'string'
         )
-        if (matchedKey) {
-          return buildFolderStatsFromEntries(matchedKey, STATIC_PUBLIC_FOLDERS[matchedKey])
+        if (validFiles.length > 0) {
+          return buildFolderStatsFromEntries(
+            folderPath,
+            validFiles.map((f) => ({
+              name: f.name,
+              title: f.title,
+              sizeBytes: Number(f.sizeBytes) || 0,
+              publicUrl: f.publicUrl,
+            }))
+          )
         }
       }
+    }
 
-      return null
-    } catch (err) {
-      console.error('Error computing product folder stats:', err)
-      return null
+    const publicDir = path.resolve(process.cwd(), 'public')
+    const relativeCandidates: string[] = []
+
+    // 0. Si tiene storage_folder_path explícito
+    if (product.storage_folder_path) {
+      const cleanFolder = product.storage_folder_path.replace(/^\/+|\/+$/g, '')
+      relativeCandidates.push(cleanFolder)
+    }
+
+    // 1. Extraer ruta desde thumbnail_url, wav_url, mp3_url, acapella_url o instrumental_url si apuntan a /songs/ o /merch/
+    const urls = [
+      product.thumbnail_url,
+      product.wav_url,
+      product.mp3_url,
+      product.audio_preview_url,
+      product.acapella_url,
+      product.instrumental_url,
+    ]
+    for (const u of urls) {
+      if (!u || typeof u !== 'string') continue
+      const match = u.match(/(?:^\/)?(songs|merch)\/([^/]+)/i)
+      if (match) {
+        relativeCandidates.push(`${match[1].toLowerCase()}/${match[2]}`)
+      }
+    }
+
+    // 2. Extraer candidato por slug o variaciones de slug
+    if (product.slug) {
+      relativeCandidates.push(`songs/${product.slug}`)
+      relativeCandidates.push(`merch/${product.slug}`)
+      const compactSlug = product.slug.replace(/[-_.]/g, '')
+      relativeCandidates.push(`songs/${compactSlug}`)
+      relativeCandidates.push(`merch/${compactSlug}`)
+    }
+
+    // 3. Extraer candidato por nombre normalizado
+    if (product.name) {
+      const cleanName = product.name.toLowerCase().replace(/[^a-z0-9]/g, '')
+      relativeCandidates.push(`songs/${cleanName}`)
+      relativeCandidates.push(`merch/${cleanName}`)
+    }
+
+    // Intentar primero en el sistema de archivos local (dev / build)
+    for (const rel of relativeCandidates) {
+      const candidate = path.join(/*turbopackIgnore: true*/ publicDir, ...rel.split('/'))
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+        const relativeFolder = path.relative(publicDir, candidate).replace(/\\/g, '/')
+        const dirents = fs
+          .readdirSync(candidate, { withFileTypes: true })
+          .sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+          )
+        const entries: Array<{ name: string; sizeBytes: number }> = []
+        for (const dirent of dirents) {
+          if (!dirent.isFile()) continue
+          if (dirent.name === 'manifest.json' || dirent.name.startsWith('.')) continue
+          const filePath = path.join(candidate, dirent.name)
+          const stats = fs.statSync(filePath)
+          entries.push({ name: dirent.name, sizeBytes: stats.size })
+        }
+        if (entries.length > 0) {
+          return buildFolderStatsFromEntries(relativeFolder, entries)
+        }
+      }
+    }
+
+    // Respaldo para Vercel Serverless Runtime: consultar inventario estático de public/songs/*
+    for (const rel of relativeCandidates) {
+      const normalizedRel = rel.replace(/\\/g, '/').toLowerCase()
+      const matchedKey = Object.keys(STATIC_PUBLIC_FOLDERS).find(
+        (k) => k.toLowerCase() === normalizedRel
+      )
+      if (matchedKey) {
+        return buildFolderStatsFromEntries(matchedKey, STATIC_PUBLIC_FOLDERS[matchedKey])
+      }
+    }
+
+    return null
+  } catch (err) {
+    console.error('Error computing product folder stats:', err)
+    return null
+  }
+}
+
+/**
+ * Hidrata y auto-repara las URLs multimedia de un producto (`thumbnail_url`, `audio_preview_url`,
+ * `wav_url`, `mp3_url`, `folder_stats`) verificándolas contra los archivos reales existentes
+ * en `public/songs/<slug>` (o `public/merch/<slug>`).
+ * Si un archivo fue renombrado en la carpeta `public/songs/<slug>` y la base de datos tenía
+ * el nombre anterior, resuelve automáticamente el archivo válido presente en la carpeta.
+ */
+export function hydrateProductWithFolderAssets(product: Product): Product {
+  const folderStats = product.folder_stats ?? getProductFolderStats(product)
+  const files = folderStats?.files || []
+
+  let thumbnail_url = normalizeMediaUrl(product.thumbnail_url) || null
+  let wav_url = normalizeMediaUrl(product.wav_url) || null
+  let mp3_url = normalizeMediaUrl(product.mp3_url) || null
+  let audio_preview_url = normalizeMediaUrl(product.audio_preview_url) || null
+  const acapella_url = normalizeMediaUrl(product.acapella_url) || null
+  const instrumental_url = normalizeMediaUrl(product.instrumental_url) || null
+
+  if (files.length > 0) {
+    const fileUrlsLower = new Set(
+      files.map((f) => (f.publicUrl || '').toLowerCase()).filter(Boolean)
+    )
+    const isMissingLocalFile = (url: string | null) => {
+      if (!url) return true
+      if (/^(https?:|\/\/|data:)/i.test(url)) return false
+      if (url.startsWith('/songs/') || url.startsWith('/merch/')) {
+        return !fileUrlsLower.has(url.toLowerCase())
+      }
+      return false
+    }
+
+    const coverFiles = files.filter((f) =>
+      ['.jpg', '.jpeg', '.png', '.webp', '.avif'].includes(f.extension)
+    )
+    const wavFiles = files.filter(
+      (f) =>
+        f.extension === '.wav' &&
+        !f.name.toLowerCase().includes('acapella') &&
+        !f.name.toLowerCase().includes('instrumental')
+    )
+    const mp3Files = files.filter((f) => f.extension === '.mp3')
+
+    if (coverFiles.length > 0 && isMissingLocalFile(thumbnail_url)) {
+      thumbnail_url = coverFiles[0].publicUrl || null
+    }
+    if (wavFiles.length > 0 && isMissingLocalFile(wav_url)) {
+      wav_url = wavFiles[0].publicUrl || null
+    }
+    if (mp3Files.length > 0 && isMissingLocalFile(mp3_url)) {
+      mp3_url = mp3Files[0].publicUrl || null
+    }
+    if (isMissingLocalFile(audio_preview_url)) {
+      audio_preview_url =
+        (mp3_url && !isMissingLocalFile(mp3_url) ? mp3_url : null) ||
+        (wav_url && !isMissingLocalFile(wav_url) ? wav_url : null) ||
+        mp3Files[0]?.publicUrl ||
+        wavFiles[0]?.publicUrl ||
+        audio_preview_url ||
+        null
+    }
+  } else {
+    if (!audio_preview_url) {
+      audio_preview_url = mp3_url || wav_url || null
     }
   }
 
-  /**
-   * Hidrata y auto-repara las URLs multimedia de un producto (`thumbnail_url`, `audio_preview_url`,
-   * `wav_url`, `mp3_url`, `folder_stats`) verificándolas contra los archivos reales existentes
-   * en `public/songs/<slug>` (o `public/merch/<slug>`).
-   * Si un archivo fue renombrado en la carpeta `public/songs/<slug>` y la base de datos tenía
-   * el nombre anterior, resuelve automáticamente el archivo válido presente en la carpeta.
-   */
-  export function hydrateProductWithFolderAssets(product: Product): Product {
-    const folderStats = product.folder_stats ?? getProductFolderStats(product)
-    const files = folderStats?.files || []
-
-    let thumbnail_url = normalizeMediaUrl(product.thumbnail_url) || null
-    let wav_url = normalizeMediaUrl(product.wav_url) || null
-    let mp3_url = normalizeMediaUrl(product.mp3_url) || null
-    let audio_preview_url = normalizeMediaUrl(product.audio_preview_url) || null
-    const acapella_url = normalizeMediaUrl(product.acapella_url) || null
-    const instrumental_url = normalizeMediaUrl(product.instrumental_url) || null
-
-    if (files.length > 0) {
-      const fileUrlsLower = new Set(
-        files.map((f) => (f.publicUrl || '').toLowerCase()).filter(Boolean)
-      )
-      const isMissingLocalFile = (url: string | null) => {
-        if (!url) return true
-        if (/^(https?:|\/\/|data:)/i.test(url)) return false
-        if (url.startsWith('/songs/') || url.startsWith('/merch/')) {
-          return !fileUrlsLower.has(url.toLowerCase())
-        }
-        return false
-      }
-
-      const coverFiles = files.filter((f) =>
-        ['.jpg', '.jpeg', '.png', '.webp', '.avif'].includes(f.extension)
-      )
-      const wavFiles = files.filter(
-        (f) =>
-          f.extension === '.wav' &&
-          !f.name.toLowerCase().includes('acapella') &&
-          !f.name.toLowerCase().includes('instrumental')
-      )
-      const mp3Files = files.filter((f) => f.extension === '.mp3')
-
-      if (coverFiles.length > 0 && isMissingLocalFile(thumbnail_url)) {
-        thumbnail_url = coverFiles[0].publicUrl || null
-      }
-      if (wavFiles.length > 0 && isMissingLocalFile(wav_url)) {
-        wav_url = wavFiles[0].publicUrl || null
-      }
-      if (mp3Files.length > 0 && isMissingLocalFile(mp3_url)) {
-        mp3_url = mp3Files[0].publicUrl || null
-      }
-      if (isMissingLocalFile(audio_preview_url)) {
-        audio_preview_url =
-          (mp3_url && !isMissingLocalFile(mp3_url) ? mp3_url : null) ||
-          (wav_url && !isMissingLocalFile(wav_url) ? wav_url : null) ||
-          mp3Files[0]?.publicUrl ||
-          wavFiles[0]?.publicUrl ||
-          audio_preview_url ||
-          null
-      }
-    } else {
-      if (!audio_preview_url) {
-        audio_preview_url = mp3_url || wav_url || null
-      }
-    }
-
-    return {
-      ...product,
-      thumbnail_url,
-      wav_url,
-      mp3_url,
-      audio_preview_url,
-      acapella_url,
-      instrumental_url,
-      folder_stats: folderStats,
-    }
+  return {
+    ...product,
+    thumbnail_url,
+    wav_url,
+    mp3_url,
+    audio_preview_url,
+    acapella_url,
+    instrumental_url,
+    folder_stats: folderStats,
   }
+}
 
-  /**
-   * Hidrata y auto-repara las URLs de imagen y audio de una publicación (Post) del blog,
-   * sincronizando con su producto vinculado cuando una imagen en `/songs/<slug>` fue renombrada.
-   */
-  export function hydratePostWithFolderAssets(post: Post, linkedProduct?: Product | null): Post {
-    const hydratedProduct = linkedProduct ? hydrateProductWithFolderAssets(linkedProduct) : null
+/**
+ * Hidrata y auto-repara las URLs de imagen y audio de una publicación (Post) del blog,
+ * sincronizando con su producto vinculado cuando una imagen en `/songs/<slug>` fue renombrada.
+ */
+  export function hydratePostWithFolderAssets(
+    post: Post,
+    linkedProduct?: Product | null,
+    linkedProductsList?: Product[]
+  ): Post {
+    const hydratedProducts = (linkedProductsList || [])
+      .map((p) => hydrateProductWithFolderAssets(p))
+      .slice(0, 3)
+
+    const hydratedProduct = linkedProduct
+      ? hydrateProductWithFolderAssets(linkedProduct)
+      : hydratedProducts[0] || null
+
+    if (hydratedProduct && hydratedProducts.length === 0) {
+      hydratedProducts.push(hydratedProduct)
+    }
+
+    const extractedIds = extractPostProductIds(post)
+    const cleanContent = stripPostProductsMarker(post.content)
 
     let image_url = normalizeMediaUrl(post.image_url) || null
     let cover_url = normalizeMediaUrl(post.cover_url) || null
@@ -619,9 +640,13 @@ export async function provisionProductDirectoryAndUpload(params: {
 
     return {
       ...post,
+      content: cleanContent,
       image_url: image_url || cover_url,
       cover_url: cover_url || image_url,
       media_url,
+      linked_product_id: extractedIds[0] || post.linked_product_id || null,
+      linked_product_ids: extractedIds,
       linked_product: hydratedProduct,
+      linked_products: hydratedProducts,
     }
   }

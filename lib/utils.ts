@@ -85,3 +85,72 @@ export function parseMediaUrls(raw?: string | null): string[] {
     .map((s) => normalizeMediaUrl(s.trim()))
     .filter(Boolean)
 }
+
+const POST_PRODUCTS_MARKER_START = '<!--TAGGED_PRODUCTS:'
+const POST_PRODUCTS_MARKER_END = '-->'
+
+/**
+ * Elimina el marcador invisible de productos etiquetados del contenido de una publicación.
+ */
+export function stripPostProductsMarker(rawContent?: string | null): string {
+  if (!rawContent) return ''
+  const idx = rawContent.indexOf(POST_PRODUCTS_MARKER_START)
+  if (idx === -1) return rawContent.trim()
+  return rawContent.slice(0, idx).trim()
+}
+
+/**
+ * Codifica hasta 3 IDs de productos etiquetados al final del contenido de la publicación
+ * para garantizar compatibilidad total incluso si la tabla `posts` solo tiene `linked_product_id`.
+ */
+export function encodePostContentWithProducts(
+  cleanContent: string,
+  productIds: string[]
+): string {
+  const stripped = stripPostProductsMarker(cleanContent)
+  const uniqueIds = Array.from(
+    new Set(productIds.map((id) => id.trim()).filter(Boolean))
+  ).slice(0, 3)
+
+  if (uniqueIds.length === 0) {
+    return stripped
+  }
+  return `${stripped}\n\n${POST_PRODUCTS_MARKER_START}${uniqueIds.join(',')}${POST_PRODUCTS_MARKER_END}`
+}
+
+/**
+ * Extrae la lista ordenada (máx. 3) de IDs de productos vinculados a una publicación.
+ */
+export function extractPostProductIds(post: {
+  content?: string | null
+  linked_product_id?: string | null
+  linked_product_ids?: string[] | null
+}): string[] {
+  const result: string[] = []
+  const addId = (id?: string | null) => {
+    if (!id) return
+    const clean = id.trim()
+    if (clean && !result.includes(clean) && result.length < 3) {
+      result.push(clean)
+    }
+  }
+
+  if (Array.isArray(post.linked_product_ids)) {
+    for (const id of post.linked_product_ids) addId(id)
+  }
+
+  const rawContent = post.content || ''
+  const idx = rawContent.indexOf(POST_PRODUCTS_MARKER_START)
+  if (idx !== -1) {
+    const afterStart = rawContent.slice(idx + POST_PRODUCTS_MARKER_START.length)
+    const endIdx = afterStart.indexOf(POST_PRODUCTS_MARKER_END)
+    const rawList = endIdx !== -1 ? afterStart.slice(0, endIdx) : afterStart
+    for (const id of rawList.split(',')) {
+      addId(id)
+    }
+  }
+
+  addId(post.linked_product_id)
+
+  return result
+}

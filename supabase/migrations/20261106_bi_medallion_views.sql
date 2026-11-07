@@ -119,3 +119,22 @@ FROM public.analytics_events ae
 WHERE ae.event_type IN ('song_play', 'stem_switch', 'download_master')
 GROUP BY COALESCE(ae.metadata->>'stem', ae.metadata->>'asset', 'master'), ae.event_type;
 
+-- 6. CORRECCIÓN DE POLÍTICA RLS Y ESTADÍSTICAS HONESTAS EN EL FORO
+DROP POLICY IF EXISTS "forum_threads_delete_own_or_admin" ON public.forum_threads;
+CREATE POLICY "forum_threads_delete_own_or_admin"
+  ON public.forum_threads FOR DELETE
+  USING (auth.uid() = author_id OR public.is_admin());
+
+-- Sincronizar conteo real de votos en forum_threads desde public.votes (elimina el placeholder de 1 like)
+UPDATE public.forum_threads ft
+SET
+  upvotes = COALESCE((
+    SELECT COUNT(*) FROM public.votes v
+    WHERE v.target_type = 'forum_thread' AND v.target_id = ft.id AND v.vote_value = 1
+  ), 0),
+  downvotes = COALESCE((
+    SELECT COUNT(*) FROM public.votes v
+    WHERE v.target_type = 'forum_thread' AND v.target_id = ft.id AND v.vote_value = -1
+  ), 0);
+
+

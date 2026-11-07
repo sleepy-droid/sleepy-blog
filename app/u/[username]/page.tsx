@@ -82,21 +82,21 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
     display_name: isSleepyAdmin
       ? 'sleepyred999'
       : isRedRecordings
-      ? 'redrecordings'
-      : cleanUsername,
+        ? 'redrecordings'
+        : cleanUsername,
     username: cleanUsername,
     bio: isSleepyAdmin
       ? 'Artista, productor audiovisual y creador de este espacio. Bienvenido a mi bitácora y tienda oficial.'
       : isRedRecordings
-      ? 'Tester oficial de funcionalidades regulares y coleccionista de audio en sleepyred999.'
-      : 'Miembro de la comunidad oficial de sleepyred999.',
+        ? 'Tester oficial de funcionalidades regulares y coleccionista de audio en sleepyred999.'
+        : 'Miembro de la comunidad oficial de sleepyred999.',
     avatar_url: isSleepyAdmin
       ? '/images/logos/PNG-04.png'
       : '/images/avatars/emblem-obsidian-crest.svg',
     banner_url: isSleepyAdmin
-      ? '/songs/criss-angel/crissangel.jpg'
-      : '/images/banners/studio-obsidian-grid.svg',
-    favorite_product_id: isRedRecordings ? 'red-recordings' : 'criss-angel',
+        ? '/songs/arde-fly-sessions-pt-1/flysessions1.jpg'
+        : '/images/banners/studio-obsidian-grid.svg',
+    favorite_product_id: null,
     is_public: true,
     role: isSleepyAdmin ? 'admin' : 'user',
     created_at: new Date('2026-01-01').toISOString(),
@@ -114,7 +114,7 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
     (currentUser?.profile?.username &&
       currentUser.profile.username.toLowerCase() === userProfile.username?.toLowerCase())
 
-  // Cargar canciones publicadas en la tienda para resolver UUIDs y presets
+  // Cargar ÚNICAMENTE las canciones publicadas actualmente en la tienda
   const { data: dbMusicProducts } = await supabase
     .from('products')
     .select('*')
@@ -122,368 +122,377 @@ export default async function PublicUserProfilePage({ params }: UserProfileProps
     .or('category.eq.music,fulfillment.eq.digital')
     .order('created_at', { ascending: false })
 
-  const availableSongs: SongPreset[] = [...SONG_PRESETS]
+  const availableSongs: SongPreset[] = []
   const productUuidToSlugMap = new Map<string, string>()
 
-  if (dbMusicProducts) {
-    for (const rawP of dbMusicProducts) {
-      const p = hydrateProductWithFolderAssets(rawP as Product)
-      const songKey = p.slug || p.id
-      if (p.id && songKey) {
-        productUuidToSlugMap.set(p.id, songKey)
-      }
-      const audioUrl = p.audio_preview_url || p.mp3_url || p.wav_url
-      if (!audioUrl) continue
-      const existingIdx = availableSongs.findIndex((s) => s.id === songKey || s.id === p.id)
-      const hydratedSong: SongPreset = {
-        id: songKey,
-        productId: p.id,
-        title: p.name,
-        artist: 'sleepyred999',
-        subtitle: p.description?.slice(0, 48) || 'Lanzamiento Oficial',
-        audioPreviewUrl: audioUrl,
-        thumbnailUrl: p.thumbnail_url || '/images/logos/PNG-04.png',
-        durationSeconds: 30,
-        priceCents: typeof p.price_cents === 'number' && p.price_cents > 0 ? p.price_cents : 99,
-      }
-      if (existingIdx === -1) {
-        availableSongs.push(hydratedSong)
-      } else {
-        availableSongs[existingIdx] = {
-          ...availableSongs[existingIdx],
-          ...hydratedSong,
+    if (dbMusicProducts && dbMusicProducts.length > 0) {
+      for (const rawP of dbMusicProducts) {
+        const p = hydrateProductWithFolderAssets(rawP as Product)
+        const songKey = p.slug || p.id
+        if (p.id && songKey) {
+          productUuidToSlugMap.set(p.id, songKey)
+        }
+        const audioUrl = p.audio_preview_url || p.mp3_url || p.wav_url
+        if (!audioUrl) continue
+        const existingIdx = availableSongs.findIndex(
+          (s) => s.id === songKey || s.id === p.id
+        )
+        const hydratedSong: SongPreset = {
+          id: songKey,
+          productId: p.id,
+          title: p.name,
+          artist: 'sleepyred999',
+          subtitle: p.description?.slice(0, 48) || 'Lanzamiento Oficial',
+          audioPreviewUrl: audioUrl,
+          thumbnailUrl: p.thumbnail_url || '/images/logos/PNG-04.png',
+          durationSeconds: 30,
+          priceCents:
+            typeof p.price_cents === 'number' && p.price_cents > 0
+              ? p.price_cents
+              : 99,
+        }
+        if (existingIdx === -1) {
+          availableSongs.push(hydratedSong)
+        } else {
+          availableSongs[existingIdx] = {
+            ...availableSongs[existingIdx],
+            ...hydratedSong,
+          }
         }
       }
     }
-  }
 
-  const resolveSong = (songId?: string | null): SongPreset => {
-    if (!songId) return availableSongs[0]
-    const mappedKey = productUuidToSlugMap.get(songId) || songId
-    return (
-      availableSongs.find((s) => s.id === mappedKey || s.id === songId) ||
-      getSongById(mappedKey, availableSongs)
-    )
-  }
-
-  // Canción favorita con stream completo y Stickers equipados
-  const favoriteSongId = extractProfileFavSongId(userProfile)
-  const favoriteSong = resolveSong(favoriteSongId)
-  const cleanStatus = extractProfileStatus(userProfile.status_update)
-  const equippedStickers = getStickersByIds(extractProfileStickers(userProfile.status_update))
-
-  const getGenderLabel = (g?: string | null) => {
-    switch (g) {
-      case 'male':
-        return 'Hombre ♂'
-      case 'female':
-        return 'Mujer ♀'
-      case 'gender_neutral':
-        return 'Género Neutro ⚥'
-      default:
-        return null
+    if (availableSongs.length === 0) {
+      availableSongs.push(...SONG_PRESETS)
     }
-  }
 
-  // Obtener actividades del usuario desde Supabase
-  const activities: ActivityItem[] = []
+    const resolveSong = (songId?: string | null): SongPreset => {
+      if (!songId) return availableSongs[0]
+      const mappedKey = productUuidToSlugMap.get(songId) || songId
+      return (
+        availableSongs.find((s) => s.id === mappedKey || s.id === songId) ||
+        getSongById(mappedKey, availableSongs)
+      )
+    }
 
-  // 1. Notas personales y eventos especiales en profile_updates
-  const { data: updates } = await supabase
-    .from('profile_updates')
-    .select('*')
-    .eq('user_id', userProfile.id)
-    .order('created_at', { ascending: false })
-    .limit(20)
+    // Canción favorita con stream completo y Stickers equipados
+    const favoriteSongId = extractProfileFavSongId(userProfile)
+    const favoriteSong = resolveSong(favoriteSongId)
+    const cleanStatus = extractProfileStatus(userProfile.status_update)
+    const equippedStickers = getStickersByIds(extractProfileStickers(userProfile.status_update))
 
-  if (updates && updates.length > 0) {
-    for (const u of updates) {
-      if (u.status === 'deleted') continue
-      if (u.body.startsWith('[FAVORITE_SONG_CHANGED]:')) {
-        const rawPayload = u.body.replace('[FAVORITE_SONG_CHANGED]:', '').trim()
-        const [songIdPart, captionPart] = rawPayload.split('||')
-        const song = resolveSong(songIdPart)
-        activities.push({
-          id: u.id,
-          type: 'favorite_song_changed',
-          itemSource: 'profile_update',
-          authorId: u.user_id,
-          moodSongId: song.id,
-          body: captionPart || undefined,
-          targetTitle: song.title,
-          audioPreviewUrl: song.audioPreviewUrl,
-          createdAt: u.created_at,
-        })
-      } else {
-        activities.push({
-          id: u.id,
-          type: 'note',
-          itemSource: 'profile_update',
-          authorId: u.user_id,
-          body: u.body,
-          createdAt: u.created_at,
-        })
+    const getGenderLabel = (g?: string | null) => {
+      switch (g) {
+        case 'male':
+          return 'Hombre ♂'
+        case 'female':
+          return 'Mujer ♀'
+        case 'gender_neutral':
+          return 'Género Neutro ⚥'
+        default:
+          return null
       }
     }
-  }
 
-  // 2. Comentarios del usuario + Comentarios dejados en su muro (profile_update)
-  const isUuidUser = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    userProfile.id
-  )
-  const { data: comments } = isUuidUser
-    ? await supabase
+    // Obtener actividades del usuario desde Supabase
+    const activities: ActivityItem[] = []
+
+    // 1. Notas personales y eventos especiales en profile_updates
+    const { data: updates } = await supabase
+      .from('profile_updates')
+      .select('*')
+      .eq('user_id', userProfile.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    if (updates && updates.length > 0) {
+      for (const u of updates) {
+        if (u.status === 'deleted') continue
+        if (u.body.startsWith('[FAVORITE_SONG_CHANGED]:')) {
+          const rawPayload = u.body.replace('[FAVORITE_SONG_CHANGED]:', '').trim()
+          const [songIdPart, captionPart] = rawPayload.split('||')
+          const song = resolveSong(songIdPart)
+          activities.push({
+            id: u.id,
+            type: 'favorite_song_changed',
+            itemSource: 'profile_update',
+            authorId: u.user_id,
+            moodSongId: song.id,
+            body: captionPart || undefined,
+            targetTitle: song.title,
+            audioPreviewUrl: song.audioPreviewUrl,
+            createdAt: u.created_at,
+          })
+        } else {
+          activities.push({
+            id: u.id,
+            type: 'note',
+            itemSource: 'profile_update',
+            authorId: u.user_id,
+            body: u.body,
+            createdAt: u.created_at,
+          })
+        }
+      }
+    }
+
+    // 2. Comentarios del usuario + Comentarios dejados en su muro (profile_update)
+    const isUuidUser = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      userProfile.id
+    )
+    const { data: comments } = isUuidUser
+      ? await supabase
         .from('comments')
         .select('id, user_id, body, created_at, post_id, target_type, target_id, status')
         .or(`user_id.eq.${userProfile.id},and(target_type.eq.profile_update,target_id.eq.${userProfile.id})`)
         .order('created_at', { ascending: false })
         .limit(20)
-    : await supabase
+      : await supabase
         .from('comments')
         .select('id, user_id, body, created_at, post_id, target_type, target_id, status')
         .eq('user_id', userProfile.id)
         .order('created_at', { ascending: false })
         .limit(15)
 
-  if (comments && comments.length > 0) {
-    const wallAuthorIds = Array.from(
-      new Set(
-        comments
-          .filter((c) => c.user_id && c.user_id !== userProfile.id)
-          .map((c) => c.user_id)
+    if (comments && comments.length > 0) {
+      const wallAuthorIds = Array.from(
+        new Set(
+          comments
+            .filter((c) => c.user_id && c.user_id !== userProfile.id)
+            .map((c) => c.user_id)
+        )
       )
-    )
-    const wallAuthorsMap = new Map<string, { display_name?: string | null; username?: string | null }>()
-    if (wallAuthorIds.length > 0) {
-      const { data: wallProfs } = await supabase
-        .from('profiles')
-        .select('id, display_name, username')
-        .in('id', wallAuthorIds)
-      for (const wp of wallProfs || []) {
-        wallAuthorsMap.set(wp.id, wp)
-      }
-    }
-
-    for (const c of comments) {
-      if (c.status === 'deleted') continue
-      if (c.target_type === 'profile_update' && c.target_id === userProfile.id && c.user_id !== userProfile.id) {
-        const wp = wallAuthorsMap.get(c.user_id)
-        activities.push({
-          id: c.id,
-          type: 'wall_comment',
-          itemSource: 'comment',
-          authorId: c.user_id,
-          authorName: wp?.display_name || wp?.username || 'Miembro',
-          authorUsername: wp?.username || 'user',
-          body: c.body,
-          createdAt: c.created_at,
-        })
-      } else {
-        let targetTitle = 'Publicación'
-        let targetHref: string | undefined = c.post_id ? `/posts/${c.post_id}` : undefined
-        if (c.target_type === 'product' && c.target_id) {
-          targetTitle = 'Producto de Tienda'
-          targetHref = `/shop/${c.target_id}`
-        } else if (c.target_type === 'forum_thread' && c.target_id) {
-          targetTitle = 'Hilo de Comunidad'
-          targetHref = `/community/${c.target_id}`
+      const wallAuthorsMap = new Map<string, { display_name?: string | null; username?: string | null }>()
+      if (wallAuthorIds.length > 0) {
+        const { data: wallProfs } = await supabase
+          .from('profiles')
+          .select('id, display_name, username')
+          .in('id', wallAuthorIds)
+        for (const wp of wallProfs || []) {
+          wallAuthorsMap.set(wp.id, wp)
         }
+      }
+
+      for (const c of comments) {
+        if (c.status === 'deleted') continue
+        if (c.target_type === 'profile_update' && c.target_id === userProfile.id && c.user_id !== userProfile.id) {
+          const wp = wallAuthorsMap.get(c.user_id)
+          activities.push({
+            id: c.id,
+            type: 'wall_comment',
+            itemSource: 'comment',
+            authorId: c.user_id,
+            authorName: wp?.display_name || wp?.username || 'Miembro',
+            authorUsername: wp?.username || 'user',
+            body: c.body,
+            createdAt: c.created_at,
+          })
+        } else {
+          let targetTitle = 'Publicación'
+          let targetHref: string | undefined = c.post_id ? `/posts/${c.post_id}` : undefined
+          if (c.target_type === 'product' && c.target_id) {
+            targetTitle = 'Producto de Tienda'
+            targetHref = `/shop/${c.target_id}`
+          } else if (c.target_type === 'forum_thread' && c.target_id) {
+            targetTitle = 'Hilo de Comunidad'
+            targetHref = `/community/${c.target_id}`
+          }
+          activities.push({
+            id: c.id,
+            type: 'comment',
+            itemSource: 'comment',
+            authorId: c.user_id,
+            targetTitle,
+            targetHref,
+            body: c.body,
+            createdAt: c.created_at,
+          })
+        }
+      }
+    }
+
+    // 3. Compras registradas en library_items (Gold Hue)
+    const { data: libraryItems } = await supabase
+      .from('library_items')
+      .select('id, created_at, products (id, name)')
+      .eq('user_id', userProfile.id)
+      .limit(10)
+
+    if (libraryItems && libraryItems.length > 0) {
+      for (const lib of libraryItems) {
+        const prodName = (lib.products as { name?: string } | null)?.name || 'Lanzamiento digital'
         activities.push({
-          id: c.id,
-          type: 'comment',
-          itemSource: 'comment',
-          authorId: c.user_id,
-          targetTitle,
-          targetHref,
-          body: c.body,
-          createdAt: c.created_at,
+          id: lib.id,
+          type: 'purchase',
+          targetTitle: prodName,
+          createdAt: lib.created_at,
         })
       }
     }
-  }
 
-  // 3. Compras registradas en library_items (Gold Hue)
-  const { data: libraryItems } = await supabase
-    .from('library_items')
-    .select('id, created_at, products (id, name)')
-    .eq('user_id', userProfile.id)
-    .limit(10)
+    // Ordenar cronológicamente las actividades reales de la base de datos
+    activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
-  if (libraryItems && libraryItems.length > 0) {
-    for (const lib of libraryItems) {
-      const prodName = (lib.products as { name?: string } | null)?.name || 'Lanzamiento digital'
-      activities.push({
-        id: lib.id,
-        type: 'purchase',
-        targetTitle: prodName,
-        createdAt: lib.created_at,
-      })
-    }
-  }
+    const initial = (userProfile.display_name || userProfile.username || 'U').charAt(0).toUpperCase()
 
-  // Ordenar cronológicamente las actividades reales de la base de datos
-  activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    return (
+      <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8 font-sans">
+        {/* Hero Header con Banner Personalizado */}
+        <div className="relative rounded-3xl overflow-hidden border border-neutral-800/90 bg-neutral-950 shadow-2xl space-y-6">
+          {/* Banner Cover Image */}
+          <div className="relative w-full h-48 sm:h-64 bg-neutral-900 overflow-hidden">
+            {userProfile.banner_url ? (
+              <Image
+                src={userProfile.banner_url}
+                alt="Banner de Perfil"
+                fill
+                priority
+                unoptimized={userProfile.banner_url.endsWith('.svg')}
+                className="object-cover filter brightness-90"
+                sizes="(max-width: 768px) 100vw, 896px"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-r from-red-950 via-neutral-900 to-neutral-950" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
 
-  const initial = (userProfile.display_name || userProfile.username || 'U').charAt(0).toUpperCase()
-
-  return (
-    <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8 font-sans">
-      {/* Hero Header con Banner Personalizado */}
-      <div className="relative rounded-3xl overflow-hidden border border-neutral-800/90 bg-neutral-950 shadow-2xl space-y-6">
-        {/* Banner Cover Image */}
-        <div className="relative w-full h-48 sm:h-64 bg-neutral-900 overflow-hidden">
-          {userProfile.banner_url ? (
-            <Image
-              src={userProfile.banner_url}
-              alt="Banner de Perfil"
-              fill
-              priority
-              unoptimized={userProfile.banner_url.endsWith('.svg')}
-              className="object-cover filter brightness-90"
-              sizes="(max-width: 768px) 100vw, 896px"
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-r from-red-950 via-neutral-900 to-neutral-950" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
-
-          {/* Equipped Sticker Showcase on Public Banner */}
-          {equippedStickers.length > 0 && (
-            <div className="absolute top-3.5 left-3.5 sm:top-4 sm:left-5 z-20 flex flex-wrap items-center gap-1.5 sm:gap-2 max-w-[78%]">
-              {equippedStickers.map((stk) => (
-                <div
-                  key={stk.id}
-                  title={`${stk.name} (${stk.rarity}) — ${stk.description}`}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r ${stk.bgGradient} border ${stk.borderClass} ${stk.textClass} backdrop-blur-md shadow-lg hover:scale-105 transition-transform select-none`}
-                >
-                  <span className="text-sm leading-none drop-shadow">{stk.emoji}</span>
-                  <span className="text-[10px] font-extrabold tracking-wide uppercase">
-                    {stk.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Profile Details Container */}
-        <div className="relative px-6 pb-6 pt-0 sm:px-8 space-y-5 -mt-16 sm:-mt-20">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
-            <div className="flex items-end gap-4">
-              {/* Avatar con anillo */}
-              <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border-4 border-neutral-950 bg-neutral-900 shadow-2xl shrink-0 ring-2 ring-red-600/50">
-                {userProfile.avatar_url ? (
-                  <Image
-                    src={userProfile.avatar_url}
-                    alt={userProfile.display_name || 'Avatar'}
-                    fill
-                    unoptimized={userProfile.avatar_url.endsWith('.svg')}
-                    className="object-cover"
-                    sizes="112px"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-3xl font-extrabold text-red-400 bg-red-950/80">
-                    {initial}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                    {userProfile.display_name || userProfile.username}
-                  </h1>
-                  {userProfile.role === 'admin' && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-950 text-red-400 border border-red-800 flex items-center gap-1 shadow-sm">
-                      <ShieldCheck className="w-3 h-3 text-red-400" /> Creador / Admin
+            {/* Equipped Sticker Showcase on Public Banner */}
+            {equippedStickers.length > 0 && (
+              <div className="absolute top-3.5 left-3.5 sm:top-4 sm:left-5 z-20 flex flex-wrap items-center gap-1.5 sm:gap-2 max-w-[78%]">
+                {equippedStickers.map((stk) => (
+                  <div
+                    key={stk.id}
+                    title={`${stk.name} (${stk.rarity}) — ${stk.description}`}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r ${stk.bgGradient} border ${stk.borderClass} ${stk.textClass} backdrop-blur-md shadow-lg hover:scale-105 transition-transform select-none`}
+                  >
+                    <span className="text-sm leading-none drop-shadow">{stk.emoji}</span>
+                    <span className="text-[10px] font-extrabold tracking-wide uppercase">
+                      {stk.label}
                     </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Profile Details Container */}
+          <div className="relative px-6 pb-6 pt-0 sm:px-8 space-y-5 -mt-16 sm:-mt-20">
+            <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
+              <div className="flex items-end gap-4">
+                {/* Avatar con anillo */}
+                <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border-4 border-neutral-950 bg-neutral-900 shadow-2xl shrink-0 ring-2 ring-red-600/50">
+                  {userProfile.avatar_url ? (
+                    <Image
+                      src={userProfile.avatar_url}
+                      alt={userProfile.display_name || 'Avatar'}
+                      fill
+                      unoptimized={userProfile.avatar_url.endsWith('.svg')}
+                      className="object-cover"
+                      sizes="112px"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-3xl font-extrabold text-red-400 bg-red-950/80">
+                      {initial}
+                    </div>
                   )}
                 </div>
-                <p className="text-xs font-mono text-neutral-400">
-                  @{userProfile.username || 'usuario'}
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                      {userProfile.display_name || userProfile.username}
+                    </h1>
+                    {userProfile.role === 'admin' && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-950 text-red-400 border border-red-800 flex items-center gap-1 shadow-sm">
+                        <ShieldCheck className="w-3 h-3 text-red-400" /> Creador / Admin
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs font-mono text-neutral-400">
+                    @{userProfile.username || 'usuario'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Acciones de Propietario */}
+              {isOwner && (
+                <Link
+                  href="/profile"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-neutral-200 bg-neutral-900/90 border border-neutral-800 hover:border-red-600 hover:text-white transition-all shadow-md active:scale-95"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-red-400" />
+                  <span>Personalizar Mi Perfil</span>
+                </Link>
+              )}
+            </div>
+
+            {cleanStatus && (
+              <div className="bg-neutral-900/60 border border-neutral-800 p-3.5 rounded-2xl flex items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-red-400 shrink-0" />
+                <p className="text-xs font-medium text-neutral-200 italic">
+                  &ldquo;{cleanStatus}&rdquo;
                 </p>
               </div>
+            )}
+
+            {/* Canción Favorita con Reproductor Interactivo de Snippet de 30s */}
+            <div className="pt-2">
+              <FavoriteSongSnippetPlayer song={favoriteSong} />
             </div>
 
-            {/* Acciones de Propietario */}
-            {isOwner && (
-              <Link
-                href="/profile"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-neutral-200 bg-neutral-900/90 border border-neutral-800 hover:border-red-600 hover:text-white transition-all shadow-md active:scale-95"
-              >
-                <Edit3 className="w-3.5 h-3.5 text-red-400" />
-                <span>Personalizar Mi Perfil</span>
-              </Link>
-            )}
-          </div>
-
-          {cleanStatus && (
-            <div className="bg-neutral-900/60 border border-neutral-800 p-3.5 rounded-2xl flex items-center gap-2.5">
-              <Sparkles className="w-4 h-4 text-red-400 shrink-0" />
-              <p className="text-xs font-medium text-neutral-200 italic">
-                &ldquo;{cleanStatus}&rdquo;
+            {/* Biografía */}
+            <div className="pt-3 border-t border-neutral-800/80 space-y-2">
+              <h2 className="text-xs font-bold text-neutral-400 uppercase tracking-wider font-mono">
+                Biografía
+              </h2>
+              <p className="text-sm text-neutral-200 leading-relaxed font-sans max-w-2xl">
+                {userProfile.bio || 'Este usuario aún no ha agregado una biografía.'}
               </p>
             </div>
-          )}
 
-          {/* Canción Favorita con Reproductor Interactivo de Snippet de 30s */}
-          <div className="pt-2">
-            <FavoriteSongSnippetPlayer song={favoriteSong} />
-          </div>
-
-          {/* Biografía */}
-          <div className="pt-3 border-t border-neutral-800/80 space-y-2">
-            <h2 className="text-xs font-bold text-neutral-400 uppercase tracking-wider font-mono">
-              Biografía
-            </h2>
-            <p className="text-sm text-neutral-200 leading-relaxed font-sans max-w-2xl">
-              {userProfile.bio || 'Este usuario aún no ha agregado una biografía.'}
-            </p>
-          </div>
-
-          <div className="pt-1 flex flex-wrap items-center gap-4 text-xs font-mono text-neutral-400">
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-neutral-500" /> Miembro desde{' '}
-              {new Date(userProfile.created_at).toLocaleDateString('es-ES', {
-                year: 'numeric',
-                month: 'long',
-              })}
-            </span>
-
-            {userProfile.birthday && (
+            <div className="pt-1 flex flex-wrap items-center gap-4 text-xs font-mono text-neutral-400">
               <span className="flex items-center gap-1">
-                <Cake className="w-3.5 h-3.5 text-pink-400" /> Cumpleaños: {userProfile.birthday}
+                <Calendar className="w-3.5 h-3.5 text-neutral-500" /> Miembro desde{' '}
+                {new Date(userProfile.created_at).toLocaleDateString('es-ES', {
+                  year: 'numeric',
+                  month: 'long',
+                })}
               </span>
-            )}
 
-            {getGenderLabel(userProfile.gender) && (
-              <span className="flex items-center gap-1">
-                <UserCheck className="w-3.5 h-3.5 text-sky-400" /> {getGenderLabel(userProfile.gender)}
-              </span>
-            )}
+              {userProfile.birthday && (
+                <span className="flex items-center gap-1">
+                  <Cake className="w-3.5 h-3.5 text-pink-400" /> Cumpleaños: {userProfile.birthday}
+                </span>
+              )}
+
+              {getGenderLabel(userProfile.gender) && (
+                <span className="flex items-center gap-1">
+                  <UserCheck className="w-3.5 h-3.5 text-sky-400" /> {getGenderLabel(userProfile.gender)}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Feed de Actividad Dopamínico */}
-      <ProfileActivityFeed
-        userId={userProfile.id}
-        username={userProfile.username || cleanUsername}
-        displayName={userProfile.display_name || userProfile.username || 'Usuario'}
-        avatarUrl={userProfile.avatar_url}
-        isOwner={Boolean(isOwner)}
-        isAdmin={Boolean(currentUser?.isAdmin)}
-        currentUserId={currentUser?.id || null}
-        currentUserName={
-          currentUser?.profile?.display_name ||
-          currentUser?.profile?.username ||
-          currentUser?.email?.split('@')[0] ||
-          null
-        }
-        currentUserAvatar={currentUser?.profile?.avatar_url || null}
-        availableSongs={availableSongs}
-        activities={activities}
-      />
-    </main>
-  )
-}
+        {/* Feed de Actividad Dopamínico */}
+        <ProfileActivityFeed
+          userId={userProfile.id}
+          username={userProfile.username || cleanUsername}
+          displayName={userProfile.display_name || userProfile.username || 'Usuario'}
+          avatarUrl={userProfile.avatar_url}
+          isOwner={Boolean(isOwner)}
+          isAdmin={Boolean(currentUser?.isAdmin)}
+          currentUserId={currentUser?.id || null}
+          currentUserName={
+            currentUser?.profile?.display_name ||
+            currentUser?.profile?.username ||
+            currentUser?.email?.split('@')[0] ||
+            null
+          }
+          currentUserAvatar={currentUser?.profile?.avatar_url || null}
+          availableSongs={availableSongs}
+          activities={activities}
+        />
+      </main>
+    )
+  }

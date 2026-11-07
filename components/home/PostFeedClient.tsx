@@ -86,18 +86,16 @@ export function PostFeedClient({ posts, userVotes = {} }: PostFeedClientProps) {
             <button
               type="button"
               onClick={() => setSortBy('recent')}
-              className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer ${
-                sortBy === 'recent' ? 'bg-red-950 text-white font-semibold border border-red-800/60' : 'text-neutral-400 hover:text-white'
-              }`}
+              className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer ${sortBy === 'recent' ? 'bg-red-950 text-white font-semibold border border-red-800/60' : 'text-neutral-400 hover:text-white'
+                }`}
             >
               <Clock className="w-3 h-3 text-red-400" /> {t('shop_recent')}
             </button>
             <button
               type="button"
               onClick={() => setSortBy('popular')}
-              className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer ${
-                sortBy === 'popular' ? 'bg-red-950 text-white font-semibold border border-red-800/60' : 'text-neutral-400 hover:text-white'
-              }`}
+              className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer ${sortBy === 'popular' ? 'bg-red-950 text-white font-semibold border border-red-800/60' : 'text-neutral-400 hover:text-white'
+                }`}
             >
               <Flame className="w-3 h-3 text-red-400" /> {t('shop_popular')}
             </button>
@@ -128,12 +126,12 @@ export function PostFeedClient({ posts, userVotes = {} }: PostFeedClientProps) {
           const productHref = post.linked_product
             ? `/shop/${post.linked_product.slug || post.linked_product.id}`
             : post.linked_product_id
-            ? `/shop/${post.linked_product_id}`
-            : null
+              ? `/shop/${post.linked_product_id}`
+              : null
 
           return (
-            <article 
-              key={post.id} 
+            <article
+              key={post.id}
               className="group border border-neutral-800/80 rounded-2xl p-5 md:p-6 space-y-4 bg-neutral-900/40 backdrop-blur-md hover:border-red-900/50 transition-all duration-300 overflow-hidden"
             >
               <div className="flex items-center justify-between">
@@ -258,7 +256,7 @@ export function PostFeedClient({ posts, userVotes = {} }: PostFeedClientProps) {
                 </p>
               </div>
 
-              {/* Card Footer Actions: Likes & Linked Product Buy Now CTA */}
+              {/* Card Footer Actions: Likes & Up to 3 Tagged Products Buy Now CTA */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-neutral-800/60 text-xs">
                 <PostLikeButton
                   postId={post.id}
@@ -266,41 +264,54 @@ export function PostFeedClient({ posts, userVotes = {} }: PostFeedClientProps) {
                   userHasVoted={userVotes[post.id] === 1}
                 />
 
-                <div className="flex items-center gap-2.5">
-                  {post.linked_product ? (
-                    <Link
-                      href={`/shop/${post.linked_product.slug || post.linked_product.id}`}
-                      className="inline-flex items-center gap-1.5 font-bold text-white bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 px-3.5 py-1.5 rounded-xl border border-red-500/40 shadow-md shadow-red-950/50 transition-all"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                      <span>{t('buy_now')} • ${(post.linked_product.price_cents / 100).toFixed(2)} USD</span>
-                    </Link>
-                  ) : productHref ? (
-                    <Link
-                      href={productHref}
-                      className="inline-flex items-center gap-1.5 font-bold text-white bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 px-3.5 py-1.5 rounded-xl border border-red-500/40 shadow-md shadow-red-950/50 transition-all"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                      <span>{t('buy_now')}{post.price && post.price > 0 ? ` • $${post.price} USD` : ''}</span>
-                    </Link>
-                  ) : post.price && post.price > 0 ? (
-                    <Link
-                      href="/shop"
-                      className="inline-flex items-center gap-1.5 font-bold text-white bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 px-3.5 py-1.5 rounded-xl border border-red-500/40 shadow-md shadow-red-950/50 transition-all"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                      <span>{t('buy_now')} • ${post.price} USD</span>
-                    </Link>
-                  ) : null}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {post.linked_products && post.linked_products.length > 0 ? (
+                        post.linked_products.slice(0, 3).map((lp) => (
+                          <Link
+                            key={lp.id}
+                            href={`/shop/${lp.slug || lp.id}`}
+                            className="inline-flex items-center gap-1.5 font-bold text-white bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 px-3 py-1.5 rounded-xl border border-red-500/40 shadow-md shadow-red-950/50 transition-all"
+                          >
+                            <ShoppingBag className="w-3.5 h-3.5" />
+                            <span>
+                              {lp.name} • ${(lp.price_cents / 100).toFixed(2)} USD
+                            </span>
+                          </Link>
+                        ))
+                      ) : post.linked_product ? (
+                        <Link
+                          href={`/shop/${post.linked_product.slug || post.linked_product.id}`}
+                          className="inline-flex items-center gap-1.5 font-bold text-white bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 px-3.5 py-1.5 rounded-xl border border-red-500/40 shadow-md shadow-red-950/50 transition-all"
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                          <span>{t('buy_now')} • ${(post.linked_product.price_cents / 100).toFixed(2)} USD</span>
+                        </Link>
+                      ) : productHref ? (
+                        <Link
+                          href={productHref}
+                          className="inline-flex items-center gap-1.5 font-bold text-white bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 px-3.5 py-1.5 rounded-xl border border-red-500/40 shadow-md shadow-red-950/50 transition-all"
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                          <span>{t('buy_now')}{post.price && post.price > 0 ? ` • $${post.price} USD` : ''}</span>
+                        </Link>
+                      ) : post.price && post.price > 0 ? (
+                        <Link
+                          href="/shop"
+                          className="inline-flex items-center gap-1.5 font-bold text-white bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 px-3.5 py-1.5 rounded-xl border border-red-500/40 shadow-md shadow-red-950/50 transition-all"
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                          <span>{t('buy_now')} • ${post.price} USD</span>
+                        </Link>
+                      ) : null}
 
-                  <Link
-                    href={`/posts/${post.id}`}
-                    className="text-neutral-400 hover:text-white font-medium flex items-center gap-1"
-                  >
-                    <span>{t('home_read_full')}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
+                      <Link
+                        href={`/posts/${post.id}`}
+                        className="text-neutral-400 hover:text-white font-medium flex items-center gap-1"
+                      >
+                        <span>{t('home_read_full')}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
               </div>
             </article>
           )

@@ -28,7 +28,10 @@ export default async function AdminDashboardPage() {
   ] = await Promise.all([
     supabase.from('posts').select('*', { count: 'exact', head: true }),
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase.from('forum_threads').select('*', { count: 'exact', head: true }),
+    supabase
+      .from('forum_threads')
+      .select('*', { count: 'exact', head: true })
+      .neq('status', 'deleted'),
     supabase
       .from('posts')
       .select('id, title, category, created_at')
@@ -37,6 +40,7 @@ export default async function AdminDashboardPage() {
     supabase
       .from('forum_threads')
       .select('id, title, body, status, author_id, created_at')
+      .neq('status', 'deleted')
       .order('created_at', { ascending: false })
       .limit(5),
     fetchAllModerationItems(supabase),
@@ -147,9 +151,9 @@ export default async function AdminDashboardPage() {
               Hilos Recientes del Foro (Moderación de Spam)
             </h2>
           </div>
-          <Link href="/community" className="text-xs font-semibold text-red-400 hover:text-red-300">
-            Ver Foro Completo →
-          </Link>
+            <Link href="/admin/community" className="text-xs font-semibold text-red-400 hover:text-red-300">
+              Moderar Foro Completo →
+            </Link>
         </div>
 
         <div className="space-y-3">
@@ -161,6 +165,11 @@ export default async function AdminDashboardPage() {
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-white truncate">{t.title}</span>
+                  {t.status === 'hidden' && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-red-950 text-red-400 border border-red-800">
+                      Oculto
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-neutral-400 line-clamp-1">{t.body}</p>
               </div>
@@ -168,12 +177,13 @@ export default async function AdminDashboardPage() {
               <div className="flex items-center gap-2 text-xs shrink-0">
                 <form action={adminHideThread}>
                   <input type="hidden" name="id" value={t.id} />
+                  <input type="hidden" name="current_status" value={t.status || 'visible'} />
                   <button
                     type="submit"
                     className="px-2.5 py-1 rounded-lg bg-amber-950 text-amber-400 hover:bg-amber-900 border border-amber-800 text-xs font-semibold cursor-pointer"
                   >
                     <EyeOff className="w-3.5 h-3.5 inline mr-1" />
-                    Ocultar
+                    {t.status === 'hidden' ? 'Mostrar' : 'Ocultar'}
                   </button>
                 </form>
                 <form action={adminDeleteThread}>
