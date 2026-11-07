@@ -19,6 +19,7 @@ import {
   ShoppingBag,
   Trash2,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import {
   createForumThread,
   deleteOwnForumThread,
@@ -52,85 +53,85 @@ const DEFAULT_TAGS = [
 ]
 const initialState: ThreadActionState = {}
 
-  export function CommunityClient({
-    threads,
-    products,
-    currentUser,
-    initialUserVotes = {},
-  }: CommunityClientProps) {
-    const pathname = usePathname()
-    const [threadItems, setThreadItems] = useState<ThreadWithAuthor[]>(threads)
-    const [userVotes, setUserVotes] =
-      useState<Record<string, 1 | -1 | 0>>(initialUserVotes)
-    const [votingThreadId, setVotingThreadId] = useState<string | null>(null)
-    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-    const [deletingId, setDeletingId] = useState<string | null>(null)
-    const [deleteError, setDeleteError] = useState<string | null>(null)
-    const [showGuestModal, setShowGuestModal] = useState(false)
+export function CommunityClient({
+  threads,
+  products,
+  currentUser,
+  initialUserVotes = {},
+}: CommunityClientProps) {
+  const pathname = usePathname()
+  const [threadItems, setThreadItems] = useState<ThreadWithAuthor[]>(threads)
+  const [userVotes, setUserVotes] =
+    useState<Record<string, 1 | -1 | 0>>(initialUserVotes)
+  const [votingThreadId, setVotingThreadId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [showGuestModal, setShowGuestModal] = useState(false)
 
-    const [showForm, setShowForm] = useState(false)
-    const [searchRaw, setSearchRaw] = useState('')
-    const [selectedTag, setSelectedTag] = useState<string | null>(null)
-    const [selectedProductTag, setSelectedProductTag] = useState<string | null>(
-      null
-    )
-    const [sortBy, setSortBy] = useState<'rating' | 'recent'>('recent')
+  const [showForm, setShowForm] = useState(false)
+  const [searchRaw, setSearchRaw] = useState('')
+  const [selectedTag, setSelectedTag] = useState<string | null>(null)
+  const [selectedProductTag, setSelectedProductTag] = useState<string | null>(
+    null
+  )
+  const [sortBy, setSortBy] = useState<'rating' | 'recent'>('recent')
 
-    // Product tagging autocomplete state (max 3 products)
-    const [productSearchInput, setProductSearchInput] = useState('')
-    const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
+  // Product tagging autocomplete state (max 3 products)
+  const [productSearchInput, setProductSearchInput] = useState('')
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
 
-    const [state, formAction, pending] = useActionState(
-      createForumThread,
-      initialState
-    )
-    const formRef = useRef<HTMLFormElement>(null)
+  const [state, formAction, pending] = useActionState(
+    createForumThread,
+    initialState
+  )
+  const formRef = useRef<HTMLFormElement>(null)
 
-    useEffect(() => {
-      setThreadItems(threads)
-    }, [threads])
+  useEffect(() => {
+    setThreadItems(threads)
+  }, [threads])
 
-    useEffect(() => {
-      setUserVotes(initialUserVotes)
-    }, [initialUserVotes])
+  useEffect(() => {
+    setUserVotes(initialUserVotes)
+  }, [initialUserVotes])
 
-    useEffect(() => {
-      if (state?.success) {
-        formRef.current?.reset()
-        setShowForm(false)
-        setSelectedProductIds([])
-        setProductSearchInput('')
-      }
-    }, [state?.success])
-
-    const handleToggleProductSelection = (productId: string) => {
-      setSelectedProductIds((prev) => {
-        if (prev.includes(productId)) {
-          return prev.filter((id) => id !== productId)
-        }
-        if (prev.length >= 3) {
-          return prev
-        }
-        return [...prev, productId]
-      })
+  useEffect(() => {
+    if (state?.success) {
+      formRef.current?.reset()
+      setShowForm(false)
+      setSelectedProductIds([])
+      setProductSearchInput('')
     }
+  }, [state?.success])
 
-    const handleQuickVote = async (threadId: string) => {
-      if (votingThreadId) return
-      setVotingThreadId(threadId)
-      try {
-        const res = await toggleVote('forum_thread', threadId, 1)
-        if (res.requireAuth) {
-          setShowGuestModal(true)
-        } else if (res.success) {
-          setUserVotes((prev) => ({
-            ...prev,
-            [threadId]: res.userVote ?? 0,
-          }))
-          setThreadItems((prev) =>
-            prev.map((item) =>
-              item.id === threadId
-                ? {
+  const handleToggleProductSelection = (productId: string) => {
+    setSelectedProductIds((prev) => {
+      if (prev.includes(productId)) {
+        return prev.filter((id) => id !== productId)
+      }
+      if (prev.length >= 3) {
+        return prev
+      }
+      return [...prev, productId]
+    })
+  }
+
+  const handleQuickVote = async (threadId: string) => {
+    if (votingThreadId) return
+    setVotingThreadId(threadId)
+    try {
+      const res = await toggleVote('forum_thread', threadId, 1)
+      if (res.requireAuth) {
+        setShowGuestModal(true)
+      } else if (res.success) {
+        setUserVotes((prev) => ({
+          ...prev,
+          [threadId]: res.userVote ?? 0,
+        }))
+        setThreadItems((prev) =>
+          prev.map((item) =>
+            item.id === threadId
+              ? {
                   ...item,
                   upvotes:
                     typeof res.newLikeCount === 'number'
@@ -141,70 +142,70 @@ const initialState: ThreadActionState = {}
                       ? res.newDownvoteCount
                       : item.downvotes,
                 }
-                : item
-            )
+              : item
           )
-        }
-      } finally {
-        setVotingThreadId(null)
+        )
       }
+    } finally {
+      setVotingThreadId(null)
     }
+  }
 
-    const handleDeleteThread = async (threadId: string) => {
-      if (deletingId) return
-      setDeletingId(threadId)
-      setDeleteError(null)
-      try {
-        const res = await deleteOwnForumThread(threadId)
-        if (!res.ok) {
-          setDeleteError(res.error || 'No se pudo eliminar el hilo.')
-        } else {
-          setThreadItems((prev) => prev.filter((t) => t.id !== threadId))
-          setConfirmDeleteId(null)
-        }
-      } finally {
-        setDeletingId(null)
+  const handleDeleteThread = async (threadId: string) => {
+    if (deletingId) return
+    setDeletingId(threadId)
+    setDeleteError(null)
+    try {
+      const res = await deleteOwnForumThread(threadId)
+      if (!res.ok) {
+        setDeleteError(res.error || 'No se pudo eliminar el hilo.')
+      } else {
+        setThreadItems((prev) => prev.filter((t) => t.id !== threadId))
+        setConfirmDeleteId(null)
       }
+    } finally {
+      setDeletingId(null)
     }
+  }
 
-    // Filtered and sorted threads
-    const filteredThreads = useMemo(() => {
-      return threadItems
-        .filter((thread) => {
-          if (searchRaw) {
-            const q = searchRaw.toLowerCase()
-            const titleMatch = thread.title.toLowerCase().includes(q)
-            const bodyMatch = thread.body.toLowerCase().includes(q)
-            if (!titleMatch && !bodyMatch) return false
-          }
+  // Filtered and sorted threads
+  const filteredThreads = useMemo(() => {
+    return threadItems
+      .filter((thread) => {
+        if (searchRaw) {
+          const q = searchRaw.toLowerCase()
+          const titleMatch = thread.title.toLowerCase().includes(q)
+          const bodyMatch = thread.body.toLowerCase().includes(q)
+          if (!titleMatch && !bodyMatch) return false
+        }
 
-          if (selectedTag) {
-            if (!thread.tags || !thread.tags.includes(selectedTag)) return false
-          }
+        if (selectedTag) {
+          if (!thread.tags || !thread.tags.includes(selectedTag)) return false
+        }
 
-          if (selectedProductTag) {
-              const taggedList = thread.linked_products || []
-              const matchesMulti = taggedList.some(
-                (p) => p.slug === selectedProductTag || p.id === selectedProductTag
-              )
-              const matchesSingle =
-                thread.products?.slug === selectedProductTag ||
-                thread.linked_product_id === selectedProductTag
-              if (!matchesMulti && !matchesSingle) {
-                return false
-              }
-            }
-
-            return true
-          })
-        .sort((a, b) => {
-          if (sortBy === 'rating') {
-            return (b.upvotes ?? 0) - (a.upvotes ?? 0)
-          }
-          return (
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        if (selectedProductTag) {
+          const taggedList = thread.linked_products || []
+          const matchesMulti = taggedList.some(
+            (p) => p.slug === selectedProductTag || p.id === selectedProductTag
           )
-        })
+          const matchesSingle =
+            thread.products?.slug === selectedProductTag ||
+            thread.linked_product_id === selectedProductTag
+          if (!matchesMulti && !matchesSingle) {
+            return false
+          }
+        }
+
+        return true
+      })
+      .sort((a, b) => {
+        if (sortBy === 'rating') {
+          return (b.upvotes ?? 0) - (a.upvotes ?? 0)
+        }
+        return (
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+      })
   }, [threadItems, searchRaw, selectedTag, selectedProductTag, sortBy])
 
   // Product showcase banner data if product tag filter is active
@@ -267,8 +268,8 @@ const initialState: ThreadActionState = {}
                 {showcaseProduct
                   ? showcaseProduct.name
                   : selectedTag
-                    ? `#${selectedTag}`
-                    : `Búsqueda: "${searchRaw}"`}
+                    ? '#' + selectedTag
+                    : 'Búsqueda: "' + searchRaw + '"'}
               </h3>
             </div>
           </div>
@@ -276,7 +277,7 @@ const initialState: ThreadActionState = {}
           <div className="flex items-center gap-2">
             {showcaseProduct && (
               <Link
-                href={`/shop/${showcaseProduct.slug || showcaseProduct.id}`}
+                href={'/shop/' + (showcaseProduct.slug || showcaseProduct.id)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 transition-colors"
               >
                 <ShoppingBag className="w-3.5 h-3.5" />
@@ -323,75 +324,82 @@ const initialState: ThreadActionState = {}
               <button
                 type="button"
                 onClick={() => setSortBy('recent')}
+                className={cn(
+                  'px-3 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer',
                   sortBy === 'recent'
-              ? 'bg-red-950 text-white font-semibold border border-red-800/60'
-              : 'text-neutral-400 hover:text-white'
-                }`}
+                    ? 'bg-red-950 text-white font-semibold border border-red-800/60'
+                    : 'text-neutral-400 hover:text-white'
+                )}
               >
-              <Clock className="w-3 h-3 text-red-400" /> Recientes
-            </button>
-            <button
-              type="button"
-              onClick={() => setSortBy('rating')}
+                <Clock className="w-3 h-3 text-red-400" /> Recientes
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortBy('rating')}
+                className={cn(
+                  'px-3 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer',
                   sortBy === 'rating'
-            ? 'bg-red-950 text-white font-semibold border border-red-800/60'
-            : 'text-neutral-400 hover:text-white'
-                }`}
+                    ? 'bg-red-950 text-white font-semibold border border-red-800/60'
+                    : 'text-neutral-400 hover:text-white'
+                )}
               >
-            <Flame className="w-3 h-3 text-red-400" /> Votos
-          </button>
+                <Flame className="w-3 h-3 text-red-400" /> Votos
+              </button>
+            </div>
+
+            {currentUser ? (
+              <button
+                type="button"
+                onClick={() => setShowForm(!showForm)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 transition-all shadow-md cursor-pointer whitespace-nowrap"
+              >
+                {showForm ? (
+                  <X className="w-4 h-4" />
+                ) : (
+                  <PlusCircle className="w-4 h-4" />
+                )}
+                <span>{showForm ? 'Cancelar' : 'Crear Hilo'}</span>
+              </button>
+            ) : (
+              <Link
+                href="/auth/login?next=/community"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-neutral-300 bg-neutral-900 border border-neutral-800 hover:text-white transition-colors whitespace-nowrap"
+              >
+                Publicar
+              </Link>
+            )}
+          </div>
         </div>
 
-        {currentUser ? (
+        {/* Default Tag Filters Cloud */}
+        <div className="flex items-center gap-1.5 overflow-x-auto text-xs pt-1">
+          <span className="text-neutral-500 font-mono text-[11px]">
+            Etiquetas:
+          </span>
           <button
-            type="button"
-            onClick={() => setShowForm(!showForm)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-red-700 hover:bg-red-600 transition-all shadow-md cursor-pointer whitespace-nowrap"
-          >
-            {showForm ? (
-              <X className="w-4 h-4" />
-            ) : (
-              <PlusCircle className="w-4 h-4" />
-            )}
-            <span>{showForm ? 'Cancelar' : 'Crear Hilo'}</span>
-          </button>
-        ) : (
-          <Link
-            href="/auth/login?next=/community"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-neutral-300 bg-neutral-900 border border-neutral-800 hover:text-white transition-colors whitespace-nowrap"
-          >
-            Publicar
-          </Link>
-        )}
-      </div>
-    </div>
-
-        {/* Default Tag Filters Cloud */ }
-  <div className="flex items-center gap-1.5 overflow-x-auto text-xs pt-1">
-    <span className="text-neutral-500 font-mono text-[11px]">
-      Etiquetas:
-    </span>
-    <button
-      onClick={clearAllFilters}
+            onClick={clearAllFilters}
+            className={cn(
+              'px-2.5 py-1 rounded-full whitespace-nowrap transition-colors cursor-pointer',
               !selectedTag && !selectedProductTag
-    ? 'bg-red-950 text-white border border-red-800 font-bold'
-    : 'bg-neutral-950 text-neutral-400 hover:text-white'
-            }`}
+                ? 'bg-red-950 text-white border border-red-800 font-bold'
+                : 'bg-neutral-950 text-neutral-400 hover:text-white'
+            )}
           >
-    Todas
-  </button>
-  {
-    DEFAULT_TAGS.map((tag) => (
-      <button
-        key={tag}
-        onClick={() => {
-          setSelectedTag(selectedTag === tag ? null : tag)
-          setSelectedProductTag(null)
-        }}
+            Todas
+          </button>
+          {DEFAULT_TAGS.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => {
+                setSelectedTag(selectedTag === tag ? null : tag)
+                setSelectedProductTag(null)
+              }}
+              className={cn(
+                'px-2.5 py-1 rounded-full whitespace-nowrap transition-colors cursor-pointer',
                 selectedTag === tag
-        ? 'bg-red-950 text-white border border-red-800 font-bold'
-        : 'bg-neutral-950 text-neutral-400 hover:text-white'
-              } `}
+                  ? 'bg-red-950 text-white border border-red-800 font-bold'
+                  : 'bg-neutral-950 text-neutral-400 hover:text-white'
+              )}
             >
               #{tag}
             </button>
@@ -461,13 +469,14 @@ const initialState: ThreadActionState = {}
                 return (
                   <label
                     key={p.id}
-                    className={`product - tag - label px - 3 py - 1.5 rounded - xl text - xs font - mono border transition - colors ${
-    isSelected
-      ? 'bg-red-950/70 text-red-200 border-red-800 font-bold'
-      : isDisabled
-        ? 'bg-neutral-900/40 text-neutral-600 border-neutral-900 cursor-not-allowed opacity-60'
-        : 'bg-neutral-900/80 text-neutral-300 hover:text-white border-neutral-800'
-  } `}
+                    className={cn(
+                      'product-tag-label px-3 py-1.5 rounded-xl text-xs font-mono border transition-colors',
+                      isSelected
+                        ? 'bg-red-950/70 text-red-200 border-red-800 font-bold'
+                        : isDisabled
+                          ? 'bg-neutral-900/40 text-neutral-600 border-neutral-900 cursor-not-allowed opacity-60'
+                          : 'bg-neutral-900/80 text-neutral-300 hover:text-white border-neutral-800'
+                    )}
                   >
                     <input
                       type="checkbox"
@@ -592,8 +601,8 @@ const initialState: ThreadActionState = {}
             thread.linked_products && thread.linked_products.length > 0
               ? thread.linked_products
               : thread.products
-              ? [thread.products]
-              : []
+                ? [thread.products]
+                : []
 
           const myVote = userVotes[thread.id] ?? 0
           const honestUpvotes = thread.upvotes ?? 0
@@ -606,7 +615,7 @@ const initialState: ThreadActionState = {}
               {/* Header: Clickable Author Profile & Up to 3 Tagged Products */}
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800/60 pb-2.5">
                 <Link
-                  href={`/ u / ${ authorUsername } `}
+                  href={'/u/' + String(authorUsername)}
                   className="flex items-center gap-2.5 group/author hover:text-red-400 transition-colors"
                 >
                   <div className="relative w-7 h-7 rounded-full overflow-hidden border border-red-900/50 bg-neutral-950 shrink-0">
@@ -670,7 +679,9 @@ const initialState: ThreadActionState = {}
               {/* Title & Preview Excerpt */}
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-white tracking-tight group-hover:text-red-400 transition-colors">
-                  <Link href={`/ community / ${ thread.id } `}>{thread.title}</Link>
+                  <Link href={'/community/' + String(thread.id)}>
+                    {thread.title}
+                  </Link>
                 </h3>
                 <p className="text-xs sm:text-sm text-neutral-300 mt-1 line-clamp-2 leading-relaxed">
                   {thread.body}
@@ -684,18 +695,19 @@ const initialState: ThreadActionState = {}
                     type="button"
                     disabled={votingThreadId === thread.id}
                     onClick={() => handleQuickVote(thread.id)}
-                    className={`inline - flex items - center gap - 1.5 px - 2.5 py - 1 rounded - xl font - bold transition - colors cursor - pointer ${
-    myVote === 1
-      ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/70'
-      : 'bg-neutral-950/80 text-neutral-300 hover:text-red-400 border border-neutral-800'
-  } `}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl font-bold transition-colors cursor-pointer',
+                      myVote === 1
+                        ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/70'
+                        : 'bg-neutral-950/80 text-neutral-300 hover:text-red-400 border border-neutral-800'
+                    )}
                   >
                     <ThumbsUp className="w-3.5 h-3.5" />
                     <span>{honestUpvotes} votos</span>
                   </button>
 
                   <Link
-                    href={`/ community / ${ thread.id } `}
+                    href={'/community/' + String(thread.id)}
                     className="flex items-center gap-1 hover:text-white transition-colors"
                   >
                     <MessageSquare className="w-3.5 h-3.5 text-neutral-500" />
@@ -742,7 +754,7 @@ const initialState: ThreadActionState = {}
                   )}
 
                   <Link
-                    href={`/ community / ${ thread.id } `}
+                    href={'/community/' + String(thread.id)}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-red-400 hover:text-red-300 transition-colors"
                   >
                     <span>Leer más</span>

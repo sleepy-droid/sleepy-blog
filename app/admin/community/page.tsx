@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { createClient } from '@/utils/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { getAggregateVotesMap } from '@/lib/votes-server'
+import { cn } from '@/lib/utils'
 import {
   extractThreadProductIds,
   extractCleanThreadTags,
@@ -49,9 +50,9 @@ export default async function AdminCommunityPage() {
   const [profilesRes, honestVotesMap] = await Promise.all([
     authorIds.length > 0
       ? supabase
-        .from('profiles')
-        .select('id, display_name, email, avatar_url, username')
-        .in('id', authorIds)
+          .from('profiles')
+          .select('id, display_name, email, avatar_url, username')
+          .in('id', authorIds)
       : Promise.resolve({ data: [] }),
     getAggregateVotesMap({
       supabase,
@@ -83,21 +84,21 @@ export default async function AdminCommunityPage() {
     <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8 font-sans">
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
         <div className="flex items-center gap-2">
-            <Link
-              href="/admin"
-              className="text-neutral-400 hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-            <div>
-              <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
-                <Flame className="w-6 h-6 text-red-500" />
-                Moderación de Hilos del Foro Comunidad ({threads.length})
-              </h1>
-              <p className="text-xs text-neutral-400 mt-1">
-                Revisa estadísticas reales de votos, oculta/restaura o elimina hilos publicados en el foro.
-              </p>
-            </div>
+          <Link
+            href="/admin"
+            className="text-neutral-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
+              <Flame className="w-6 h-6 text-red-500" />
+              Moderación de Hilos del Foro Comunidad ({threads.length})
+            </h1>
+            <p className="text-xs text-neutral-400 mt-1">
+              Revisa estadísticas reales de votos, oculta/restaura o elimina hilos publicados en el foro.
+            </p>
+          </div>
         </div>
 
         <Link
@@ -131,10 +132,12 @@ export default async function AdminCommunityPage() {
           return (
             <article
               key={t.id}
+              className={cn(
+                'border rounded-2xl p-5 space-y-3 transition-all',
                 isHidden
                   ? 'bg-red-950/20 border-red-900/40 opacity-80'
-              : 'bg-neutral-950/80 border-neutral-800'
-              }`}
+                  : 'bg-neutral-950/80 border-neutral-800'
+              )}
             >
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800/60 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -220,7 +223,7 @@ export default async function AdminCommunityPage() {
               {/* Moderation Action Buttons */}
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-800/60 text-xs">
                 <Link
-                  href={`/ community / ${ t.id }`}
+                  href={'/community/' + String(t.id)}
                   target="_blank"
                   className="px-3 py-1.5 rounded-lg bg-neutral-900 text-neutral-300 hover:text-white border border-neutral-800 text-xs flex items-center gap-1"
                 >
@@ -237,11 +240,12 @@ export default async function AdminCommunityPage() {
                   />
                   <button
                     type="submit"
-                    className={`px - 3 py - 1.5 rounded - lg border text - xs font - semibold cursor - pointer flex items - center gap - 1 ${
-          isHidden
-          ? 'bg-emerald-950 text-emerald-300 hover:bg-emerald-900 border-emerald-800'
-            : 'bg-amber-950 text-amber-400 hover:bg-amber-900 border-amber-800'
-        }`}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer flex items-center gap-1',
+                      isHidden
+                        ? 'bg-emerald-950 text-emerald-300 hover:bg-emerald-900 border-emerald-800'
+                        : 'bg-amber-950 text-amber-400 hover:bg-amber-900 border-amber-800'
+                    )}
                   >
                     {isHidden ? (
                       <>
